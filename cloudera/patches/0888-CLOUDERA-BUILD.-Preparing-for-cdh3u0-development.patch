@@ -1,7 +1,7 @@
 From af111808a1edd957a56fe77d1ba2fdc4233cafda Mon Sep 17 00:00:00 2001
 From: Jenkins <dev-kitchen@cloudera.com>
 Date: Sat, 19 Feb 2011 00:28:02 -0800
-Subject: [PATCH 0888/1065] CLOUDERA-BUILD. Preparing for cdh3u0 development.
+Subject: [PATCH 0888/1120] CLOUDERA-BUILD. Preparing for cdh3u0 development.
 
 ---
  cloudera-pom.xml                                  |    4 ++--

@@ -1,7 +1,7 @@
 From e3f8dc3926d119ce3b765325114e5b8ada01120f Mon Sep 17 00:00:00 2001
 From: Tom White <tom@cloudera.com>
 Date: Wed, 10 Aug 2011 17:12:27 -0700
-Subject: [PATCH 1035/1065] MAPREDUCE-1943. Implement limits on per-job JobConf, Counters, StatusReport, Split-Sizes
+Subject: [PATCH 1035/1120] MAPREDUCE-1943. Implement limits on per-job JobConf, Counters, StatusReport, Split-Sizes
 
 Reason: Improvement
 Author: Mahadev konar

@@ -1,7 +1,7 @@
 From f7a7a032b7f4300084951720331cf6732756b5b2 Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Mon, 7 Mar 2011 13:51:21 -0800
-Subject: [PATCH 0903/1065] CLOUDERA-BUILD. Removing source:jar from do-release-build
+Subject: [PATCH 0903/1120] CLOUDERA-BUILD. Removing source:jar from do-release-build
 
 ---
  cloudera/do-release-build |    2 +-

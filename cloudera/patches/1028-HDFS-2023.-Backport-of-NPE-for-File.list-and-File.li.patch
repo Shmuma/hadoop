@@ -1,7 +1,7 @@
 From 581dfd390459c3e3b9962724330b4b33967f4559 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sat, 13 Aug 2011 19:00:43 -0700
-Subject: [PATCH 1028/1065] HDFS-2023. Backport of NPE for File.list and File.listFiles. Merged
+Subject: [PATCH 1028/1120] HDFS-2023. Backport of NPE for File.list and File.listFiles. Merged
  ports of HADOOP-7322, HDFS-1934, HADOOP-7342, and HDFS-2019.
 
 Reason: Bug

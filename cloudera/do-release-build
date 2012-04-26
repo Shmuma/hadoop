@@ -24,6 +24,7 @@ fi
 
 JAVA32_HOME=${JAVA32_HOME:-$JAVA_HOME}
 JAVA64_HOME=${JAVA64_HOME:-$JAVA_HOME}
+IVY_MIRROR_PROP=${IVY_MIRROR_PROP:-http://repo1.maven.org/maven2/}
 
 # Do the build
 BIN_DIR=$(readlink -f $(dirname $0))
@@ -116,7 +117,7 @@ JAVA_HOME=$JAVA32_HOME \
   -Dcompile.c++=true \
   -Dforrest.home=$FORREST_HOME \
   -Dhadoop.conf.dir=/etc/hadoop-0.20/conf \
-  -propertyfile cloudera/build.properties \
+  -propertyfile cloudera/build.properties -Drepo.maven.org=${IVY_MIRROR_PROP} \
   task-controller package-native
 
 JAVA_HOME=$JAVA64_HOME
@@ -127,7 +128,7 @@ ant \
   -Dreactor.repo=file://$HOME/.m2/repository \
   -Djdiff.stable=0.20.1 \
   -Djdiff.build.dir=build/docs/jdiff-cloudera \
-  -propertyfile build.properties \
+  -propertyfile build.properties -Drepo.maven.org=${IVY_MIRROR_PROP} \
   -propertyfile cloudera/build.properties api-report
 fi
 
@@ -144,7 +145,7 @@ ant \
   -Dhadoop.conf.dir=/etc/hadoop-0.20/conf \
   -propertyfile cloudera/build.properties \
   -Dsnappy.prefix=${SNAPPY_BUILDDIR}/usr/local \
-  -Dbundle.snappy=true \
+  -Dbundle.snappy=true -Drepo.maven.org=${IVY_MIRROR_PROP} \
   compile-core-native compile-c++ compile-c++-examples task-controller tar
 
 if [ -z "$SKIP_MVN_EXPLICIT" ]; then

@@ -1,7 +1,7 @@
 From 3e156a031877ce98c438376dcf7accb56b95dc65 Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew@cloudera.com>
 Date: Wed, 6 Jul 2011 00:42:16 -0700
-Subject: [PATCH 1018/1065] CLOUDERA-BUILD. Updating versions for cdh3u1 release.
+Subject: [PATCH 1018/1120] CLOUDERA-BUILD. Updating versions for cdh3u1 release.
 
 ---
  cloudera-pom.xml                                  |    4 ++--

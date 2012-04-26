@@ -1,7 +1,7 @@
 From 4c8f9e91fde59526b729c56276c5649e58fa10fb Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 27 Sep 2011 20:41:15 -0700
-Subject: [PATCH 1061/1065] HDFS-2332. Add test for HADOOP-7629 (using an immutable FsPermission object as an RPC parameter fails).
+Subject: [PATCH 1061/1120] HDFS-2332. Add test for HADOOP-7629 (using an immutable FsPermission object as an RPC parameter fails).
 
 Author: Todd Lipcon
 Reason: unit test corresponding to other backport

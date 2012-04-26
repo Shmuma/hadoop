@@ -1,7 +1,7 @@
 From 4fd9e18fb751824c140d5b67645fc925a92a7c1f Mon Sep 17 00:00:00 2001
 From: Alejandro Abdelnur <tucu00@gmail.com>
 Date: Tue, 28 Jun 2011 17:35:48 -0700
-Subject: [PATCH 0992/1065] HADOOP-7433. Snappy SO file/links are copied to the wrong directory
+Subject: [PATCH 0992/1120] HADOOP-7433. Snappy SO file/links are copied to the wrong directory
 
     Reason: Bug, they must be copied to the $OS_ARCH directory
     Author: Alejandro Abdelnur

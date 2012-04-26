@@ -1,7 +1,7 @@
 From 1eed2c5af334077a27d5007b006db345de9c4d0f Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Tue, 8 Mar 2011 12:50:50 -0800
-Subject: [PATCH 0907/1065] CLOUDERA-BUILD. Changing releases repo to point to staging area.
+Subject: [PATCH 0907/1120] CLOUDERA-BUILD. Changing releases repo to point to staging area.
 
 ---
  cloudera-pom.xml                 |    2 +-

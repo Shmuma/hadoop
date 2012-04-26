@@ -1,7 +1,7 @@
 From 1db6dae127e0a93084ab4cebb840d3af91e429c0 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Mon, 16 May 2011 19:17:18 -0700
-Subject: [PATCH 0962/1065] Back-port HADOOP-7124, HDFS-1814, MAPREDUCE-2473 - Hadoop /usr/bin/groups equivalent
+Subject: [PATCH 0962/1120] Back-port HADOOP-7124, HDFS-1814, MAPREDUCE-2473 - Hadoop /usr/bin/groups equivalent
 
 Reason: Allows users to query and display their group membership.
 Author: Aaron T. Myers

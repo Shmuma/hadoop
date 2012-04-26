@@ -1,7 +1,7 @@
 From 8f0f3f85374720b8daa89b69a053a85138804f94 Mon Sep 17 00:00:00 2001
 From: Ahmed Radwan <ahmed@cloudera.com>
 Date: Fri, 16 Sep 2011 01:55:10 -0700
-Subject: [PATCH 1047/1065] MAPREDUCE-2836. Provide option to fail jobs when submitted
+Subject: [PATCH 1047/1120] MAPREDUCE-2836. Provide option to fail jobs when submitted
  to non-existent pools.
 
 Reason: Improvement

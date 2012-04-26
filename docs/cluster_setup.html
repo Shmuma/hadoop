@@ -49,7 +49,7 @@
     +-->
 <div class="searchbox">
 <form action="http://www.google.com/search" method="get" class="roundtopsmall">
-<input value="hadoop.apache.org" name="sitesearch" type="hidden"><input onFocus="getBlank (this, 'Search the site with google');" size="25" name="q" id="query" type="text" value="Search the site with google">&nbsp; 
+<input value="archive.cloudera.com" name="sitesearch" type="hidden"><input onFocus="getBlank (this, 'Search the site with google');" size="25" name="q" id="query" type="text" value="Search the site with google">&nbsp; 
                     <input name="Search" value="Search" type="submit">
 </form>
 </div>
@@ -1037,16 +1037,6 @@ document.write("Last Published: " + document.lastModified);
             
 <tr>
             
-<td colspan="1" rowspan="1">mapred.local.dir</td>
-            <td colspan="1" rowspan="1">Path to mapred local directories. Should be same as the value 
-            which was provided to key in mapred-site.xml. This is required to
-            validate paths passed to the setuid executable in order to prevent
-            arbitrary paths being passed to it.</td>
-            
-</tr>
-            
-<tr>
-            
 <td colspan="1" rowspan="1">hadoop.log.dir</td>
             <td colspan="1" rowspan="1">Path to hadoop log directory. Should be same as the value which
             the TaskTracker is started with. This is required to set proper
@@ -1067,7 +1057,7 @@ document.write("Last Published: " + document.lastModified);
 </tr>
             
 </table>
-<a name="N1058A"></a><a name="Monitoring+Health+of+TaskTracker+Nodes"></a>
+<a name="N1057D"></a><a name="Monitoring+Health+of+TaskTracker+Nodes"></a>
 <h5>Monitoring Health of TaskTracker Nodes</h5>
 <p>Hadoop MapReduce provides a mechanism by which administrators 
             can configure the TaskTracker to run an administrator supplied
@@ -1089,7 +1079,7 @@ document.write("Last Published: " + document.lastModified);
             The time since the node was healthy is also displayed on the 
             web interface.
             </p>
-<a name="N10599"></a><a name="Configuring+the+Node+Health+Check+Script"></a>
+<a name="N1058C"></a><a name="Configuring+the+Node+Health+Check+Script"></a>
 <h5>Configuring the Node Health Check Script</h5>
 <p>The following parameters can be used to control the node health 
             monitoring script in <em>mapred-site.xml</em>.</p>
@@ -1137,7 +1127,7 @@ document.write("Last Published: " + document.lastModified);
 </tr>
             
 </table>
-<a name="N105EC"></a><a name="Memory+monitoring"></a>
+<a name="N105DF"></a><a name="Memory+monitoring"></a>
 <h4> Memory monitoring</h4>
 <p>A <span class="codefrag">TaskTracker</span>(TT) can be configured to monitor memory 
         usage of tasks it spawns, so that badly-behaved jobs do not bring 
@@ -1283,7 +1273,7 @@ document.write("Last Published: " + document.lastModified);
            if set.</li>
          
 </ul>
-<a name="N106C3"></a><a name="Slaves"></a>
+<a name="N106B6"></a><a name="Slaves"></a>
 <h4>Slaves</h4>
 <p>Typically you choose one machine in the cluster to act as the 
           <span class="codefrag">NameNode</span> and one machine as to act as the 
@@ -1292,14 +1282,14 @@ document.write("Last Published: " + document.lastModified);
           referred to as <em>slaves</em>.</p>
 <p>List all slave hostnames or IP addresses in your 
           <span class="codefrag">conf/slaves</span> file, one per line.</p>
-<a name="N106E2"></a><a name="Logging"></a>
+<a name="N106D5"></a><a name="Logging"></a>
 <h4>Logging</h4>
 <p>Hadoop uses the <a href="http://logging.apache.org/log4j/">Apache 
           log4j</a> via the <a href="http://commons.apache.org/logging/">Apache 
           Commons Logging</a> framework for logging. Edit the 
           <span class="codefrag">conf/log4j.properties</span> file to customize the Hadoop 
           daemons' logging configuration (log-formats and so on).</p>
-<a name="N106F6"></a><a name="History+Logging"></a>
+<a name="N106E9"></a><a name="History+Logging"></a>
 <h5>History Logging</h5>
 <p> The job history files are stored in central location 
             <span class="codefrag"> hadoop.job.history.location </span> which can be on DFS also,
@@ -1332,10 +1322,10 @@ document.write("Last Published: " + document.lastModified);
       typically <span class="codefrag">${HADOOP_HOME}/conf</span>.</p>
 </div>
     
-<a name="N1072E"></a><a name="Cluster+Restartability"></a>
+<a name="N10721"></a><a name="Cluster+Restartability"></a>
 <h2 class="h3">Cluster Restartability</h2>
 <div class="section">
-<a name="N10734"></a><a name="MapReduce"></a>
+<a name="N10727"></a><a name="MapReduce"></a>
 <h3 class="h4">MapReduce</h3>
 <p>The job tracker restart can recover running jobs if 
         <span class="codefrag">mapred.jobtracker.restart.recover</span> is set true and 
@@ -1346,7 +1336,7 @@ document.write("Last Published: " + document.lastModified);
 </div>
     
     
-<a name="N10749"></a><a name="Hadoop+Rack+Awareness"></a>
+<a name="N1073C"></a><a name="Hadoop+Rack+Awareness"></a>
 <h2 class="h3">Hadoop Rack Awareness</h2>
 <div class="section">
 <p>The HDFS and the Map/Reduce components are rack-aware.</p>
@@ -1369,7 +1359,7 @@ document.write("Last Published: " + document.lastModified);
 </div>
     
     
-<a name="N1076F"></a><a name="Hadoop+Startup"></a>
+<a name="N10762"></a><a name="Hadoop+Startup"></a>
 <h2 class="h3">Hadoop Startup</h2>
 <div class="section">
 <p>To start a Hadoop cluster you will need to start both the HDFS and 
@@ -1404,7 +1394,7 @@ document.write("Last Published: " + document.lastModified);
 </div>
     
     
-<a name="N107B5"></a><a name="Hadoop+Shutdown"></a>
+<a name="N107A8"></a><a name="Hadoop+Shutdown"></a>
 <h2 class="h3">Hadoop Shutdown</h2>
 <div class="section">
 <p>

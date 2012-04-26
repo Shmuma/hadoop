@@ -1,7 +1,7 @@
 From 21868a0d245c73742c90d23a82a7536c198a5a3f Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 15 Feb 2011 10:53:23 -0800
-Subject: [PATCH 0973/1065] HADOOP-7145. Configuration.getLocalPath should trim strings
+Subject: [PATCH 0973/1120] HADOOP-7145. Configuration.getLocalPath should trim strings
 
 Reason: fix potential bug with local dirs
 Author: Todd Lipcon

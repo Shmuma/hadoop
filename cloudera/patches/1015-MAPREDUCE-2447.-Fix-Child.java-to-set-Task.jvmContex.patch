@@ -1,7 +1,7 @@
 From 12a5778288de7628dfa2a27fd344e83a8ce6cdc2 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 5 Jul 2011 19:44:20 -0700
-Subject: [PATCH 1015/1065] MAPREDUCE-2447. Fix Child.java to set Task.jvmContext sooner to avoid corner cases in error handling.
+Subject: [PATCH 1015/1120] MAPREDUCE-2447. Fix Child.java to set Task.jvmContext sooner to avoid corner cases in error handling.
 
 Reason: Fix possible NPE if TaskLogs.syncLogs fails in child
 Author: Siddharth Seth

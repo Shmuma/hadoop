@@ -1,7 +1,7 @@
 From af12a8df06d5a9a72f2f22b2c47e71808437ac81 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Fri, 12 Aug 2011 13:28:44 -0700
-Subject: [PATCH 1032/1065] HDFS-2235. Encode servlet paths.
+Subject: [PATCH 1032/1120] HDFS-2235. Encode servlet paths.
  HADOOP-7531. Add servlet util methods for handling paths in requests.
 
 Reason: Bug

@@ -1,7 +1,7 @@
 From bd69a6ea66f4aa6905a7347a94e6cc351bfb235a Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Mon, 7 Mar 2011 15:57:15 -0800
-Subject: [PATCH 0904/1065] CLOUDERA-BUILD. Fixing contrib paths.
+Subject: [PATCH 0904/1120] CLOUDERA-BUILD. Fixing contrib paths.
 
 ---
  cloudera/maven-packaging/hadoop-mrunit/pom.xml    |    2 +-

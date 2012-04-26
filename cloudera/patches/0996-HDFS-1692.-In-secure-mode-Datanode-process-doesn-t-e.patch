@@ -1,7 +1,7 @@
 From 0faf23ca0a9b6b8a90282a3b266db278a28394fa Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sat, 25 Jun 2011 16:10:55 -0700
-Subject: [PATCH 0996/1065] HDFS-1692. In secure mode, Datanode process doesn't exit when disks fail.
+Subject: [PATCH 0996/1120] HDFS-1692. In secure mode, Datanode process doesn't exit when disks fail.
 
 Reason: Bug
 Author: Bharath Mundlapudi

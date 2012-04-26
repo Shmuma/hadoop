@@ -1,7 +1,7 @@
 From d9541f7113f0e678af0819f45876bbcd454b20d5 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Thu, 3 Mar 2011 15:19:25 -0800
-Subject: [PATCH 0909/1065] Amend MAPREDUCE-2323. Fix unregistering of fair scheduler metrics updater during fairsched termination
+Subject: [PATCH 0909/1120] Amend MAPREDUCE-2323. Fix unregistering of fair scheduler metrics updater during fairsched termination
 
 Fixes an occasional test failure where different test cases
 in the same JVM were causing each other to fail.

@@ -1,7 +1,7 @@
 From 6a658661998bfec440c181e01cefb3dbee7f525a Mon Sep 17 00:00:00 2001
 From: Roman Shaposhnik <rvs@cloudera.com>
 Date: Fri, 13 May 2011 18:23:00 -0700
-Subject: [PATCH 0963/1065] DISTRO-224. CDH packages should depend on JRE, not JDK
+Subject: [PATCH 0963/1120] DISTRO-224. CDH packages should depend on JRE, not JDK
 
 ---
  bin/hadoop-config.sh |    1 +

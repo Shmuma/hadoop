@@ -1,7 +1,7 @@
 From 4098a214be838238a9879f7f978e34e89b736986 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 2 Feb 2011 18:01:15 -0800
-Subject: [PATCH 0823/1065] HDFS-1626. Make block invalidate limit configurable
+Subject: [PATCH 0823/1120] HDFS-1626. Make block invalidate limit configurable
 
 Author: Tsz Wo (Nicholas) Sze
 Ref: CDH-2622

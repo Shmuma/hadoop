@@ -336,6 +336,18 @@
     Referring to the same keytab file Oozie uses for its Kerberos credentials for Hadoop.
   </td>
 </tr>
+<tr>
+<td><a name="hadoop.permitted.revisions">hadoop.permitted.revisions</a></td><td>
+03b655719d13929bd68bb2c2f9cee615b389cea9,
+217a3767c48ad11d4632e19a22897677268c40c4
+  </td><td>A comma separate list of Hadoop build revisions to
+    permit when the Datanode or Tasktracker handshakes with the
+    Namenode or Jobtracker, respectively. Setting this allows it to
+    connect with a Namenode or Jobtracker running with a different
+    build revision. The default values are the original CDH3u3 release
+    and the first CDH3u3 refresh.
+  </td>
+</tr>
 </table>
 </body>
 </html>

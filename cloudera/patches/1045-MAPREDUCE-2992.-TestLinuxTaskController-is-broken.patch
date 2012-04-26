@@ -1,7 +1,7 @@
 From 4d71976d7346279ff6aa6063b8e9562a9d0df281 Mon Sep 17 00:00:00 2001
 From: Ahmed Radwan <ahmed@cloudera.com>
 Date: Wed, 17 Aug 2011 12:52:48 -0700
-Subject: [PATCH 1045/1065] MAPREDUCE-2992. TestLinuxTaskController is broken.
+Subject: [PATCH 1045/1120] MAPREDUCE-2992. TestLinuxTaskController is broken.
 
 Reason: Bug
 Author: Ahmed Radwan

@@ -1,7 +1,7 @@
 From cac73dae4df7c536f36870083840a1a8f8c44303 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Wed, 7 Sep 2011 18:19:33 -0700
-Subject: [PATCH 1043/1065] MAPREDUCE-2760. mapreduce.jobtracker.split.metainfo.maxsize typoed in
+Subject: [PATCH 1043/1120] MAPREDUCE-2760. mapreduce.jobtracker.split.metainfo.maxsize typoed in
  mapred-default.xml.
 
 The configuration mapreduce.jobtracker.split.metainfo.maxsize is

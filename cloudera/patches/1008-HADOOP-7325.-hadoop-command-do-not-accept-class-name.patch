@@ -1,7 +1,7 @@
 From 7d08d6a9f223f270e5f4728a85e0ed3934a347f7 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Tue, 5 Jul 2011 14:33:07 -0700
-Subject: [PATCH 1008/1065] HADOOP-7325. hadoop command - do not accept class names starting with a hyphen.
+Subject: [PATCH 1008/1120] HADOOP-7325. hadoop command - do not accept class names starting with a hyphen.
 
 Reason: Improvement
 Author: Brock Noland

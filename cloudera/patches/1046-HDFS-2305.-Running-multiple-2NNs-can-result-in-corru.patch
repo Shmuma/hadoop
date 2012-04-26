@@ -1,7 +1,7 @@
 From ea52f4e327fea44c37ff6f1c99619b254bf1f25e Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Tue, 13 Sep 2011 13:48:57 -0700
-Subject: [PATCH 1046/1065] HDFS-2305. Running multiple 2NNs can result in corrupt file system
+Subject: [PATCH 1046/1120] HDFS-2305. Running multiple 2NNs can result in corrupt file system
 
 Reason: Bug
 Author: Aaron T. Myers

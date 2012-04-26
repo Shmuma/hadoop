@@ -1,7 +1,7 @@
 From c216ea863bcca97efc8220bf1a7507bcd4b12ca5 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Tue, 28 Jun 2011 17:35:32 -0700
-Subject: [PATCH 0988/1065] HADOOP-7290. Unit test failure in TestUserGroupInformation.
+Subject: [PATCH 0988/1120] HADOOP-7290. Unit test failure in TestUserGroupInformation.
 
 Reason: Bug
 Author: Eli Collins

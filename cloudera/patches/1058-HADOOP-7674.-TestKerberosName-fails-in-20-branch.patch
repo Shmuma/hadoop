@@ -1,7 +1,7 @@
 From 3b6931e2d9882c8b4aa83436fefa6d2bb36973c8 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Thu, 22 Sep 2011 18:47:02 -0700
-Subject: [PATCH 1058/1065] HADOOP-7674. TestKerberosName fails in 20 branch.
+Subject: [PATCH 1058/1120] HADOOP-7674. TestKerberosName fails in 20 branch.
 
 Reason: Bug
 Author: Jitendra Nath Pandey

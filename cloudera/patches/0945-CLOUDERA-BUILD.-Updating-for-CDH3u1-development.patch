@@ -1,7 +1,7 @@
 From d6a988a1f38609634c8b5364a7caac03871d2c25 Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Thu, 7 Apr 2011 12:15:29 -0700
-Subject: [PATCH 0945/1065] CLOUDERA-BUILD. Updating for CDH3u1 development.
+Subject: [PATCH 0945/1120] CLOUDERA-BUILD. Updating for CDH3u1 development.
 
 ---
  cloudera-pom.xml                                  |    4 ++--

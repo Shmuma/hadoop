@@ -1,7 +1,7 @@
 From d52118b2e49f1ccd29286574ad017707cdd63d0c Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 16 Mar 2011 13:20:17 -0700
-Subject: [PATCH 0933/1065] MAPREDUCE-2377. task-controller fails to parse configuration if it doesn't end in \n
+Subject: [PATCH 0933/1120] MAPREDUCE-2377. task-controller fails to parse configuration if it doesn't end in \n
 
 Reason: fix hard-to-diagnose bug
 Author: Todd Lipcon

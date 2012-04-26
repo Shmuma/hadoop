@@ -1,7 +1,7 @@
 From 76e6564a623218e81417b241a4f1fa71b1db5606 Mon Sep 17 00:00:00 2001
 From: Ahmed Radwan <ahmed@cloudera.com>
 Date: Wed, 3 Aug 2011 10:36:58 -0700
-Subject: [PATCH 1037/1065] MAPREDUCE-2651. Race condition in LTC for job log directory creation
+Subject: [PATCH 1037/1120] MAPREDUCE-2651. Race condition in LTC for job log directory creation
 
 Reason: Bug
 Author: Bharath Mundlapudi

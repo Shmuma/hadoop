@@ -1,7 +1,7 @@
 From 08b60c48c049cc3e8965f6f8cf8bad55b2969e99 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Fri, 22 Apr 2011 18:02:26 -0700
-Subject: [PATCH 0950/1065] HDFS-1594. When the disk becomes full Namenode is getting shutdown and not able to recover
+Subject: [PATCH 0950/1120] HDFS-1594. When the disk becomes full Namenode is getting shutdown and not able to recover
 
 Reason: Bug
 Author: Aaron T. Myers

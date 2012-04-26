@@ -1,7 +1,7 @@
 From 77e1a32e46942124c1dcaa8ba731da7e499bd547 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Mon, 19 Sep 2011 00:10:39 -0700
-Subject: [PATCH 1049/1065] HADOOP-7119. add Kerberos HTTP SPNEGO authentication support to Hadoop JT/NN/DN/TT web-consoles
+Subject: [PATCH 1049/1120] HADOOP-7119. add Kerberos HTTP SPNEGO authentication support to Hadoop JT/NN/DN/TT web-consoles
 
 Reason: New Feature
 Author: Alejandro Abdelnur

@@ -1,7 +1,7 @@
 From b6f34f37281d49de97e7d41e55ffbed596036067 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Mon, 7 Mar 2011 23:06:10 -0800
-Subject: [PATCH 0912/1065] HADOOP-7173. Remove unused fstat() call from NativeIO
+Subject: [PATCH 0912/1120] HADOOP-7173. Remove unused fstat() call from NativeIO
 
 Reason: Remove unused code after HADOOP-7115
 Author: Todd Lipcon

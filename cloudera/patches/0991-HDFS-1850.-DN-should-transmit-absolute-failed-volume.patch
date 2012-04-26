@@ -1,7 +1,7 @@
 From 3c9402dcc658e6415c59e4866ec3ee0227e819f1 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Wed, 22 Jun 2011 19:10:58 -0700
-Subject: [PATCH 0991/1065] HDFS-1850. DN should transmit absolute failed volume count rather than
+Subject: [PATCH 0991/1120] HDFS-1850. DN should transmit absolute failed volume count rather than
  increments to the NN.
 
 Reason: Improvement

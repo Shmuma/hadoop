@@ -1,7 +1,7 @@
 From 829bc94b23b9ab447fc51919cecfe5d9bd0a0c2b Mon Sep 17 00:00:00 2001
 From: Tom White <tom@cloudera.com>
 Date: Tue, 7 Jun 2011 16:40:23 -0700
-Subject: [PATCH 0967/1065] HADOOP-6996. Allow CodecFactory to return a codec object given a codec' class name
+Subject: [PATCH 0967/1120] HADOOP-6996. Allow CodecFactory to return a codec object given a codec' class name
 
 Reason: Improvement
 Author: Hairong Kuang

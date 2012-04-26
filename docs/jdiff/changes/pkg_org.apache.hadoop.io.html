@@ -18,7 +18,7 @@ org.apache.hadoop.io
     <TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
     <TABLE summary="Navigation bar" BORDER="0" CELLPADDING="0" CELLSPACING="3">
     <TR ALIGN="center" VALIGN="top">
-      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/io/package-summary.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u2</tt></B></FONT></A>&nbsp;</TD>
+      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/io/package-summary.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u3</tt></B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="changes-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Package</B></FONT>&nbsp;</TD>
       <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1"> &nbsp;<FONT CLASS="NavBarFont1">Class</FONT>&nbsp;</TD>
@@ -50,9 +50,9 @@ Package <A HREF="../../api/org/apache/hadoop/io/package-summary.html" target="_t
 </H2>
 <p>
 <a NAME="Added"></a>
-<TABLE summary="Added Classes" BORDER="1" CELLPADDING="3" CELLSPACING="0" WIDTH="100%">
+<TABLE summary="Added Classes and Interfaces" BORDER="1" CELLPADDING="3" CELLSPACING="0" WIDTH="100%">
 <TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
-  <TD VALIGN="TOP" COLSPAN=2><FONT SIZE="+1"><B>Added Classes</B></FONT></TD>
+  <TD VALIGN="TOP" COLSPAN=2><FONT SIZE="+1"><B>Added Classes and Interfaces</B></FONT></TD>
 </TR>
 <TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
   <TD VALIGN="TOP" WIDTH="25%">
@@ -74,6 +74,20 @@ Package <A HREF="../../api/org/apache/hadoop/io/package-summary.html" target="_t
   <nobr><A HREF="../../api/org/apache/hadoop/io/BloomMapFile.Writer.html" target="_top"><tt>BloomMapFile.Writer</tt></A></nobr>
   </TD>
   <TD>&nbsp;</TD>
+</TR>
+<TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
+  <TD VALIGN="TOP" WIDTH="25%">
+  <A NAME="ReadaheadPool"></A>
+  <nobr><A HREF="../../api/org/apache/hadoop/io/ReadaheadPool.html" target="_top"><tt>ReadaheadPool</tt></A></nobr>
+  </TD>
+  <TD VALIGN="TOP">Manages a pool of threads which can issue readahead requests on file descriptors.</TD>
+</TR>
+<TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
+  <TD VALIGN="TOP" WIDTH="25%">
+  <A NAME="ReadaheadPool.ReadaheadRequest"></A>
+  <nobr><A HREF="../../api/org/apache/hadoop/io/ReadaheadPool.ReadaheadRequest.html" target="_top"><tt><I>ReadaheadPool.ReadaheadRequest</I></tt></A></nobr>
+  </TD>
+  <TD VALIGN="TOP">An outstanding readahead request that has been submitted to the pool.</TD>
 </TR>
 <TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
   <TD VALIGN="TOP" WIDTH="25%">
@@ -190,6 +204,13 @@ Package <A HREF="../../api/org/apache/hadoop/io/package-summary.html" target="_t
 </TR>
 <TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
   <TD VALIGN="TOP" WIDTH="25%">
+  <A NAME="SequenceFile"></A>
+  <nobr><A HREF="org.apache.hadoop.io.SequenceFile.html">SequenceFile</A></nobr>
+  </TD>
+  <TD VALIGN="TOP"><code>SequenceFile</code>s are flat files consisting of binary key/value pairs.</TD>
+</TR>
+<TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
+  <TD VALIGN="TOP" WIDTH="25%">
   <A NAME="SequenceFile.CompressionType"></A>
   <nobr><A HREF="org.apache.hadoop.io.SequenceFile.CompressionType.html">SequenceFile.CompressionType</A></nobr>
   </TD>
@@ -295,7 +316,7 @@ Package <A HREF="../../api/org/apache/hadoop/io/package-summary.html" target="_t
     <TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
     <TABLE summary="Navigation bar" BORDER="0" CELLPADDING="0" CELLSPACING="3">
     <TR ALIGN="center" VALIGN="top">
-      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/io/package-summary.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u2</tt></B></FONT></A>&nbsp;</TD>
+      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/io/package-summary.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u3</tt></B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="changes-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Package</B></FONT>&nbsp;</TD>
       <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1"> &nbsp;<FONT CLASS="NavBarFont1">Class</FONT>&nbsp;</TD>

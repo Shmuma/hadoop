@@ -1,7 +1,7 @@
 From bd3ea0cbe457e49b5e1bbdf4d7dc57599feb3537 Mon Sep 17 00:00:00 2001
 From: Alejandro Abdelnur <tucu00@gmail.com>
 Date: Fri, 24 Jun 2011 11:33:16 -0700
-Subject: [PATCH 0981/1065] HADOOP-7206 SNAPPY backport
+Subject: [PATCH 0981/1120] HADOOP-7206 SNAPPY backport
 
 Adds Snappy compression support.
 

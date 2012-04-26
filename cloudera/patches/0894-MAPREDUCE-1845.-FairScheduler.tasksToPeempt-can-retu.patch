@@ -1,7 +1,7 @@
 From d62a49fc3196810f096fdbbd0ca4f48af976d5df Mon Sep 17 00:00:00 2001
 From: Tom White <tom@cloudera.com>
 Date: Tue, 1 Mar 2011 09:50:14 -0800
-Subject: [PATCH 0894/1065] MAPREDUCE-1845. FairScheduler.tasksToPeempt() can return negative number
+Subject: [PATCH 0894/1120] MAPREDUCE-1845. FairScheduler.tasksToPeempt() can return negative number
 
 Reason: Bug
 Author: Scott Chen

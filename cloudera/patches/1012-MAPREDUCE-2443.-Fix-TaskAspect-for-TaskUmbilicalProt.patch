@@ -1,7 +1,7 @@
 From 50cee77a34b3d7b7c8a7a710fb3f4e8e1448288c Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 5 Jul 2011 16:55:57 -0700
-Subject: [PATCH 1012/1065] MAPREDUCE-2443. Fix TaskAspect for TaskUmbilicalProtocol.ping.
+Subject: [PATCH 1012/1120] MAPREDUCE-2443. Fix TaskAspect for TaskUmbilicalProtocol.ping.
 
 Author: Siddharth Seth
 Reason: fix test-system compile after MR-2429

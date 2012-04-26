@@ -1,7 +1,7 @@
 From 0dc60cdb69d7a52068629bcecf79d69dd1cb1132 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Wed, 18 May 2011 14:44:27 -0700
-Subject: [PATCH 0964/1065] MAPREDUCE-2505. Explain how to use ACLs in the fair scheduler.
+Subject: [PATCH 0964/1120] MAPREDUCE-2505. Explain how to use ACLs in the fair scheduler.
 
 The fair scheduler already works with the ACL system introduced through the
 mapred.queue.* parameters, but the documentation doesn't explain how to use

@@ -21,7 +21,7 @@
   <parent>
     <groupId>com.cloudera.cdh</groupId>
     <artifactId>cdh-root</artifactId>
-    <version>3.0-u2</version>
+    <version>3.0-u3</version>
     <relativePath>../../../../../pom.xml</relativePath>
   </parent>
   

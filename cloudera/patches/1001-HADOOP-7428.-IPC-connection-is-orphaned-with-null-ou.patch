@@ -1,7 +1,7 @@
 From 8b1f6a660e604fb39284ef8cad7821a6ec27baf5 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Mon, 4 Jul 2011 14:53:15 -0700
-Subject: [PATCH 1001/1065] HADOOP-7428. IPC connection is orphaned with null 'out' member
+Subject: [PATCH 1001/1120] HADOOP-7428. IPC connection is orphaned with null 'out' member
 
 Reason: Can impact a user's ability to submit jobs, among other issues
 Author: Todd Lipcon

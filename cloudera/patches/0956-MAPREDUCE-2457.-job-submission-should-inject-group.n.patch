@@ -1,7 +1,7 @@
 From 763893247e8e94a6da8060d2335550b90cf0662e Mon Sep 17 00:00:00 2001
 From: Alejandro Abdelnur <tucu00@gmail.com>
 Date: Thu, 28 Apr 2011 13:21:45 -0700
-Subject: [PATCH 0956/1065] MAPREDUCE-2457. job submission should inject group.name
+Subject: [PATCH 0956/1120] MAPREDUCE-2457. job submission should inject group.name
 
 Description:
 Reason: common used functionality by FairScheduler

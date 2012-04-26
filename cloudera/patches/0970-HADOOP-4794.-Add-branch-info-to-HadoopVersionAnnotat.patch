@@ -1,7 +1,7 @@
 From d7915a354ade800a163788af7dd43f187f0442aa Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Fri, 17 Jun 2011 14:24:48 -0700
-Subject: [PATCH 0970/1065] HADOOP-4794. Add branch info to HadoopVersionAnnotation
+Subject: [PATCH 0970/1120] HADOOP-4794. Add branch info to HadoopVersionAnnotation
 
 Reason: Improvement
 Author: Chris Douglas

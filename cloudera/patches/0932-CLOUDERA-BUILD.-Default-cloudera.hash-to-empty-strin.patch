@@ -1,7 +1,7 @@
 From ca46366798e704396bd2de8e3ef4bc1b074b88a9 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 15 Mar 2011 18:34:37 -0700
-Subject: [PATCH 0932/1065] CLOUDERA-BUILD. Default cloudera.hash to empty string
+Subject: [PATCH 0932/1120] CLOUDERA-BUILD. Default cloudera.hash to empty string
 
 This restores the proper behavior of inferring the git hash from the
 current repository, if it's not overridden on the command line.

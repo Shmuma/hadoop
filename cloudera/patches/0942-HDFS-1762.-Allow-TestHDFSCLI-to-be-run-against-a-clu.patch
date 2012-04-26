@@ -1,7 +1,7 @@
 From aa3b91aaeca5e5bcd5988ee0fe1d619167ed38fa Mon Sep 17 00:00:00 2001
 From: Tom White <tom@cloudera.com>
 Date: Sun, 20 Mar 2011 21:43:55 -0700
-Subject: [PATCH 0942/1065] HDFS-1762. Allow TestHDFSCLI to be run against a cluster
+Subject: [PATCH 0942/1120] HDFS-1762. Allow TestHDFSCLI to be run against a cluster
 
 Author: Tom White
 Ref: CDH-2797

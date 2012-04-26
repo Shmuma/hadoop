@@ -1,7 +1,7 @@
 From 43f756d9569ac009dbae2c84064b29e8163aaa19 Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Thu, 3 Mar 2011 11:41:36 -0800
-Subject: [PATCH 0900/1065] CLOUDERA-BUILD. DISTRO-109 - Use original jars as Maven artifacts rather than exploding/rebuilding.
+Subject: [PATCH 0900/1120] CLOUDERA-BUILD. DISTRO-109 - Use original jars as Maven artifacts rather than exploding/rebuilding.
 
 ---
  cloudera/maven-packaging/hadoop-core/pom.xml      |   42 ++++++++------------

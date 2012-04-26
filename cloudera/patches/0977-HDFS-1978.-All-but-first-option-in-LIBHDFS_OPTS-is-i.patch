@@ -1,7 +1,7 @@
 From b4d1557ba2d16f1fa3af7e4b7bb1265bc7cb6a30 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sun, 22 May 2011 19:51:10 -0700
-Subject: [PATCH 0977/1065] HDFS-1978. All but first option in LIBHDFS_OPTS is ignored.
+Subject: [PATCH 0977/1120] HDFS-1978. All but first option in LIBHDFS_OPTS is ignored.
 
 Reason: Bug
 Author: Eli Collins

@@ -1,7 +1,7 @@
 From d8f01d688916739125f3d321be75ed741b7b3a6f Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 16 Mar 2011 13:43:06 -0700
-Subject: [PATCH 0934/1065] CLOUDERA-BUILD. Update footer to indicate new product naming
+Subject: [PATCH 0934/1120] CLOUDERA-BUILD. Update footer to indicate new product naming
 
 Author: Todd Lipcon
 Ref: CDH-2831

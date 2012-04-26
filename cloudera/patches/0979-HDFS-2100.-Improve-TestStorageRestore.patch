@@ -1,7 +1,7 @@
 From 032c764a0a933e004085442758083d4fea2cf876 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Tue, 21 Jun 2011 15:49:06 -0700
-Subject: [PATCH 0979/1065] HDFS-2100. Improve TestStorageRestore
+Subject: [PATCH 0979/1120] HDFS-2100. Improve TestStorageRestore
 
 Reason: Test
 Author: Aaron T. Myers

@@ -1,7 +1,7 @@
 From 6ca2af6321cbabf8029092ce6550ec8e78673fba Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 15 Mar 2011 14:28:51 -0700
-Subject: [PATCH 0931/1065] HADOOP-7104. Remove unnecessary DNS reverse lookups from RPC layer
+Subject: [PATCH 0931/1120] HADOOP-7104. Remove unnecessary DNS reverse lookups from RPC layer
 
 Reason: Fixes potential performance issues when DNS blips occur
 Author: Kan Zhang

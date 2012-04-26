@@ -1,7 +1,7 @@
 From 97d8bb472f57c1abc73a5240675a37b8e4b5b31a Mon Sep 17 00:00:00 2001
 From: Tom White <tom@cloudera.com>
 Date: Tue, 7 Jun 2011 16:59:31 -0700
-Subject: [PATCH 0968/1065] HADOOP-7323. Add capability to resolve compression codec based on codec name
+Subject: [PATCH 0968/1120] HADOOP-7323. Add capability to resolve compression codec based on codec name
 
 Reason: Improvement
 Author: Alejandro Abdelnur

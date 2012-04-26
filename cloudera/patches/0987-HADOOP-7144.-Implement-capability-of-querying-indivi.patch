@@ -1,7 +1,7 @@
 From 87bcc8eb1940ed60ee1b9dc6489781dd1841e932 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Tue, 28 Jun 2011 14:48:18 -0700
-Subject: [PATCH 0987/1065] HADOOP-7144. Implement capability of querying individual property of a mbean using JMXProxyServlet
+Subject: [PATCH 0987/1120] HADOOP-7144. Implement capability of querying individual property of a mbean using JMXProxyServlet
 
 Reason: Improvement
 Author: Tanping Wang

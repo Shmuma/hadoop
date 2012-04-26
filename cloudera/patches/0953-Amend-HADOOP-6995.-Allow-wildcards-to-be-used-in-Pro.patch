@@ -1,7 +1,7 @@
 From 0efd27c636b1a2a23c64e019af50cebcc2c98d83 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Thu, 28 Apr 2011 00:32:33 -0700
-Subject: [PATCH 0953/1065] Amend HADOOP-6995. Allow wildcards to be used in ProxyUsers configurations
+Subject: [PATCH 0953/1120] Amend HADOOP-6995. Allow wildcards to be used in ProxyUsers configurations
 
 Reason: Forgot to backport documentation portion of the change
 Author: Todd Lipcon

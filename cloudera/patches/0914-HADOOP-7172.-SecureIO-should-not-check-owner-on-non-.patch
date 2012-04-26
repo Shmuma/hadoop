@@ -1,7 +1,7 @@
 From 462e80e19c2ab2e40aa6ca4b590580de9b9a4a1b Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 8 Mar 2011 11:02:49 -0800
-Subject: [PATCH 0914/1065] HADOOP-7172. SecureIO should not check owner on non-secure clusters that have no native support
+Subject: [PATCH 0914/1120] HADOOP-7172. SecureIO should not check owner on non-secure clusters that have no native support
 
 Reason: Fix shuffle performance regression when native libraries are not installed
 Author: Todd Lipcon

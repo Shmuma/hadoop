@@ -1,3 +1,625 @@
+commit 318bc781117fa276ae81a3d111f5eeba0020634f
+Author: Eli Collins <eli@cloudera.com>
+Date:   Tue Mar 20 10:44:19 2012 -0700
+
+    CLOUDERA-BUILD. Allow Datanodes and Tasktrackers to connect to Namenodes and Jobtrackers with
+    different build revisions.
+    
+    Reason: Allow DN/TT upgrade and host addition with refreshed builds
+    Author: Eli Collins
+    Ref: CDH-4560
+
+commit 78ca997f549a89d60b39ae466f02a2797fa8003a
+Author: Aaron T. Myers <atm@cloudera.com>
+Date:   Wed Mar 14 11:16:06 2012 -0700
+
+    The LTC should set supplementary groups in addition to euid and egid when switching users.
+
+commit 217a3767c48ad11d4632e19a22897677268c40c4
+Author: Eli Collins <eli@cloudera.com>
+Date:   Mon Feb 13 23:27:11 2012 -0800
+
+    Ammend HDFS-854. Datanode should scan devices in parallel to generate block report.
+    
+    Reason: Bug
+    Author: Eli Collins
+    Ref: CDH-4455
+
+commit 03b655719d13929bd68bb2c2f9cee615b389cea9
+Author: Eli Collins <eli@cloudera.com>
+Date:   Thu Jan 5 10:35:36 2012 -0800
+
+    HDFS-2751. Datanode drops OS cache behind reads even for short reads.
+    
+    HDFS-2465 has some code which attempts to disable the "drop cache
+    behind reads" functionality when the reads are <256KB (eg HBase
+    random access). But this check was missing in the close()
+    function, so it always drops cache behind reads regardless of the
+    size of the read. This hurts HBase random read performance when
+    this patch is enabled.
+    
+    Reason: Bug
+    Author: Todd Lipcon
+    Ref: CDH-4047
+
+commit c9e37a4c57a325228ecb3d333dba302ac2098e2f
+Author: Andrew Bayer <andrew@cloudera.com>
+Date:   Tue Dec 20 10:15:26 2011 -0800
+
+    Updating for CDH3u3 release.
+
+commit a04c9e2a6bd20dcb50e7242b1c0fb35e5614d1cc
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Dec 18 14:05:30 2011 -0800
+
+    HDFS-2702. A single failed name dir can cause the NN to exit.
+    
+    There's a bug in FSEditLog#rollEditLog which results in the NN process
+    exiting if a single name dir has failed.
+    
+    Reason: Bug
+    Author: Eli Collins
+    Ref: CDH-3921
+
+commit fcab1c7f36866fdc09cb9939ff8786d690502b81
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Dec 18 14:00:58 2011 -0800
+
+    HDFS-2703. removedStorageDirs is not updated everywhere we remove a
+    storage dir.
+    
+    There are a number of places (FSEditLog#open, purgeEditLog, and
+    rollEditLog) where we remove a storage directory but don't add it to the
+    removedStorageDirs list. This means a storage dir may have been removed
+    but we don't see it in the log or Web UI.
+    
+    Reason: Bug
+    Author: Eli Collins
+    Ref: CDH-3921
+
+commit 09a73c40213864289256e8b7e749eef3f7caa778
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Dec 18 13:52:48 2011 -0800
+
+    HDFS-2701. Cleanup FS* processIOError methods.
+    
+    Let's rename the various "processIOError" methods to be more
+    descriptive. The current code makes it difficult to identify and
+    reason about bug fixes. While we're at it let's remove "Fatal" from
+    the "Unable to sync the edit log" log since it's not actually a fatal
+    error (this is confusing to users). And 2NN "Checkpoint done" should
+    be info, not a warning (also confusing to users).
+    
+    Reason: Improvement
+    Author: Eli Collins
+    Ref: CDH-3921
+
+commit d0b1764daa4a3ca527d6ea553c009e46def2aeee
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Dec 18 13:28:46 2011 -0800
+
+    Ammend HADOOP-4885. HADOOP-4885 erroneously removed the call to
+    processIOError in rollEditLog. Without it the NN process will not exit
+    if there are no valid edit streams. GetImageServlet will NPE but the
+    NN keeps running, accepting modifications it will not be able to
+    persist.
+    
+    Reason: Bug
+    Author: Eli Collins
+    Ref: CDH-3921
+
+commit 9817a9bd9bf215c4f66268e8d5e9f87cd8a417b4
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Dec 18 13:28:21 2011 -0800
+
+    Ammend HADOOP-4885. Cleanup.
+    
+    Author: Eli Collins
+    Ref: CDH-3921
+
+commit 60a51e89b21e9577519b447d3779acc8b83ce990
+Author: Harsh J <harsh@cloudera.com>
+Date:   Wed Nov 23 14:09:55 2011 +0530
+
+    CLOUDERA-BUILD. Log jsvc output to HADOOP_LOG_DIR instead of /tmp.
+    
+    Description: JSVC output currently goes to /tmp and is not configurable.
+    Reason: Customer request
+    Author: Harsh J
+    Ref: CDH-3832
+
+commit 3d21fccdb5d67426a05655377e5dc0b926479673
+Author: Eli Collins <eli@cloudera.com>
+Date:   Tue Dec 13 18:46:10 2011 -0800
+
+    CLOUDERA-BUILD. Update url for searching generated docs.
+
+commit 164e84c499699ada743fdc5f39dce212f3e742fc
+Author: Philip Zeyliger <philip@cloudera.com>
+Date:   Sun Dec 4 21:31:52 2011 -0800
+
+    CLOUDERA-BUILD. Add deprecated alias to removed TransferFsImage method.
+    
+    The fix for HDFS-2305/CDH-2761 changed the method signature
+    of a static method in TransferFsImage.  This adds back
+    the old method signature to allow for compatibility with
+    plug-ins that wish to use it with CDH3.
+    
+    Reason: Compatibility
+    Author: Philip Zeyliger
+    Ref: OPSAPS-5105, CDH-2761
+
+commit 7a636fd4deeb1fbe8f73dd1cab15c180e996ef8a
+Author: Eli Collins <eli@cloudera.com>
+Date:   Fri Dec 9 16:55:46 2011 -0800
+
+    HDFS-2654. Make BlockReaderLocal not extend RemoteBlockReader2.
+    
+    Reason: Performance
+    Author: Eli Collins
+    Ref: CDH-3850
+
+commit 2b54843a4f2fb1d85c4a2cc4a4ad981f961e6a77
+Author: Eli Collins <eli@cloudera.com>
+Date:   Fri Dec 9 20:25:09 2011 -0800
+
+    HDFS-2653. DFSClient should cache whether addrs are non-local when
+    short-circuiting is enabled.
+    
+    Reason: Performance
+    Author: Eli Collins
+    Ref: CDH-3850
+
+commit c955c99664e9902542ce4a0787ffac909a22a69c
+Author: Eli Collins <eli@cloudera.com>
+Date:   Thu Dec 8 17:07:29 2011 -0800
+
+    HDFS-2246. Shortcut a local client reads to a Datanodes files directly.
+    
+    Reason: Performance
+    Author: Jitendra Nath Pandey, Eli Collins
+    Ref: CDH-3850
+
+commit ae79e854209b90fcf5e574a8c927cde3bdd3eb9c
+Author: Jonathan Hsieh <jon@cloudera.com>
+Date:   Tue Dec 6 08:08:25 2011 -0800
+
+    HADOOP-6886 LocalFileSystem Needs createNonRecursive API
+    
+    Reason: Bug (HBase data loss)
+    Author: Jitendra Nath Pandey and Nicholas Spiegelberg
+    Ref: CDH-3816
+
+commit fa023cef12584d6f38f17b05ea95445eb187cb9e
+Author: Jonathan Hsieh <jon@cloudera.com>
+Date:   Fri Dec 2 17:15:06 2011 -0800
+
+    HADOOP-7879 DistributedFileSystem#createNonRecursive should also incrementWriteOps statistics.
+    
+    Reason: Bug (hbase data loss)
+    Author: Jonathan Hsieh
+    Ref: CDH-3798
+
+commit dc1f32f60531bc146d6c42f473d5ba6a0b59fff3
+Author: Jonathan Hsieh <jon@cloudera.com>
+Date:   Wed Nov 30 08:54:06 2011 -0800
+
+    HADOOP-7870 Fix recursive create.
+    
+    Reason: Bug (hbase data loss)
+    Author: Jonathan Hsieh
+    Ref: CDH-3798
+
+commit 9934440df63c790387a54b212aacad4ee12a9dc9
+Author: Jonathan Hsieh <jon@cloudera.com>
+Date:   Mon Nov 28 10:19:56 2011 -0800
+
+    HADOOP-6840 Support non-recursive create() in FileSystem and SequenceFile.Writer
+    
+    Reason: Bug (hbase data loss)
+    Author: Nicolas Spiegelberg and Jitendra Nath Pandey
+    Ref: CDH-3815
+
+commit 2d52a4c5814814bf0a95c71906d2b4efcc1aa755
+Author: Jonathan Hsieh <jon@cloudera.com>
+Date:   Mon Nov 28 10:50:31 2011 -0800
+
+    HDFS-617 Support for non-recursive create() in HDFS
+    
+    This backport adds CDH-specific backwards-compatibility handling of non-recursive file create()
+    
+    Reason: Bug (hbase data loss)
+    Author: Kan Zhang
+    Ref: CDH-3815
+
+commit 356e443236ce15100943cfeabc9001b1d26bc77c
+Author: Alejandro Abdelnur <tucu@cloudera.com>
+Date:   Fri Dec 9 13:46:10 2011 -0800
+
+    HADOOP-7902 skipping name rules setting (if already set) should be done on UGI initialization only
+    
+      Fixes regression introduced by HADOOP-7887
+    
+      Author: Alejandro Abdelnur
+      Ref: CDH-3898
+
+commit b9bc59e6d6f024d69f7cbee65b50fc0d5f99ead4
+Author: Alejandro Abdelnur <tucu@cloudera.com>
+Date:   Wed Dec 7 15:38:31 2011 -0800
+
+    HADOOP-7887 KerberosAuthenticatorHandler is not setting KerberosName name rules from configuration
+    
+      Author: Alejandro Abdelnur
+      Ref: CDH-3890
+
+commit 25d2544f138b41918c7861880c4dc61988b808b0
+Author: Eli Collins <eli@cloudera.com>
+Date:   Mon Dec 5 16:16:31 2011 -0800
+
+    HDFS-2638. Improve a block recovery log.
+    
+    It would be useful to know whether an attempt to recover a block is
+    failing because the block was already recovered (has a new GS) or the
+    block is missing.
+    
+    Reason: Debugging
+    Author: Eli Collins
+    Ref: CDH-3888
+
+commit df2ba14900cd081fa87eec9aedf3f75eca9c2885
+Author: Eli Collins <eli@cloudera.com>
+Date:   Tue Dec 6 10:54:51 2011 -0800
+
+    HDFS-2637. The rpc timeout for block recovery is too low.
+    
+    The RPC timeout for block recovery does not take into account that it
+    issues multiple RPCs itself. This can cause recovery to fail if the
+    network is congested or DNs are busy.
+    
+    Reason: Bug
+    Author: Eli Collins
+    Ref: CDH-3834
+
+commit 8b29bcbea6d6886e84d6dfced7179439f219543e
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Nov 27 21:57:11 2011 -0800
+
+    HDFS-854. Datanode should scan devices in parallel to generate block report.
+    
+    A Datanode should scan its disk devices in parallel so that the time
+    to generate a block report is reduced. This will reduce the startup
+    time of a cluster.
+    
+    Author: Dmytro Molkov, Eli Collins
+    Ref: CDH-3853
+
+commit caa7d7ddd79b0775edb780c6a9cbf71d23bc4a99
+Author: Alejandro Abdelnur <tucu@cloudera.com>
+Date:   Tue Nov 29 11:49:09 2011 -0800
+
+    HADOOP-7853 multiple javax security configurations cause conflicts.
+    
+      Reason: Hadoop-auth initialization and UGI initialization issues due to global config.
+      Author: Daryn Sharp
+      Ref: CDH-3865
+
+commit ade43c9a6eee7eec2f237edcadb370f07c72a176
+Author: Eli Collins <eli@cloudera.com>
+Date:   Mon Nov 28 10:47:17 2011 -0800
+
+    CLOUDERA-BUILD. Remove external guava dependency.
+    
+    Remove the guava-r09 external dependency by rebasing the r09 jar on
+    o.a.h.thirdparty.guava and bundling the rebased jar in our lib dir.
+    
+    Author: Eli Collins
+    Ref: CDH-3833
+
+commit aaeecc5050d10ff5788cea98de3004e72a0c3a3c
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Nov 27 18:20:29 2011 -0800
+
+    CLOUDERA-BUILD. Update eclipse classpath.
+
+commit 99b2072558bb79eea211c1965a6c896750c850ea
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Nov 27 10:23:23 2011 -0800
+
+    Ammend MAPREDUCE-3015. Rename TaskTrackerStatus#getTaskFailures.
+    
+    Reason: JobTracker plugin compatibility
+    Author: Eli Collins
+    Ref: CDH-3307
+
+commit 12c64dfa5a3548776a039c835c5e5c7aa844a2f5
+Author: Eli Collins <eli@cloudera.com>
+Date:   Fri Nov 25 23:45:41 2011 -0800
+
+    MAPREDUCE-2413. TT should handle disk failures by reinitializing itself.
+    MAPREDUCE-2928. MR-2413 improvements.
+    MAPREDUCE-2957. The TT should not re-init if it has no good local dirs.
+    MAPREDUCE-2850. Add test for MAPREDUCE-2413.
+    MAPREDUCE-3395. Add mapred.disk.healthChecker.interval to mapred-default.xml.
+    MAPREDUCE-2415. Distribute the user task logs on to multiple disks.
+    MAPREDUCE-3424. MR-2415 cleanup.
+    MAPREDUCE-3015. Add local dir failure info to metrics and the web UI.
+    MAPREDUCE-3419. Don't mark exited TT threads as dead in MiniMRCluster.
+    
+    Author: Ravi Gummadi, Bharath Mundlapudi, Eli Collins
+    Ref: CDH-3307
+
+commit 84bbaaca1521811875b9926d98658259421be1f6
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sat Nov 19 18:59:15 2011 -0800
+
+    HDFS-2541. For a sufficiently large value of blocks, the DN Scanner
+    may request a random number with a negative seed value.
+    
+    Author: Harsh J
+    Ref: CDH-3803
+
+commit 898431eb9641a2932a09ff1373f478b0f77075d5
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Tue Nov 22 11:44:28 2011 -0800
+
+    MAPREDUCE-2905. Fix fair scheduler to prevent clumping of tasks when assignmultiple is enabled.
+    
+    Reason: spread load more evenly on clusters with many slots
+    Author: Todd Lipcon and Jeff Bean
+    Ref: CDH-3509
+
+commit 1944559432d8af46f68feb041969bd26b2f950b8
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Tue Nov 15 14:20:09 2011 -0800
+
+    MAPREDUCE-936. Allow a load difference in fairshare scheduler
+    
+    Improves throughput of task scheduling in the scheduler, by allowing
+    some nodes to have more tasks scheduled than others while scheduling
+    is happening.
+    
+    Reason: Backporting in advance of MAPREDUCE-2905, which depends on this patch.
+    Author: Zheng Shao
+    Ref: CDH-3509
+
+commit 62916ff723c390df008abce1b0fd80cccdbc4105
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Nov 20 15:39:23 2011 -0800
+
+    HADOOP-7457. Remove out-of-date Chinese language documentation.
+    
+    Author: Jakob Homan
+    Ref: CDH-3842
+
+commit abe5bf1c3ef82f90c356695fc16eb615293a56df
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sat Nov 19 23:15:06 2011 -0800
+
+    MAPREDUCE-2555. Avoid spurious logging from completed tasks.
+    
+    Author: Thomas Graves
+    Ref: CDH-3855
+
+commit a390e45180fbaaf4a3ea84d97ec0316c182ec8c9
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Nov 20 11:22:14 2011 -0800
+
+    HADOOP-6614. RunJar should provide more diags when it can't create a temp file.
+    
+    Author: Jonathan Hsieh
+    Ref: CDH-3841
+
+commit e732b3c97a9232182d3a28917ca3f9006f968ac9
+Author: Eli Collins <eli@cloudera.com>
+Date:   Fri Nov 18 15:45:26 2011 -0800
+
+    MAPREDUCE-3343. TaskTracker Out of Memory because of distributed cache.
+    
+    This Out of Memory happens when you run large number of jobs (using
+    the distributed cache) on a TaskTracker.
+    
+    Author: Zhao Yunjiong
+    Ref: CDH-3798
+
+commit 371e8d5b2a38f743adecbe146b7c7e77683568c8
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Wed Nov 16 12:33:47 2011 -0800
+
+    HADOOP-7761. Improve performance of raw comparisons.
+    
+    Reason: low risk performance improvement
+    Author: Todd Lipcon
+    Ref: CDH-3822
+
+commit 8a120e1edaf1a833708003af806d7929f84a08be
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Wed Nov 16 12:15:14 2011 -0800
+
+    HDFS-2379. Allow block reports to proceed without holding FSDataset lock
+    
+    Reason: fix timeouts talking to DNs on datanodes with lots of blocks
+    Author: Todd Lipcon
+    Ref: CDH-3823
+
+commit 2818706e4a48344eefb3f840fc70d8f3f34a381e
+Author: Eli Collins <eli@cloudera.com>
+Date:   Thu Nov 17 08:44:19 2011 -0800
+
+    Ammend MAPREDUCE-2777. Remove TestTTMemoryReporting.
+
+commit e691c9ae61baee4920ac8dd8535bb75503339bd8
+Author: Eli Collins <eli@cloudera.com>
+Date:   Wed Nov 16 16:30:55 2011 -0800
+
+    MAPREDUCE-2777. Adds cumulative cpu usage and total heap usage to task
+    counters. Backport MAPREDUCE-220 and MAPREDUCE-2469.
+    
+    MAPREDUCE-220. Collecting cpu and memory usage for MapReduce tasks.
+    
+    It would be nice for TaskTracker to collect cpu and memory usage for
+    individual Map or Reduce tasks over time.
+    
+    MAPREDUCE-2469. Task counters should also report the total heap usage
+    of the task.
+    
+    Currently, the task counters report VSS and RSS usage of the task. The
+    task counter should also report the total heap usage of the task
+    also. The task might be configured with a max heap size of M but the
+    task's total heap usage might only be H, where H < M. In such a case,
+    knowing only M doesn't provide a complete picture of the task's memory
+    usage.
+    
+    Author: Scott Chen, Amar Kamat
+    Ref: CDH-1458
+
+commit ea81df1ff5de3b12df08e22eeffca29295914eae
+Author: Roman Shaposhnik <rvs@cloudera.com>
+Date:   Wed Nov 16 17:22:21 2011 -0800
+
+    BIGTOP-261. pseudo distributed config would benefit from dfs.safemode.extension set to 0 and dfs.safemode.min.datanodes set to 1
+    
+    Reason: Improvement
+    Author: Roman Shaposhnik
+    Ref: DISTRO-330
+
+commit b45a9f40b02b5d5859c389bfa7b17df94317614a
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Fri Nov 11 14:40:01 2011 -0800
+
+    MAPREDUCE-3289. Use fadvise in the TaskTracker's MapOutputServlet.
+    
+    The TaskTracker now uses the posix_fadvise syscall to page in map output
+    before serving it to the reducers. After serving the output, it evicts
+    it from the buffer cache since it will not be read again in the majority
+    of cases.
+    
+    This new behavior can be disabled by setting mapred.tasktracker.shuffle.fadvise
+    to false.
+    
+    This patch differs from the upstream version since the upstream version applies
+    to the NodeManager in MR2.
+    
+    Reason: Low-risk performance improvement
+    Author: Todd Lipcon
+    Ref: CDH-3818
+
+commit 139923b6c91849e59e4288f65c245f7a71cecc22
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Mon Nov 14 15:43:23 2011 -0800
+
+    MAPREDUCE-3184. Add a thread to the TaskTracker which monitors for spinning Jetty selector threads, and shuts down the daemon when one is detected.
+    
+    Reason: detect common JVM/Jetty bug and cause the TT to suicide, minimizing impact on running jobs
+    Author: Todd Lipcon
+    Ref: CDH-2785
+
+commit 45504c489dfa7255be40ecf2f2a7a8c60cece01b
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Wed Oct 26 17:57:22 2011 -0700
+
+    HDFS-2267. DataXceiver thread name incorrect while waiting on op during keepalive.
+    
+    Reason: trivial bug fix for thread names after HDFS-941
+    Author: Todd Lipcon
+    Ref: CDH-3777
+
+commit 7ed1f860044cef4a43b1eceadf2d0a5e8f11c174
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Wed Oct 26 16:53:27 2011 -0700
+
+    HDFS-941. Reuse connections between client and DN
+    
+    Also incorporates HDFS-2071. Use of isConnected() in DataXceiver is invalid
+    
+    Reason: big performance improvement for random-read workloads
+    Author: bc Wong and Todd Lipcon
+    Ref: CDH-3777
+
+commit e7c439b8842ae77d185c85d56ce294f8c6467507
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Wed Apr 21 23:03:27 2010 -0700
+
+    HDFS-1001. DataXceiver and BlockReader disagree on when to send/recv CHECKSUM_OK
+    
+    Reason: This patch is necessary for backport of HDFS-941 (socket reuse).
+    Author: bc Wong
+    Ref: CDH-3777
+
+commit 11a4341b9a7cddce9f86b1a47219c64a09cd0c8f
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Fri Nov 11 14:39:43 2011 -0800
+
+    HDFS-2465. Add HDFS support for fadvise readahead and drop-behind.
+    
+    The DataNode now can pass IO advice down to the operating system to improve
+    performance. The new behavior defaults off and can be enabled with the
+    following configs:
+    - dfs.datanode.readahead.bytes (number of bytes to readahead)
+    - dfs.datanode.drop.cache.behind.writes (boolean)
+    - dfs.datanode.sync.behind.writes (boolean)
+    - dfs.datanode.drop.cache.behind.reads (boolean)
+    
+    Reason: low-risk performance improvements
+    Author: Todd Lipcon
+    Ref: CDH-3818
+
+commit d23d17a52da7e94deac6d720e7d62706f00ee6f8
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Fri Nov 11 14:38:40 2011 -0800
+
+    HADOOP-7753. Support fadvise and sync_file_range in NativeIO. Add ReadaheadPool infrastructure for use in HDFS and MR.
+    
+    Reason: low-risk performance improvement
+    Author: Todd Lipcon
+    Ref: CDH-3818
+
+commit a888190fdc5b6356dd5325073b3120c6dfc66288
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Wed Oct 26 21:14:35 2011 -0700
+
+    MAPREDUCE-3278. Fix a busy loop in ReduceTask that would cause 100% cpu utilization during the fetch phase.
+    
+    Previously, if the number of fetch threads in the reducer exceeded the number
+    of unique hosts on which map outputs were available, the reducer would spin
+    in a tight loop waiting for fetches to complete. This adds a proper wait/notify
+    to avoid wasting CPU.
+    
+    Author: Todd Lipcon
+    Reason: low risk performance improvement
+    Ref: CDH-3817
+
+commit 6ef50ae8cebf1b974e3fd4da6c18e2b7ff12dc52
+Author: Ahmed Radwan <ahmed@cloudera.com>
+Date:   Fri Nov 11 15:38:00 2011 -0800
+
+    HDFS-94. The "Heap Size" in HDFS web ui may not be accurate.
+    
+    Reason: Bug
+    Author: Dmytro Molkov
+    Ref: CDH-3681
+
+commit f2d1ba670c2ede6b02f4ee86ca57fed7cedfc38f
+Author: Andrew Bayer <andrew@cloudera.com>
+Date:   Wed Nov 9 09:47:23 2011 -0800
+
+    CLOUDERA-BUILD. Setting default for IVY_MIRROR_PROP.
+
+commit fcfa442e85a7f3f107b2d4ea71b5f362b9fd3f99
+Author: Andrew Bayer <andrew@cloudera.com>
+Date:   Wed Nov 2 13:11:26 2011 -0700
+
+    CLOUDERA-BUILD. Adding IVY_MIRROR_PROPS to ant calls.
+    
+    This will allow overriding the URLs Ivy uses for Maven repositories,
+    so that we can have internal builds take advantage of our internal
+    Maven mirror.
+
+commit 7b21fe4cdbd166feb49af7b0a5c266010b8cc1aa
+Author: Andrew Bayer <andrew@cloudera.com>
+Date:   Thu Oct 20 09:23:21 2011 -0700
+
+    Updating for CDH3u3 development
+
 commit 95a824e4005b2a94fe1c11f1ef9db4c672ba43cb
 Author: Roman Shaposhnik <rvs@cloudera.com>
 Date:   Tue Oct 11 18:00:22 2011 -0700

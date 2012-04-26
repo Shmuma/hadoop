@@ -1,7 +1,7 @@
 From 9459e990a858f2452f04de02fce4cd011c1a8c6d Mon Sep 17 00:00:00 2001
 From: Alejandro Abdelnur <tucu@cloudera.com>
 Date: Thu, 25 Aug 2011 08:46:06 -0700
-Subject: [PATCH 1042/1065] HADOOP-7507. jvm metrics all use the same namespace.
+Subject: [PATCH 1042/1120] HADOOP-7507. jvm metrics all use the same namespace.
 
   Reason: Bug
   Author: Alejandro Abdelnur

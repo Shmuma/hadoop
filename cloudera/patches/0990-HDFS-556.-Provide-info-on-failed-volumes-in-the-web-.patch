@@ -1,7 +1,7 @@
 From 5a995e37d6430a6790f27476680da1555fbfc031 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Mon, 9 May 2011 18:06:45 -0700
-Subject: [PATCH 0990/1065] HDFS-556. Provide info on failed volumes in the web ui.
+Subject: [PATCH 0990/1120] HDFS-556. Provide info on failed volumes in the web ui.
 
 HDFS-457 provided better handling of failed volumes but did not provide a co
 rresponding view of this functionality on the web ui, such as a view of which

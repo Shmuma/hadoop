@@ -1,7 +1,7 @@
 From 8d991630bc1a04c70fbc31435b4fdb3f26033cf8 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sat, 25 Jun 2011 10:35:11 -0700
-Subject: [PATCH 0993/1065] HDFS-235. Add support for byte-ranges to hftp.
+Subject: [PATCH 0993/1120] HDFS-235. Add support for byte-ranges to hftp.
  HDFS-2110. Cleanup StreamFile#sendPartialData.
  HADOOP-7429. Add another IOUtils#copyBytes method.
  HADOOP-7057. IOUtils.readFully and IOUtils.skipFully have typo in exception creation's message.

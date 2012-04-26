@@ -1,7 +1,7 @@
 From 63c98116795d0b7908d2de335e7fcd53449bc514 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Mon, 7 Mar 2011 17:36:15 -0800
-Subject: [PATCH 0906/1065] HADOOP-7167. Allow using a file to exclude certain tests from the build.
+Subject: [PATCH 0906/1120] HADOOP-7167. Allow using a file to exclude certain tests from the build.
 
 Reason: ability to exclude known-flaky tests on golden Hudson
 Author: Todd Lipcon

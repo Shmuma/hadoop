@@ -1,7 +1,7 @@
 From 0eab1fbea6a968c2514a16a2f96a36ebfa30c6b6 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 5 Jul 2011 18:13:12 -0700
-Subject: [PATCH 1014/1065] Amend MAPREDUCE-2373. Fix a possible NPE if setPermissions fails while launching task script.
+Subject: [PATCH 1014/1120] Amend MAPREDUCE-2373. Fix a possible NPE if setPermissions fails while launching task script.
 
 Reason: avoid NPE seen in production
 Author: Todd Lipcon

@@ -1,7 +1,7 @@
 From 69fc8b16f4f098ad215582fdfc3efea26e54464f Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 8 Mar 2011 11:52:33 -0800
-Subject: [PATCH 0920/1065] HADOOP-7156. Workaround for unsafe implementations of getpwuid_r
+Subject: [PATCH 0920/1120] HADOOP-7156. Workaround for unsafe implementations of getpwuid_r
 
 Adds a new configuration hadoop.work.around.non.threadsafe.getpwuid
 which can be used to enable a mutex around this call to workaround

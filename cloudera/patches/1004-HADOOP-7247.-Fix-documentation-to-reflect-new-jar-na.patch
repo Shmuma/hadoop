@@ -1,7 +1,7 @@
 From 76ac08dad430d600c6cc69424c21d16a4ba42d42 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Tue, 5 Jul 2011 12:10:54 -0700
-Subject: [PATCH 1004/1065] HADOOP-7247. Fix documentation to reflect new jar names.
+Subject: [PATCH 1004/1120] HADOOP-7247. Fix documentation to reflect new jar names.
 
 In several places, we have the old jar naming style of hadoop - * -
 examples.jar. With Ivy and Maven, we had to rename the jars to hadoop

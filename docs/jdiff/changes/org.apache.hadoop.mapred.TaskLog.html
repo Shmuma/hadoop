@@ -18,7 +18,7 @@ org.apache.hadoop.mapred.TaskLog
     <TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
     <TABLE summary="Navigation bar" BORDER="0" CELLPADDING="0" CELLSPACING="3">
     <TR ALIGN="center" VALIGN="top">
-      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/mapred/TaskLog.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u2</tt></B></FONT></A>&nbsp;</TD>
+      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/mapred/TaskLog.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u3</tt></B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="changes-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="pkg_org.apache.hadoop.mapred.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
@@ -164,6 +164,13 @@ Class org.apache.hadoop.mapred.<A HREF="../../api/org/apache/hadoop/mapred/TaskL
 </TR>
 <TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
   <TD VALIGN="TOP" WIDTH="25%">
+  <A NAME="org.apache.hadoop.mapred.TaskLog.createTaskAttemptLogDir_added(org.apache.hadoop.mapred.TaskAttemptID, boolean, java.lang.String[])"></A>
+  <nobr><code>void</code>&nbsp;<A HREF="../../api/org/apache/hadoop/mapred/TaskLog.html#createTaskAttemptLogDir(org.apache.hadoop.mapred.TaskAttemptID, boolean, java.lang.String[])" target="_top"><tt>createTaskAttemptLogDir</tt></A>(<code>TaskAttemptID,</nobr> boolean<nobr>,</nobr> String[]<nobr><nobr></code>)</nobr>
+  </TD>
+  <TD VALIGN="TOP">Create log directory for the given attempt.</TD>
+</TR>
+<TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
+  <TD VALIGN="TOP" WIDTH="25%">
   <A NAME="org.apache.hadoop.mapred.TaskLog.getJobDir_added(java.lang.String)"></A>
   <nobr><code>File</code>&nbsp;<A HREF="../../api/org/apache/hadoop/mapred/TaskLog.html#getJobDir(java.lang.String)" target="_top"><tt>getJobDir</tt></A>(<code>String</code>)</nobr>
   </TD>
@@ -175,6 +182,13 @@ Class org.apache.hadoop.mapred.<A HREF="../../api/org/apache/hadoop/mapred/TaskL
   <nobr><code>File</code>&nbsp;<A HREF="../../api/org/apache/hadoop/mapred/TaskLog.html#getJobDir(org.apache.hadoop.mapreduce.JobID)" target="_top"><tt>getJobDir</tt></A>(<code>JobID</code>)</nobr>
   </TD>
   <TD VALIGN="TOP">Get the user log directory for the job jobid.</TD>
+</TR>
+<TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
+  <TD VALIGN="TOP" WIDTH="25%">
+  <A NAME="org.apache.hadoop.mapred.TaskLog.getTaskAttemptLogDir_added(org.apache.hadoop.mapred.TaskAttemptID, java.lang.String, java.lang.String[])"></A>
+  <nobr><code>String</code>&nbsp;<A HREF="../../api/org/apache/hadoop/mapred/TaskLog.html#getTaskAttemptLogDir(org.apache.hadoop.mapred.TaskAttemptID, java.lang.String, java.lang.String[])" target="_top"><tt>getTaskAttemptLogDir</tt></A>(<code>TaskAttemptID,</nobr> String<nobr>,</nobr> String[]<nobr><nobr></code>)</nobr>
+  </TD>
+  <TD VALIGN="TOP">Get attempt log directory path for the given attempt-id under randomly selected mapred local directory.</TD>
 </TR>
 <TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
   <TD VALIGN="TOP" WIDTH="25%">
@@ -239,7 +253,7 @@ Change in signature from (<code>TaskAttemptID, LogName</code>) to (<code>TaskAtt
     <TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
     <TABLE summary="Navigation bar" BORDER="0" CELLPADDING="0" CELLSPACING="3">
     <TR ALIGN="center" VALIGN="top">
-      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/mapred/TaskLog.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u2</tt></B></FONT></A>&nbsp;</TD>
+      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/mapred/TaskLog.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u3</tt></B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="changes-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="pkg_org.apache.hadoop.mapred.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>

@@ -1,7 +1,7 @@
 From cc57649b0c17113dde2fc8b350206dbeb159c9e3 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Mon, 7 Mar 2011 22:23:14 -0800
-Subject: [PATCH 0910/1065] Revert "HADOOP-7115. Reduces the number of calls to getpwuid_r and getpwgid_r, by implementing a cache in NativeIO."
+Subject: [PATCH 0910/1120] Revert "HADOOP-7115. Reduces the number of calls to getpwuid_r and getpwgid_r, by implementing a cache in NativeIO."
 
 This reverts commit 3ef31bcc86610d496976b4de9ada82e73f47f162.
 ---

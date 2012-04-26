@@ -1,7 +1,7 @@
 From d6d4c8bbd31486ad7661331044d0d568f6b5eabb Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Fri, 16 Sep 2011 16:37:32 -0700
-Subject: [PATCH 1048/1065] HDFS-2186. DN volume failures on startup are not counted.
+Subject: [PATCH 1048/1120] HDFS-2186. DN volume failures on startup are not counted.
 
 Volume failures detected on startup are not currently counted/reported
 as such. Eg if you have configured 4 volumes, 2 tolerated failures,

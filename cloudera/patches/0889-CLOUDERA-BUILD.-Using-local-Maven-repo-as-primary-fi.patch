@@ -1,7 +1,7 @@
 From 80e7cd19dd23f552efd0bdf1f8b0509aa6b4b3d3 Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Mon, 21 Feb 2011 10:32:23 -0800
-Subject: [PATCH 0889/1065] CLOUDERA-BUILD. Using local Maven repo as primary first in chain.
+Subject: [PATCH 0889/1120] CLOUDERA-BUILD. Using local Maven repo as primary first in chain.
 
 Tweaks to pre-fetch dependencies into ~/.m2/repository before ant
 build is run, with Ivy configured to get from there before trying
