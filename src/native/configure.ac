@@ -113,6 +113,7 @@ AC_FUNC_STRERROR_R
 AC_CONFIG_FILES([Makefile
                  src/org/apache/hadoop/io/compress/zlib/Makefile
                  src/org/apache/hadoop/io/compress/snappy/Makefile
+                 src/org/apache/hadoop/io/compress/lz4/Makefile
                  src/org/apache/hadoop/io/nativeio/Makefile
                  src/org/apache/hadoop/security/Makefile
                  lib/Makefile])

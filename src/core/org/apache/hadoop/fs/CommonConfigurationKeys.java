@@ -57,6 +57,14 @@ public class CommonConfigurationKeys {
   public static final int IO_COMPRESSION_CODEC_SNAPPY_BUFFERSIZE_DEFAULT =
       256 * 1024;
 
+  /** Internal buffer size for Snappy compressor/decompressors */
+  public static final String IO_COMPRESSION_CODEC_LZ4_BUFFERSIZE_KEY =
+      "io.compression.codec.lz4.buffersize";
+
+  /** Default value for IO_COMPRESSION_CODEC_SNAPPY_BUFFERSIZE_KEY */
+  public static final int IO_COMPRESSION_CODEC_LZ4_BUFFERSIZE_DEFAULT =
+      256 * 1024;
+
   /** See src/core/core-default.xml */
   public static final String HADOOP_RELAXED_VERSION_CHECK_KEY =
       "hadoop.relaxed.worker.version.check";
