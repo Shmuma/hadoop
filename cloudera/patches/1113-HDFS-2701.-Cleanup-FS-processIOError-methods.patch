@@ -1,7 +1,7 @@
 From 09a73c40213864289256e8b7e749eef3f7caa778 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sun, 18 Dec 2011 13:52:48 -0800
-Subject: [PATCH 1113/1120] HDFS-2701. Cleanup FS* processIOError methods.
+Subject: [PATCH 1113/1179] HDFS-2701. Cleanup FS* processIOError methods.
 
 Let's rename the various "processIOError" methods to be more
 descriptive. The current code makes it difficult to identify and

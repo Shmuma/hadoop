@@ -1,7 +1,7 @@
 From 2d52a4c5814814bf0a95c71906d2b4efcc1aa755 Mon Sep 17 00:00:00 2001
 From: Jonathan Hsieh <jon@cloudera.com>
 Date: Mon, 28 Nov 2011 10:50:31 -0800
-Subject: [PATCH 1100/1120] HDFS-617 Support for non-recursive create() in HDFS
+Subject: [PATCH 1100/1179] HDFS-617 Support for non-recursive create() in HDFS
 
 This backport adds CDH-specific backwards-compatibility handling of non-recursive file create()
 

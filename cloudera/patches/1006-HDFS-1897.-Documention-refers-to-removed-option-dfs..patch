@@ -1,7 +1,7 @@
 From 72cefcf1c9848ccb08a391a22830b403cd70a9a9 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Tue, 5 Jul 2011 12:18:57 -0700
-Subject: [PATCH 1006/1120] HDFS-1897. Documention refers to removed option dfs.network.script.
+Subject: [PATCH 1006/1179] HDFS-1897. Documention refers to removed option dfs.network.script.
 
 The HDFS user guide tells users to use dfs.network.script for rack
 awareness. In fact, this option has been removed and using it will

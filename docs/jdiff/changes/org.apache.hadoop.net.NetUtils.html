@@ -18,7 +18,7 @@ org.apache.hadoop.net.NetUtils
     <TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
     <TABLE summary="Navigation bar" BORDER="0" CELLPADDING="0" CELLSPACING="3">
     <TR ALIGN="center" VALIGN="top">
-      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/net/NetUtils.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u3</tt></B></FONT></A>&nbsp;</TD>
+      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/net/NetUtils.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u4</tt></B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="changes-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="pkg_org.apache.hadoop.net.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
@@ -63,6 +63,27 @@ Class org.apache.hadoop.net.<A HREF="../../api/org/apache/hadoop/net/NetUtils.ht
   </TD>
   <TD VALIGN="TOP">This is a drop-in replacement for <A HREF="../../api/Socket#connect(SocketAddress.html" target="_top">int)</A> In the case of normal sockets that don't have associated channels this just invokes <code>socket.connect(endpoint timeout)</code>.</TD>
 </TR>
+<TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
+  <TD VALIGN="TOP" WIDTH="25%">
+  <A NAME="org.apache.hadoop.net.NetUtils.connect_added(java.net.Socket, java.net.SocketAddress, java.net.SocketAddress, int)"></A>
+  <nobr><code>void</code>&nbsp;<A HREF="../../api/org/apache/hadoop/net/NetUtils.html#connect(java.net.Socket, java.net.SocketAddress, java.net.SocketAddress, int)" target="_top"><tt>connect</tt></A>(<code>Socket,</nobr> SocketAddress<nobr>,</nobr> SocketAddress<nobr>,</nobr> int<nobr><nobr></code>)</nobr>
+  </TD>
+  <TD VALIGN="TOP">Like <A HREF="../../api/NetUtils#connect(Socket.html" target="_top">SocketAddres</A> int)} but also takes a local address and port to bind the socket to.</TD>
+</TR>
+<TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
+  <TD VALIGN="TOP" WIDTH="25%">
+  <A NAME="org.apache.hadoop.net.NetUtils.getIPs_added(java.lang.String, boolean)"></A>
+  <nobr><code>List</code>&nbsp;<A HREF="../../api/org/apache/hadoop/net/NetUtils.html#getIPs(java.lang.String, boolean)" target="_top"><tt>getIPs</tt></A>(<code>String,</nobr> boolean<nobr><nobr></code>)</nobr>
+  </TD>
+  <TD VALIGN="TOP">Return an InetAddress for each interface that matches the given subnet specified using CIDR notation.</TD>
+</TR>
+<TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
+  <TD VALIGN="TOP" WIDTH="25%">
+  <A NAME="org.apache.hadoop.net.NetUtils.isValidSubnet_added(java.lang.String)"></A>
+  <nobr><code>boolean</code>&nbsp;<A HREF="../../api/org/apache/hadoop/net/NetUtils.html#isValidSubnet(java.lang.String)" target="_top"><tt>isValidSubnet</tt></A>(<code>String</code>)</nobr>
+  </TD>
+  <TD VALIGN="TOP">@return true if the given string is a subnet specified using CIDR notation false otherwise</TD>
+</TR>
 </TABLE>
 &nbsp;
 <p>
@@ -102,6 +123,16 @@ Change in return type from <code>String></code> to <code>List</code>.<br>
   </TD>
   <TD VALIGN="TOP">Given a collection of string representation of hosts return a list of corresponding IP addresses in the textual representation.</TD>
 </TR>
+<TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
+  <TD VALIGN="TOP" WIDTH="25%">
+  <A NAME="org.apache.hadoop.net.NetUtils.getInputStream_changed(java.net.Socket, long)"></A>
+  <nobr><code>SocketInputWrapper</code>&nbsp;<A HREF="../../api/org/apache/hadoop/net/NetUtils.html#getInputStream(java.net.Socket, long)" target="_top"><tt>getInputStream</tt></A>(<code>Socket,</nobr> long<nobr><nobr></code>)  </nobr>
+  </TD>
+  <TD VALIGN="TOP" WIDTH="30%">
+Change in return type from <code>InputStream</code> to <code>SocketInputWrapper</code>.<br>
+  </TD>
+  <TD VALIGN="TOP">Return a <A HREF="../../api/SocketInputWrapper.html" target="_top">SocketInputWrapper</A> for the socket and set the given timeout.</TD>
+</TR>
 </TABLE>
 &nbsp;
 <a NAME="fields"></a>
@@ -112,7 +143,7 @@ Change in return type from <code>String></code> to <code>List</code>.<br>
     <TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
     <TABLE summary="Navigation bar" BORDER="0" CELLPADDING="0" CELLSPACING="3">
     <TR ALIGN="center" VALIGN="top">
-      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/net/NetUtils.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u3</tt></B></FONT></A>&nbsp;</TD>
+      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/net/NetUtils.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u4</tt></B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="changes-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="pkg_org.apache.hadoop.net.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>

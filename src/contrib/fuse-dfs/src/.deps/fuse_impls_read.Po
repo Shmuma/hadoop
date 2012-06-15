@@ -29,11 +29,11 @@ fuse_impls_read.o: fuse_impls_read.c fuse_dfs.h /usr/include/stdio.h \
  /usr/include/sys/statvfs.h /usr/include/bits/statvfs.h \
  /usr/include/sys/uio.h /usr/include/fuse/fuse_opt.h fuse_impls.h \
  fuse_context_handle.h \
- /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/c++/libhdfs/hdfs.h \
+ /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/c++/libhdfs/hdfs.h \
  /usr/include/bits/waitflags.h /usr/include/bits/waitstatus.h \
  /usr/include/alloca.h /usr/include/bits/stdlib.h \
- /opt/cloudera/toolchain/sun-jdk-64bit-1.6.0.26/include/jni.h \
- /opt/cloudera/toolchain/sun-jdk-64bit-1.6.0.26/include/linux/jni_md.h \
+ /opt/toolchain/sun-jdk-64bit-1.6.0.26/include/jni.h \
+ /opt/toolchain/sun-jdk-64bit-1.6.0.26/include/linux/jni_md.h \
  fuse_file_handle.h /usr/include/pthread.h /usr/include/sched.h \
  /usr/include/bits/sched.h /usr/include/signal.h \
  /usr/include/bits/setjmp.h
@@ -172,7 +172,7 @@ fuse_impls.h:
 
 fuse_context_handle.h:
 
-/var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/c++/libhdfs/hdfs.h:
+/var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/c++/libhdfs/hdfs.h:
 
 /usr/include/bits/waitflags.h:
 
@@ -182,9 +182,9 @@ fuse_context_handle.h:
 
 /usr/include/bits/stdlib.h:
 
-/opt/cloudera/toolchain/sun-jdk-64bit-1.6.0.26/include/jni.h:
+/opt/toolchain/sun-jdk-64bit-1.6.0.26/include/jni.h:
 
-/opt/cloudera/toolchain/sun-jdk-64bit-1.6.0.26/include/linux/jni_md.h:
+/opt/toolchain/sun-jdk-64bit-1.6.0.26/include/linux/jni_md.h:
 
 fuse_file_handle.h:
 

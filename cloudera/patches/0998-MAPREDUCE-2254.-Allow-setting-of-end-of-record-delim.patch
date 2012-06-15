@@ -1,7 +1,7 @@
 From f0e8a989ff4be91c1428eea1d6e27cc3d13d5817 Mon Sep 17 00:00:00 2001
 From: Ahmed Radwan <ahmed@cloudera.com>
 Date: Thu, 23 Jun 2011 07:20:43 -0700
-Subject: [PATCH 0998/1120] MAPREDUCE-2254. Allow setting of end-of-record delimiter for
+Subject: [PATCH 0998/1179] MAPREDUCE-2254. Allow setting of end-of-record delimiter for
  TextInputFormat.
  MAPREDUCE-2602. Allow setting of end-of-record delimiter for
  TextInputFormat (for the old API).

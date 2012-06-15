@@ -25,6 +25,7 @@ import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.ipc.*;
 import org.apache.hadoop.fs.FileAlreadyExistsException;
+import org.apache.hadoop.net.DNS;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.net.NodeBase;
 import org.apache.hadoop.conf.*;
@@ -54,6 +55,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
+
+import org.apache.hadoop.thirdparty.guava.common.base.Joiner;
+import org.apache.hadoop.thirdparty.guava.common.net.InetAddresses;
 
 import javax.net.SocketFactory;
 
@@ -89,6 +93,8 @@ public class DFSClient implements FSConstants, java.io.Closeable {
   private final FileSystem.Statistics stats;
   private int maxBlockAcquireFailures;
   private boolean shortCircuitLocalReads;
+  private boolean connectToDnViaHostname;
+  private SocketAddress[] localInterfaceAddrs;
 
   final SocketCache socketCache;
 
@@ -151,10 +157,12 @@ public class DFSClient implements FSConstants, java.io.Closeable {
 
   /** Create {@link ClientDatanodeProtocol} proxy with block/token */
   static ClientDatanodeProtocol createClientDatanodeProtocolProxy (
-      DatanodeID datanodeid, Configuration conf, int socketTimeout,
-      Block block, Token<BlockTokenIdentifier> token) throws IOException {
-    InetSocketAddress addr = NetUtils.createSocketAddr(
-      datanodeid.getHost() + ":" + datanodeid.getIpcPort());
+      DatanodeInfo di, Configuration conf, int socketTimeout,
+      Block block, Token<BlockTokenIdentifier> token,
+      boolean connectToDnViaHostname) throws IOException {
+    final String dnName = di.getNameWithIpcPort(connectToDnViaHostname);
+    LOG.debug("Connecting to " + dnName);
+    InetSocketAddress addr = NetUtils.createSocketAddr(dnName);
     if (ClientDatanodeProtocol.LOG.isDebugEnabled()) {
       ClientDatanodeProtocol.LOG.info("ClientDatanodeProtocol addr=" + addr);
     }
@@ -168,10 +176,11 @@ public class DFSClient implements FSConstants, java.io.Closeable {
         
   /** Create {@link ClientDatanodeProtocol} proxy using kerberos ticket */
   static ClientDatanodeProtocol createClientDatanodeProtocolProxy(
-      DatanodeID datanodeid, Configuration conf, int socketTimeout)
-      throws IOException {
-    InetSocketAddress addr = NetUtils.createSocketAddr(
-      datanodeid.getHost() + ":" + datanodeid.getIpcPort());
+      DatanodeInfo di, Configuration conf, int socketTimeout,
+      boolean connectToDnViaHostname) throws IOException {
+    final String dnName = di.getNameWithIpcPort(connectToDnViaHostname);
+    LOG.debug("Connecting to " + dnName);
+    InetSocketAddress addr = NetUtils.createSocketAddr(dnName);
     if (ClientDatanodeProtocol.LOG.isDebugEnabled()) {
       ClientDatanodeProtocol.LOG.info("ClientDatanodeProtocol addr=" + addr);
     }
@@ -260,6 +269,20 @@ public class DFSClient implements FSConstants, java.io.Closeable {
     if (LOG.isDebugEnabled()) {
       LOG.debug("Short circuit read is " + shortCircuitLocalReads);
     }
+    this.connectToDnViaHostname = conf.getBoolean(
+        DFSConfigKeys.DFS_CLIENT_USE_DN_HOSTNAME,
+        DFSConfigKeys.DFS_CLIENT_USE_DN_HOSTNAME_DEFAULT);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Connect to datanode via hostname is " + connectToDnViaHostname);
+    }
+    String localInterfaces[] =
+      conf.getTrimmedStrings(DFSConfigKeys.DFS_CLIENT_LOCAL_INTERFACES);
+    this.localInterfaceAddrs = getLocalInterfaceAddrs(localInterfaces);
+    if (LOG.isDebugEnabled() && 0 != localInterfaces.length) {
+      LOG.debug("Using local interfaces [" +
+          Joiner.on(',').join(localInterfaces)+ "] with addresses [" +
+          Joiner.on(',').join(localInterfaceAddrs) + "]");
+    }
   }
 
   static int getMaxBlockAcquireFailures(Configuration conf) {
@@ -286,6 +309,7 @@ public class DFSClient implements FSConstants, java.io.Closeable {
         leasechecker.interruptAndJoin();
       } catch (InterruptedException ie) {
       }
+      socketCache.clear();
   
       // close connections to the namenode
       RPC.stopProxy(rpcNamenode);
@@ -348,14 +372,14 @@ public class DFSClient implements FSConstants, java.io.Closeable {
   /**
    * Get {@link BlockReader} for short circuited local reads.
    */
-  private static BlockReader getLocalBlockReader(Configuration conf,
+  private BlockReader getLocalBlockReader(Configuration conf,
       String src, Block blk, Token<BlockTokenIdentifier> accessToken,
       DatanodeInfo chosenNode, int socketTimeout, long offsetIntoBlock)
       throws InvalidToken, IOException {
     try {
       return BlockReaderLocal.newBlockReader(conf, src, blk, accessToken,
           chosenNode, socketTimeout, offsetIntoBlock, blk.getNumBytes()
-              - offsetIntoBlock);
+              - offsetIntoBlock, connectToDnViaHostname);
     } catch (RemoteException re) {
       throw re.unwrapRemoteException(InvalidToken.class,
           AccessControlException.class);
@@ -369,11 +393,12 @@ public class DFSClient implements FSConstants, java.io.Closeable {
   private static boolean isLocalAddress(InetSocketAddress targetAddr) {
     InetAddress addr = targetAddr.getAddress();
     Boolean cached = localAddrMap.get(addr.getHostAddress());
-    if (cached != null && cached) {
+    if (cached != null) {
       if (LOG.isTraceEnabled()) {
-        LOG.trace("Address " + targetAddr + " is local");
+        LOG.trace("Address " + targetAddr +
+                  (cached ? " is local" : " is not local"));
       }
-      return true;
+      return cached;
     }
 
     // Check if the address is any local or loop back
@@ -388,7 +413,8 @@ public class DFSClient implements FSConstants, java.io.Closeable {
       }
     }
     if (LOG.isTraceEnabled()) {
-      LOG.trace("Address " + targetAddr + " is local");
+      LOG.trace("Address " + targetAddr +
+                (local ? " is local" : " is not local"));
     }
     localAddrMap.put(addr.getHostAddress(), local);
     return local;
@@ -836,6 +862,60 @@ public class DFSClient implements FSConstants, java.io.Closeable {
   }
 
   /**
+   * Return the socket addresses to use with each configured
+   * local interface. Local interfaces may be specified by IP
+   * address, IP address range using CIDR notation, interface
+   * name (e.g. eth0) or sub-interface name (e.g. eth0:0).
+   * The socket addresses consist of the IPs for the interfaces
+   * and the ephemeral port (port 0). If an IP, IP range, or
+   * interface name matches an interface with sub-interfaces
+   * only the IP of the interface is used. Sub-interfaces can
+   * be used by specifying them explicitly (by IP or name).
+   * 
+   * @return SocketAddresses for the configured local interfaces,
+   *    or an empty array if none are configured
+   * @throws UnknownHostException if a given interface name is invalid
+   */
+  private static SocketAddress[] getLocalInterfaceAddrs(
+      String interfaceNames[]) throws UnknownHostException {
+    List<SocketAddress> localAddrs = new ArrayList<SocketAddress>();
+    for (String interfaceName : interfaceNames) {
+      if (InetAddresses.isInetAddress(interfaceName)) {
+        localAddrs.add(new InetSocketAddress(interfaceName, 0));
+      } else if (NetUtils.isValidSubnet(interfaceName)) {
+        for (InetAddress addr : NetUtils.getIPs(interfaceName, false)) {
+          localAddrs.add(new InetSocketAddress(addr, 0));
+        }
+      } else {
+        for (String ip : DNS.getIPs(interfaceName, false)) {
+          localAddrs.add(new InetSocketAddress(ip, 0));
+        }
+      }
+    }
+    return localAddrs.toArray(new SocketAddress[localAddrs.size()]);
+  }
+
+  /**
+   * Select one of the configured local interfaces at random. We use a random
+   * interface because other policies like round-robin are less effective
+   * given that we cache connections to datanodes.
+   *
+   * @return one of the local interface addresses at random, or null if no
+   *    local interfaces are configured
+   */
+  private SocketAddress getRandomLocalInterfaceAddr() {
+    if (localInterfaceAddrs.length == 0) {
+      return null;
+    }
+    final int idx = r.nextInt(localInterfaceAddrs.length);
+    final SocketAddress addr = localInterfaceAddrs[idx];
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Using local interface " + addr);
+    }
+    return addr;
+  }
+
+  /**
    * Get the checksum of a file.
    * @param src The file path
    * @return The checksum 
@@ -843,7 +923,7 @@ public class DFSClient implements FSConstants, java.io.Closeable {
    */
   MD5MD5CRC32FileChecksum getFileChecksum(String src) throws IOException {
     checkOpen();
-    return getFileChecksum(src, namenode, socketFactory, socketTimeout);    
+    return getFileChecksum(src, namenode, socketFactory, socketTimeout, connectToDnViaHostname);    
   }
 
   /**
@@ -854,6 +934,12 @@ public class DFSClient implements FSConstants, java.io.Closeable {
   public static MD5MD5CRC32FileChecksum getFileChecksum(String src,
       ClientProtocol namenode, SocketFactory socketFactory, int socketTimeout
       ) throws IOException {
+    return getFileChecksum(src, namenode, socketFactory, socketTimeout, false);
+  }
+
+  private static MD5MD5CRC32FileChecksum getFileChecksum(String src,
+      ClientProtocol namenode, SocketFactory socketFactory, int socketTimeout,
+      boolean connectToDnViaHostname) throws IOException {
     //get all block locations
     List<LocatedBlock> locatedblocks
         = callGetBlockLocations(namenode, src, 0, Long.MAX_VALUE).getLocatedBlocks();
@@ -882,8 +968,10 @@ public class DFSClient implements FSConstants, java.io.Closeable {
       for(int j = 0; !done && j < datanodes.length; j++) {
         //connect to a datanode
         final Socket sock = socketFactory.createSocket();
+        final String dnName = datanodes[j].getName(connectToDnViaHostname);
+        LOG.debug("Connecting to " + dnName);
         NetUtils.connect(sock, 
-                         NetUtils.createSocketAddr(datanodes[j].getName()),
+                         NetUtils.createSocketAddr(dnName),
                          timeout);
         sock.setSoTimeout(timeout);
 
@@ -895,7 +983,7 @@ public class DFSClient implements FSConstants, java.io.Closeable {
         // get block MD5
         try {
           if (LOG.isDebugEnabled()) {
-            LOG.debug("write to " + datanodes[j].getName() + ": "
+            LOG.debug("write to " + dnName + ": "
                 + DataTransferProtocol.OP_BLOCK_CHECKSUM +
                 ", block=" + block);
           }
@@ -913,7 +1001,7 @@ public class DFSClient implements FSConstants, java.io.Closeable {
               if (LOG.isDebugEnabled()) {
                 LOG.debug("Got access token error in response to OP_BLOCK_CHECKSUM "
                     + "for file " + src + " for block " + block
-                    + " from datanode " + datanodes[j].getName()
+                    + " from datanode " + dnName
                     + ". Will retry the block once.");
               }
               lastRetriedIndex = i;
@@ -923,7 +1011,7 @@ public class DFSClient implements FSConstants, java.io.Closeable {
               break;
             } else {
               throw new IOException("Bad response " + reply + " for block "
-                  + block + " from datanode " + datanodes[j].getName());
+                  + block + " from datanode " + dnName);
             }
           }
 
@@ -954,12 +1042,10 @@ public class DFSClient implements FSConstants, java.io.Closeable {
               LOG.debug("set bytesPerCRC=" + bytesPerCRC
                   + ", crcPerBlock=" + crcPerBlock);
             }
-            LOG.debug("got reply from " + datanodes[j].getName()
-                + ": md5=" + md5);
+            LOG.debug("got reply from " + dnName + ": md5=" + md5);
           }
         } catch (IOException ie) {
-          LOG.warn("src=" + src + ", datanodes[" + j + "].getName()="
-              + datanodes[j].getName(), ie);
+          LOG.warn("src=" + src + ", datanodes[" + j + "]=" + dnName, ie);
         } finally {
           IOUtils.closeStream(in);
           IOUtils.closeStream(out);
@@ -1320,7 +1406,7 @@ public class DFSClient implements FSConstants, java.io.Closeable {
     }
   }
 
-  /** Utility class to encapsulate data node info and its ip address. */
+  /** Utility class to encapsulate data node info and its address. */
   private static class DNAddrPair {
     DatanodeInfo info;
     InetSocketAddress addr;
@@ -1848,7 +1934,7 @@ public class DFSClient implements FSConstants, java.io.Closeable {
           try {
             primary = createClientDatanodeProtocolProxy(
               primaryNode, conf, DFSClient.this.socketTimeout,
-              last.getBlock(), last.getBlockToken());
+              last.getBlock(), last.getBlockToken(), connectToDnViaHostname);
             Block newBlock = primary.getBlockInfo(last.getBlock());
             long newBlockSize = newBlock.getNumBytes();
             long delta = newBlockSize - last.getBlockSize();
@@ -2206,8 +2292,8 @@ public class DFSClient implements FSConstants, java.io.Closeable {
         DatanodeInfo[] nodes = block.getLocations();
         try {
           DatanodeInfo chosenNode = bestNode(nodes, deadNodes);
-          InetSocketAddress targetAddr = 
-                            NetUtils.createSocketAddr(chosenNode.getName());
+          InetSocketAddress targetAddr =
+            NetUtils.createSocketAddr(chosenNode.getName(connectToDnViaHostname));
           return new DNAddrPair(chosenNode, targetAddr);
         } catch (IOException ie) {
           String blockInfo = block.getBlock() + " file=" + src;
@@ -2353,7 +2439,13 @@ public class DFSClient implements FSConstants, java.io.Closeable {
       // Allow retry since there is no way of knowing whether the cached socket
       // is good until we actually use it.
       for (int retries = 0; retries <= nCachedConnRetry && fromCache; ++retries) {
-        Socket sock = socketCache.get(dnAddr);
+        Socket sock = null;
+        // Don't use the cache on the last attempt - it's possible that there
+        // are arbitrarily many unusable sockets in the cache, but we don't
+        // want to fail the read.
+        if (retries < nCachedConnRetry) {
+          sock = socketCache.get(dnAddr);
+        }
         if (sock == null) {
           fromCache = false;
   
@@ -2374,7 +2466,8 @@ public class DFSClient implements FSConstants, java.io.Closeable {
           // disaster.
           sock.setTcpNoDelay(true);
   
-          NetUtils.connect(sock, dnAddr, socketTimeout);
+          LOG.debug("Connecting to " + dnAddr);
+          NetUtils.connect(sock, dnAddr, getRandomLocalInterfaceAddr(), socketTimeout);
           sock.setSoTimeout(socketTimeout);
         }
   
@@ -3114,7 +3207,7 @@ public class DFSClient implements FSConstants, java.io.Closeable {
           int recoveryTimeout =
             (newnodes.length * 2 + 2) * DFSClient.this.socketTimeout;
           primary = createClientDatanodeProtocolProxy(
-              primaryNode, conf, recoveryTimeout, block, accessToken);
+              primaryNode, conf, recoveryTimeout, block, accessToken, connectToDnViaHostname);
           newBlock = primary.recoverBlock(block, isAppend, newnodes);
         } catch (IOException e) {
           LOG.warn("Failed recovery attempt #" + recoveryErrorCount +
@@ -3465,12 +3558,13 @@ public class DFSClient implements FSConstants, java.io.Closeable {
       persistBlocks = true;
 
       try {
-        LOG.debug("Connecting to " + nodes[0].getName());
-        InetSocketAddress target = NetUtils.createSocketAddr(nodes[0].getName());
+        final String dnName = nodes[0].getName(connectToDnViaHostname);
+        LOG.debug("Connecting to " + dnName);
+        InetSocketAddress target = NetUtils.createSocketAddr(dnName);
         s = socketFactory.createSocket();
         int timeoutValue =
           (socketTimeout > 0) ? (3000 * nodes.length + socketTimeout) : 0;
-        NetUtils.connect(s, target, timeoutValue);
+        NetUtils.connect(s, target, getRandomLocalInterfaceAddr(), timeoutValue);
         s.setSoTimeout(timeoutValue);
         s.setSendBufferSize(DEFAULT_DATA_SOCKET_SIZE);
         LOG.debug("Send buf size " + s.getSendBufferSize());

@@ -1,7 +1,7 @@
 From 6037aff7bb49c057b9661d83fb7c89dfd3694738 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 8 Mar 2011 15:55:11 -0800
-Subject: [PATCH 0915/1120] HADOOP-7154. Set MALLOC_ARENA_MAX in default config
+Subject: [PATCH 0915/1179] HADOOP-7154. Set MALLOC_ARENA_MAX in default config
 
 Reason: RHEL 6.0 support
 Author: Todd Lipcon

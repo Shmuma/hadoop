@@ -1,7 +1,7 @@
 From 25d2544f138b41918c7861880c4dc61988b808b0 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Mon, 5 Dec 2011 16:16:31 -0800
-Subject: [PATCH 1097/1120] HDFS-2638. Improve a block recovery log.
+Subject: [PATCH 1097/1179] HDFS-2638. Improve a block recovery log.
 
 It would be useful to know whether an attempt to recover a block is
 failing because the block was already recovered (has a new GS) or the

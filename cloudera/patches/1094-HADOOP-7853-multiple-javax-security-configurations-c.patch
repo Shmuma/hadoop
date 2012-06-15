@@ -1,7 +1,7 @@
 From caa7d7ddd79b0775edb780c6a9cbf71d23bc4a99 Mon Sep 17 00:00:00 2001
 From: Alejandro Abdelnur <tucu@cloudera.com>
 Date: Tue, 29 Nov 2011 11:49:09 -0800
-Subject: [PATCH 1094/1120] HADOOP-7853 multiple javax security configurations cause conflicts.
+Subject: [PATCH 1094/1179] HADOOP-7853 multiple javax security configurations cause conflicts.
 
   Reason: Hadoop-auth initialization and UGI initialization issues due to global config.
   Author: Daryn Sharp

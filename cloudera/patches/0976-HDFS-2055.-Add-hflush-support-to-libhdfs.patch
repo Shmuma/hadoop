@@ -1,7 +1,7 @@
 From 1f3e7f44a9c6f56b4a2921faa82f0d81321dbd64 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Wed, 22 Jun 2011 10:54:00 -0700
-Subject: [PATCH 0976/1120] HDFS-2055. Add hflush support to libhdfs.
+Subject: [PATCH 0976/1179] HDFS-2055. Add hflush support to libhdfs.
 
 Reason: New Feature
 Author: Travis Crawford

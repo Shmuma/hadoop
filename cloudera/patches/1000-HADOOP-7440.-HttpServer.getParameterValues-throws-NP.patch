@@ -1,7 +1,7 @@
 From 2e9c10c247d5be1ea9b9b20983ada0e898d7e3ab Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Mon, 4 Jul 2011 14:44:06 -0700
-Subject: [PATCH 1000/1120] HADOOP-7440. HttpServer.getParameterValues throws NPE for missing parameters
+Subject: [PATCH 1000/1179] HADOOP-7440. HttpServer.getParameterValues throws NPE for missing parameters
 
 Reason: fix user-visible NPE
 Author: Todd Lipcon

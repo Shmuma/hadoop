@@ -32,6 +32,7 @@ import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.lang.Math;
 import java.nio.channels.FileChannel;
 import java.nio.ByteBuffer;
@@ -49,6 +50,8 @@ import org.apache.hadoop.io.*;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.permission.*;
 import org.apache.hadoop.security.token.delegation.DelegationKey;
+
+import org.apache.hadoop.thirdparty.guava.common.annotations.VisibleForTesting;
 
 /**
  * FSEditLog maintains a log of the namespace modifications.
@@ -181,31 +184,38 @@ public class FSEditLog {
 
     @Override
     public void close() throws IOException {
-      // close should have been called after all pending transactions 
-      // have been flushed & synced.
-      if (bufCurrent != null) {
-        int bufSize = bufCurrent.size();
-        if (bufSize != 0) {
-          throw new IOException("FSEditStream has " + bufSize +
-                                " bytes still to be flushed and cannot " +
-                                "be closed.");
-        } 
-        bufCurrent.close();
-        bufCurrent = null;
-      }
+      try {
+        // close should have been called after all pending transactions 
+        // have been flushed & synced.
+        if (bufCurrent != null) {
+          int bufSize = bufCurrent.size();
+          if (bufSize != 0) {
+            throw new IOException("FSEditStream has " + bufSize +
+                                  " bytes still to be flushed and cannot " +
+                                  "be closed.");
+          } 
+          bufCurrent.close();
+          bufCurrent = null;
+        }
       
-      if (bufReady != null) {
-        bufReady.close();
-        bufReady = null;
-      }
+        if (bufReady != null) {
+          bufReady.close();
+          bufReady = null;
+        }
 
-      // remove the last INVALID marker from transaction log.
-      if (fc != null && fc.isOpen()) {
-        fc.truncate(fc.position());
-        fc.close();
-      }
-      if (fp != null) {
-        fp.close();
+        // remove the last INVALID marker from transaction log.
+        if (fc != null && fc.isOpen()) {
+          fc.truncate(fc.position());
+          fc.close();
+        }
+        if (fp != null) {
+          fp.close();
+        }
+      } finally {
+        IOUtils.cleanup(FSNamesystem.LOG, bufCurrent, bufReady, fc, fp);
+        bufCurrent = bufReady = null;
+        fc = null;
+        fp = null;
       }
     }
 
@@ -264,6 +274,16 @@ public class FSEditLog {
      */
     File getFile() {
       return file;
+    }
+
+    @VisibleForTesting
+    public void setFileChannelForTesting(FileChannel fc) {
+      this.fc = fc;
+    }
+  
+    @VisibleForTesting
+    public FileChannel getFileChannelForTesting() {
+      return fc;
     }
   }
 
@@ -459,6 +479,7 @@ public class FSEditLog {
 
     File dir = getStorageDirForStream(idx);
     editStreams.remove(idx);
+    exitIfNoStreams();
     fsimage.removeStorageDir(dir);
   }
   
@@ -480,6 +501,7 @@ public class FSEditLog {
         editStreams.remove(idx);
       }
     }
+    exitIfNoStreams();
   }
   
   /**
@@ -519,7 +541,8 @@ public class FSEditLog {
    * This is where we apply edits that we've been writing to disk all
    * along.
    */
-  static int loadFSEdits(EditLogInputStream edits) throws IOException {
+  static int loadFSEdits(EditLogInputStream edits,
+      MetaRecoveryContext recovery) throws IOException {
     FSNamesystem fsNamesys = FSNamesystem.getFSNamesystem();
     FSDirectory fsDir = fsNamesys.dir;
     int numEdits = 0;
@@ -533,7 +556,7 @@ public class FSEditLog {
         numOpTimes = 0, numOpGetDelegationToken = 0,
         numOpRenewDelegationToken = 0, numOpCancelDelegationToken = 0,
         numOpUpdateMasterKey = 0, numOpOther = 0;
-
+    long highestGenStamp = -1;
     long startTime = FSNamesystem.now();
 
     // Keep track of the file offsets of the last several opcodes.
@@ -577,7 +600,8 @@ public class FSEditLog {
           opcode = in.readByte();
           if (opcode == OP_INVALID) {
             FSNamesystem.LOG.info("Invalid opcode, reached end of edit log " +
-                                   "Number of transactions found " + numEdits);
+                       "Number of transactions found: " + numEdits + ".  " +
+                       "Bytes read: " + tracker.getPos());
             break; // no more transactions
           }
         } catch (EOFException e) {
@@ -753,9 +777,14 @@ public class FSEditLog {
         case OP_SET_GENSTAMP: {
           numOpSetGenStamp++;
           long lw = in.readLong();
+          if ((highestGenStamp != -1) && (highestGenStamp + 1 != lw)) {
+            throw new IOException("OP_SET_GENSTAMP tried to set a genstamp of " + lw + 
+              " but the previous highest genstamp was " + highestGenStamp);
+          }
+          highestGenStamp = lw;
           fsDir.namesystem.setGenerationStamp(lw);
           break;
-        } 
+        }
         case OP_DATANODE_ADD: {
           numOpOther++;
           FSImage.DatanodeImage nodeimage = new FSImage.DatanodeImage();
@@ -903,8 +932,8 @@ public class FSEditLog {
         }
       }
       String errorMessage = sb.toString();
-      FSImage.LOG.error(errorMessage);
-      throw new IOException(errorMessage, t);
+      FSImage.LOG.error(errorMessage, t);
+      MetaRecoveryContext.editLogLoaderPrompt(errorMessage, recovery);
     } finally {
       in.close();
     }
@@ -1074,9 +1103,9 @@ public class FSEditLog {
         return;
       }
 
+      exitIfNoStreams();
       numEditStreams = editStreams.size();
-      assert numEditStreams > 0 : "no editlog streams";
-   
+
       // now, this thread will do the sync
       syncStart = txid;
       isSyncRunning = true;   
@@ -1354,8 +1383,9 @@ public class FSEditLog {
     //
     // Open edits.new
     //
-    boolean failedSd = false;
     Iterator<StorageDirectory> it = fsimage.dirIterator(NameNodeDirType.EDITS);
+    LinkedList<StorageDirectory> toRemove =
+        new LinkedList<StorageDirectory>();
     while (it.hasNext()) {
       StorageDirectory sd = it.next();
       try {
@@ -1364,14 +1394,20 @@ public class FSEditLog {
         eStream.create();
         editStreams.add(eStream);
       } catch (IOException ioe) {
-        failedSd = true;
-        sd.unlock();
-        removeEditsForStorageDir(sd);
-        fsimage.updateRemovedDirs(sd, ioe);
+        FSImage.LOG.error("error retrying to reopen storage directory '" +
+            sd.getRoot().getAbsolutePath() + "'", ioe);
+        toRemove.add(sd);
         it.remove();
       }
     }
-    if (failedSd) {
+    // updateRemovedDirs will abort the NameNode if it removes the last
+    // valid edit log directory.
+    for (StorageDirectory sd : toRemove) {
+      sd.unlock();
+      removeEditsForStorageDir(sd);
+      fsimage.updateRemovedDirs(sd);
+    }
+    if (!toRemove.isEmpty()) {
       fsimage.incrementCheckpointTime();  // update time for the valid ones
     }
     exitIfNoStreams();

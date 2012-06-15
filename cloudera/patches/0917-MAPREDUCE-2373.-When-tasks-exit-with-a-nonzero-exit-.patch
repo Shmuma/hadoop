@@ -1,7 +1,7 @@
 From c48cec8fa73f8aaa3a565a4f57985b93157e6caf Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 9 Mar 2011 14:20:51 -0800
-Subject: [PATCH 0917/1120] MAPREDUCE-2373. When tasks exit with a nonzero exit status, task runner should log the stderr as well as stdout
+Subject: [PATCH 0917/1179] MAPREDUCE-2373. When tasks exit with a nonzero exit status, task runner should log the stderr as well as stdout
 
 Reason: assists debugging of task failures
 Author: Todd Lipcon

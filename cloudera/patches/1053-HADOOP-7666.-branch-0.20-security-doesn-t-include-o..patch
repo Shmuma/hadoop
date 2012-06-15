@@ -1,7 +1,7 @@
 From f77da510bd7e4606477bf475731c8b303ffcae68 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Wed, 21 Sep 2011 15:58:20 -0700
-Subject: [PATCH 1053/1120] HADOOP-7666. branch-0.20-security doesn't include o.a.h.security.TestAuthenticationFilter
+Subject: [PATCH 1053/1179] HADOOP-7666. branch-0.20-security doesn't include o.a.h.security.TestAuthenticationFilter
 
 Reason: Bug
 Author: Aaron T. Myers

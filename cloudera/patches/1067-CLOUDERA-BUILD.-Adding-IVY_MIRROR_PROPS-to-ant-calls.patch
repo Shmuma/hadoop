@@ -1,7 +1,7 @@
 From fcfa442e85a7f3f107b2d4ea71b5f362b9fd3f99 Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew@cloudera.com>
 Date: Wed, 2 Nov 2011 13:11:26 -0700
-Subject: [PATCH 1067/1120] CLOUDERA-BUILD. Adding IVY_MIRROR_PROPS to ant calls.
+Subject: [PATCH 1067/1179] CLOUDERA-BUILD. Adding IVY_MIRROR_PROPS to ant calls.
 
 This will allow overriding the URLs Ivy uses for Maven repositories,
 so that we can have internal builds take advantage of our internal

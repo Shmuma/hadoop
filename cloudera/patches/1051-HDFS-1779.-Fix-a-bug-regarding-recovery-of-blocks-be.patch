@@ -1,7 +1,7 @@
 From 81caf3bf3a5099a7b15a6f55aae930d7beb96a0c Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Sun, 18 Sep 2011 10:14:23 -0700
-Subject: [PATCH 1051/1120] HDFS-1779. Fix a bug regarding recovery of blocks being written while NN restarts
+Subject: [PATCH 1051/1179] HDFS-1779. Fix a bug regarding recovery of blocks being written while NN restarts
 
 This patch adds a new RPC 'blocksBeingWrittenReport()' which the DN calls
 on startup and when it re-connects to a restarted NameNode. This reports

@@ -1,7 +1,7 @@
 From a3dcabc6542035a0943648bdace5702192c7187c Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 5 Apr 2011 22:47:40 -0700
-Subject: [PATCH 0985/1120] Amend HADOOP-6762 to fix potential deadlock.
+Subject: [PATCH 0985/1179] Amend HADOOP-6762 to fix potential deadlock.
 
 This fixes a deadlock that occurs if the writing of the call parameters
 throws an IOException after the timeout ping time has elapsed.

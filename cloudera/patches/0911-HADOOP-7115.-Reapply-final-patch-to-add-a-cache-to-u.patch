@@ -1,7 +1,7 @@
 From df154b1e141761112f667455baab2b4620f1b465 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Mon, 7 Mar 2011 22:36:45 -0800
-Subject: [PATCH 0911/1120] HADOOP-7115. Reapply final patch to add a cache to username resolution
+Subject: [PATCH 0911/1179] HADOOP-7115. Reapply final patch to add a cache to username resolution
 
 Also fixes a bug where a user not found would trigger an assertion error
 and crash the JVM.

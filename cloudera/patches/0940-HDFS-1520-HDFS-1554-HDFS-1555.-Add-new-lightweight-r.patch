@@ -1,7 +1,7 @@
 From 53dd2c7f23291ee58a5d0d4ab8bab1b5bf47b2ba Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Fri, 11 Mar 2011 10:31:04 -0800
-Subject: [PATCH 0940/1120] HDFS-1520, HDFS-1554, HDFS-1555. Add new lightweight recoverLease API for use by HBase
+Subject: [PATCH 0940/1179] HDFS-1520, HDFS-1554, HDFS-1555. Add new lightweight recoverLease API for use by HBase
 
 This adds a limited-public API recoverLease() which is used by the HBase master
 when recovering the HBase write-ahead log.

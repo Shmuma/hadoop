@@ -1,7 +1,7 @@
 From 8f4bc5f77bb496928529d1d56fe5831d35c89d83 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 8 Mar 2011 13:24:22 -0800
-Subject: [PATCH 0918/1120] MAPREDUCE-2371. Fix TaskLogsTruncater to not need to call obtainLogsDirOwner
+Subject: [PATCH 0918/1179] MAPREDUCE-2371. Fix TaskLogsTruncater to not need to call obtainLogsDirOwner
 
 Reason: fixes unnecessary fork in child tasks which causes higher ulimit requirements
  compared to CDH2

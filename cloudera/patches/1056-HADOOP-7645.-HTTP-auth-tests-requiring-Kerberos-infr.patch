@@ -1,7 +1,7 @@
 From 15d9970fde48893b17320bf6596b39f4c512b0f2 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Thu, 22 Sep 2011 18:27:40 -0700
-Subject: [PATCH 1056/1120] HADOOP-7645. HTTP auth tests requiring Kerberos infrastructure are not disabled on branch-0.20-security
+Subject: [PATCH 1056/1179] HADOOP-7645. HTTP auth tests requiring Kerberos infrastructure are not disabled on branch-0.20-security
 
 Reason: Bug
 Author: Jitendra Nath Pandey

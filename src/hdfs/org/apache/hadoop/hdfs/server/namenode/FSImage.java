@@ -118,6 +118,7 @@ public class FSImage extends Storage {
   private boolean restoreFailedStorage = false;
 
   public void setRestoreFailedStorage(boolean val) {
+    FSImage.LOG.info("Enabling FSImage storage restoration");
     restoreFailedStorage=val;
   }
 
@@ -222,6 +223,11 @@ public class FSImage extends Storage {
 
   void updateRemovedDirs(StorageDirectory sd, IOException ioe) {
     LOG.warn("Removing storage dir " + sd.getRoot().getPath(), ioe);
+    removedStorageDirs.add(sd);
+  }
+
+  void updateRemovedDirs(StorageDirectory sd) {
+    LOG.warn("Removing storage dir " + sd.getRoot().getPath());
     removedStorageDirs.add(sd);
   }
 
@@ -374,14 +380,15 @@ public class FSImage extends Storage {
     case REGULAR:
       // just load the image
     }
-    return loadFSImage();
+    return loadFSImage(startOpt.createRecoveryContext());
   }
 
   private void doUpgrade() throws IOException {
+    MetaRecoveryContext recovery = null;
     if(getDistributedUpgradeState()) {
       // only distributed upgrade need to continue
       // don't do version upgrade
-      this.loadFSImage();
+      this.loadFSImage(recovery);
       initializeDistributedUpgrade();
       return;
     }
@@ -397,7 +404,7 @@ public class FSImage extends Storage {
     }
 
     // load the latest image
-    this.loadFSImage();
+    this.loadFSImage(recovery);
 
     // Do upgrade for each directory
     long oldCTime = this.getCTime();
@@ -637,6 +644,7 @@ public class FSImage extends Storage {
         editLog.removeEditsForStorageDir(sd);
         updateRemovedDirs(sd, ioe);
         it.remove();
+        editLog.removeEditsForStorageDir(sd);
       }
     }
     editLog.exitIfNoStreams();
@@ -655,8 +663,9 @@ public class FSImage extends Storage {
         } catch (Exception e) {
           // Ignore
         }
-        updateRemovedDirs(sd, null);
+        updateRemovedDirs(sd);
         it.remove();
+        editLog.removeEditsForStorageDir(sd);
       }
     }
   }
@@ -746,7 +755,7 @@ public class FSImage extends Storage {
    * @return whether the image should be saved
    * @throws IOException
    */
-  boolean loadFSImage() throws IOException {
+  boolean loadFSImage(MetaRecoveryContext recovery) throws IOException {
     // Now check all curFiles and see which is the newest
     long latestNameCheckpointTime = Long.MIN_VALUE;
     long latestEditsCheckpointTime = Long.MIN_VALUE;
@@ -841,7 +850,7 @@ public class FSImage extends Storage {
       // the image is already current, discard edits
       needToSave |= true;
     else // latestNameCheckpointTime == latestEditsCheckpointTime
-      needToSave |= (loadFSEdits(latestEditsSD) > 0);
+      needToSave |= (loadFSEdits(latestEditsSD, recovery) > 0);
     
     return needToSave;
   }
@@ -1026,16 +1035,17 @@ public class FSImage extends Storage {
    * @return number of edits loaded
    * @throws IOException
    */
-  int loadFSEdits(StorageDirectory sd) throws IOException {
+  int loadFSEdits(StorageDirectory sd, MetaRecoveryContext recovery)
+      throws IOException {
     int numEdits = 0;
     EditLogFileInputStream edits = 
       new EditLogFileInputStream(getImageFile(sd, NameNodeFile.EDITS));
-    numEdits = FSEditLog.loadFSEdits(edits);
+    numEdits = FSEditLog.loadFSEdits(edits, recovery);
     edits.close();
     File editsNew = getImageFile(sd, NameNodeFile.EDITS_NEW);
     if (editsNew.exists() && editsNew.length() > 0) {
       edits = new EditLogFileInputStream(editsNew);
-      numEdits += FSEditLog.loadFSEdits(edits);
+      numEdits += FSEditLog.loadFSEdits(edits, recovery);
       edits.close();
     }
     // update the counts.
@@ -1139,6 +1149,8 @@ public class FSImage extends Storage {
                                                               it.hasNext();) {
       StorageDirectory sd = it.next();
       try {
+        if (sd.getStorageDirType().isOfType(NameNodeDirType.IMAGE_AND_EDITS))
+          continue; // this has already been saved as IMAGE directory
         saveCurrent(sd);
       } catch(IOException ie) {
         LOG.error("Unable to save edits for " + sd.getRoot(), ie);
@@ -1486,7 +1498,7 @@ public class FSImage extends Storage {
         curFile.delete();
         if (!ckpt.renameTo(curFile)) {
           editLog.removeEditsForStorageDir(sd);
-          updateRemovedDirs(sd, null);
+          updateRemovedDirs(sd);
           it.remove();
         }
       }

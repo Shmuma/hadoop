@@ -1,7 +1,7 @@
 From aaeecc5050d10ff5788cea98de3004e72a0c3a3c Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sun, 27 Nov 2011 18:20:29 -0800
-Subject: [PATCH 1092/1120] CLOUDERA-BUILD. Update eclipse classpath.
+Subject: [PATCH 1092/1179] CLOUDERA-BUILD. Update eclipse classpath.
 
 ---
  .eclipse.templates/.classpath |    6 +++---

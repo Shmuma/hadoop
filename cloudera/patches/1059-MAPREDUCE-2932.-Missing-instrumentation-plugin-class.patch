@@ -1,7 +1,7 @@
 From ba8f83f3ff5877e2f4039dc0c02cb26fc4f45852 Mon Sep 17 00:00:00 2001
 From: Harsh J <harsh@cloudera.com>
 Date: Fri, 23 Sep 2011 17:19:58 +0530
-Subject: [PATCH 1059/1120] MAPREDUCE-2932. Missing instrumentation plugin class shouldn't crash the TT startup
+Subject: [PATCH 1059/1179] MAPREDUCE-2932. Missing instrumentation plugin class shouldn't crash the TT startup
 
 Missing instrumentation plugin class shouldn't crash the TT startup per
 design, and should fallback to default instead.

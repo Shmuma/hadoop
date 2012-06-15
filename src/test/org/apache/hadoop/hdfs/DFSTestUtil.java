@@ -136,6 +136,12 @@ public class DFSTestUtil {
           replicationFactor, files[idx].getSeed());
     }
   }
+
+  public static String readFile(FileSystem fs, Path fileName) throws IOException {
+    ByteArrayOutputStream os = new ByteArrayOutputStream();
+    IOUtils.copyBytes(fs.open(fileName), os, 1024, true);
+    return os.toString();
+  }
   
   public static void createFile(FileSystem fs, Path fileName, long fileLen, 
       short replFactor, long seed) throws IOException {

@@ -1,7 +1,7 @@
 From 03b655719d13929bd68bb2c2f9cee615b389cea9 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Thu, 5 Jan 2012 10:35:36 -0800
-Subject: [PATCH 1117/1120] HDFS-2751. Datanode drops OS cache behind reads even for short reads.
+Subject: [PATCH 1117/1179] HDFS-2751. Datanode drops OS cache behind reads even for short reads.
 
 HDFS-2465 has some code which attempts to disable the "drop cache
 behind reads" functionality when the reads are <256KB (eg HBase

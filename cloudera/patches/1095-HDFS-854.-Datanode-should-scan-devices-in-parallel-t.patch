@@ -1,7 +1,7 @@
 From 8b29bcbea6d6886e84d6dfced7179439f219543e Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sun, 27 Nov 2011 21:57:11 -0800
-Subject: [PATCH 1095/1120] HDFS-854. Datanode should scan devices in parallel to generate block report.
+Subject: [PATCH 1095/1179] HDFS-854. Datanode should scan devices in parallel to generate block report.
 
 A Datanode should scan its disk devices in parallel so that the time
 to generate a block report is reduced. This will reduce the startup

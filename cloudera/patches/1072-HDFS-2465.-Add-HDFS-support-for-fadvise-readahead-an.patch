@@ -1,7 +1,7 @@
 From 11a4341b9a7cddce9f86b1a47219c64a09cd0c8f Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Fri, 11 Nov 2011 14:39:43 -0800
-Subject: [PATCH 1072/1120] HDFS-2465. Add HDFS support for fadvise readahead and drop-behind.
+Subject: [PATCH 1072/1179] HDFS-2465. Add HDFS support for fadvise readahead and drop-behind.
 
 The DataNode now can pass IO advice down to the operating system to improve
 performance. The new behavior defaults off and can be enabled with the

@@ -1,7 +1,7 @@
 From 645b176875769c8dcbf7d839926eb735bdfd5b14 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Wed, 29 Jun 2011 23:16:27 -0700
-Subject: [PATCH 0994/1120] HADOOP-7040. DiskChecker:mkdirsWithExistsCheck swallows FileNotFoundException.
+Subject: [PATCH 0994/1179] HADOOP-7040. DiskChecker:mkdirsWithExistsCheck swallows FileNotFoundException.
 
 Reason: Bug
 Author: Boris Shkolnik

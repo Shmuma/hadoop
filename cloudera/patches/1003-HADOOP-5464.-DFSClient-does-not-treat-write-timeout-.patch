@@ -1,7 +1,7 @@
 From d0a46bc2c278a9f6c19365ac712c2945269f8ee1 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Tue, 5 Jul 2011 11:26:08 -0700
-Subject: [PATCH 1003/1120] HADOOP-5464. DFSClient does not treat write timeout of 0 properly.
+Subject: [PATCH 1003/1179] HADOOP-5464. DFSClient does not treat write timeout of 0 properly.
 
 dfs.datanode.socket.write.timeout is used for sockets to and from
 datanodes. It is 8 minutes by default. Some users set this to 0,

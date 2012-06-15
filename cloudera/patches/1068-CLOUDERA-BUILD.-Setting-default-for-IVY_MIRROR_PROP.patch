@@ -1,7 +1,7 @@
 From f2d1ba670c2ede6b02f4ee86ca57fed7cedfc38f Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew@cloudera.com>
 Date: Wed, 9 Nov 2011 09:47:23 -0800
-Subject: [PATCH 1068/1120] CLOUDERA-BUILD. Setting default for IVY_MIRROR_PROP.
+Subject: [PATCH 1068/1179] CLOUDERA-BUILD. Setting default for IVY_MIRROR_PROP.
 
 ---
  cloudera/do-release-build |    1 +

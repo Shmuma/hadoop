@@ -1,7 +1,7 @@
 From e1d94a529d7adac4012854703ea4b10d21f8829b Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 15 Mar 2011 15:00:27 -0700
-Subject: [PATCH 0937/1120] MAPREDUCE-1563. TaskDiagnosticInfo may be missed sometime
+Subject: [PATCH 0937/1179] MAPREDUCE-1563. TaskDiagnosticInfo may be missed sometime
 
 Reason: Bug fix via 0.20-security-203
 Author: Krishna Ramachandran

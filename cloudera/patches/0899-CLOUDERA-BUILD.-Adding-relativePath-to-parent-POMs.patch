@@ -1,7 +1,7 @@
 From 74127ea6ddff6b107dc0e2a7a72365482e33a5c0 Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Sun, 6 Mar 2011 18:40:26 -0800
-Subject: [PATCH 0899/1120] CLOUDERA-BUILD. Adding relativePath to parent POMs.
+Subject: [PATCH 0899/1179] CLOUDERA-BUILD. Adding relativePath to parent POMs.
 
 ---
  cloudera-pom.xml                                  |    1 +

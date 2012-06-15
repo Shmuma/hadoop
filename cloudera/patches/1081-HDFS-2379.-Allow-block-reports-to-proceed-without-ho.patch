@@ -1,7 +1,7 @@
 From 8a120e1edaf1a833708003af806d7929f84a08be Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 16 Nov 2011 12:15:14 -0800
-Subject: [PATCH 1081/1120] HDFS-2379. Allow block reports to proceed without holding FSDataset lock
+Subject: [PATCH 1081/1179] HDFS-2379. Allow block reports to proceed without holding FSDataset lock
 
 Reason: fix timeouts talking to DNs on datanodes with lots of blocks
 Author: Todd Lipcon

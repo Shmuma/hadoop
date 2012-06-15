@@ -1,7 +1,7 @@
 From fa023cef12584d6f38f17b05ea95445eb187cb9e Mon Sep 17 00:00:00 2001
 From: Jonathan Hsieh <jon@cloudera.com>
 Date: Fri, 2 Dec 2011 17:15:06 -0800
-Subject: [PATCH 1103/1120] HADOOP-7879 DistributedFileSystem#createNonRecursive should also incrementWriteOps statistics.
+Subject: [PATCH 1103/1179] HADOOP-7879 DistributedFileSystem#createNonRecursive should also incrementWriteOps statistics.
 
 Reason: Bug (hbase data loss)
 Author: Jonathan Hsieh

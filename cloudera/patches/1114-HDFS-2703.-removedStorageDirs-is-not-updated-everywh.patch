@@ -1,7 +1,7 @@
 From fcab1c7f36866fdc09cb9939ff8786d690502b81 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sun, 18 Dec 2011 14:00:58 -0800
-Subject: [PATCH 1114/1120] HDFS-2703. removedStorageDirs is not updated everywhere we remove a
+Subject: [PATCH 1114/1179] HDFS-2703. removedStorageDirs is not updated everywhere we remove a
  storage dir.
 
 There are a number of places (FSEditLog#open, purgeEditLog, and

@@ -1,7 +1,7 @@
 From da757539930beecd990188d5b0e2796f8fbb3953 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Fri, 11 Mar 2011 13:10:28 -0800
-Subject: [PATCH 0921/1120] MAPREDUCE-2376. Allow test-task-controller to specify the user to test as
+Subject: [PATCH 0921/1179] MAPREDUCE-2376. Allow test-task-controller to specify the user to test as
 
 Can now specify a username in the TC_TEST_USERNAME environment variable
 in order for this test to pass when running as a userid < 1000.

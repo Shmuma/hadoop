@@ -1,7 +1,7 @@
 From 71618e9eb918d8e27a57db8a40683bd8a3e0d7d1 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Thu, 21 Apr 2011 17:35:44 -0700
-Subject: [PATCH 0949/1120] HADOOP-7229. Absolute path to kinit in auto-renewal thread
+Subject: [PATCH 0949/1179] HADOOP-7229. Absolute path to kinit in auto-renewal thread
 
 Reason: Bug
 Author: Aaron T. Myers

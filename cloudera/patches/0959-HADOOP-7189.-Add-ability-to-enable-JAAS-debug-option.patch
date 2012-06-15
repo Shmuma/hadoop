@@ -1,7 +1,7 @@
 From b96019898f7c4cba702371a7ef238977ddc88b0e Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Thu, 12 May 2011 15:05:11 -0700
-Subject: [PATCH 0959/1120] HADOOP-7189. Add ability to enable JAAS debug option with an environment variable.
+Subject: [PATCH 0959/1179] HADOOP-7189. Add ability to enable JAAS debug option with an environment variable.
 
 Adds the HADOOP_JAAS_DEBUG environment variable, which, when set to "true", dumps
 extra debugging information out of JAAS.

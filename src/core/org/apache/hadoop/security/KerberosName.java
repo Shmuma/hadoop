@@ -80,9 +80,6 @@ public class KerberosName {
       kerbConf = Config.getInstance();
       defaultRealm = kerbConf.getDefaultRealm();
     } catch (KrbException ke) {
-      if(UserGroupInformation.isSecurityEnabled())
-        throw new IllegalArgumentException("Can't get Kerberos configuration",ke);
-      else 
         defaultRealm="";
     }
   }

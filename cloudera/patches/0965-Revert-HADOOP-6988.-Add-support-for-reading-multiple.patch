@@ -1,7 +1,7 @@
 From d94813ecd0d4b3f63f4d30baa8a22a59dc76d5a8 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Tue, 24 May 2011 14:26:47 -0700
-Subject: [PATCH 0965/1120] Revert "HADOOP-6988. Add support for reading multiple hadoop delegation token files"
+Subject: [PATCH 0965/1179] Revert "HADOOP-6988. Add support for reading multiple hadoop delegation token files"
 
 This reverts commit ce67cd87f21543348ca5c137dee3ff0dc7f338dd.
 ---

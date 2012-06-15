@@ -1,7 +1,7 @@
 From 86fe9a95f6356855038f9c605fe54e682304c88e Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Thu, 12 May 2011 15:52:25 -0700
-Subject: [PATCH 0961/1120] Amend HDFS-1378. Edit log replay should track and report file offsets in case of errors
+Subject: [PATCH 0961/1179] Amend HDFS-1378. Edit log replay should track and report file offsets in case of errors
 
 Reason: Original back-port had a bug. This back-port includes the fix as committed to trunk.
 Author: Aaron T. Myers and Todd Lipcon

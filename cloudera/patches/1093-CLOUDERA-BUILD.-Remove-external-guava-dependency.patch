@@ -1,7 +1,7 @@
 From ade43c9a6eee7eec2f237edcadb370f07c72a176 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Mon, 28 Nov 2011 10:47:17 -0800
-Subject: [PATCH 1093/1120] CLOUDERA-BUILD. Remove external guava dependency.
+Subject: [PATCH 1093/1179] CLOUDERA-BUILD. Remove external guava dependency.
 
 Remove the guava-r09 external dependency by rebasing the r09 jar on
 o.a.h.thirdparty.guava and bundling the rebased jar in our lib dir.

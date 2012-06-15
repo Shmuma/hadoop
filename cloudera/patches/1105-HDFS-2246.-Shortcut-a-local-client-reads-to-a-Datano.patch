@@ -1,7 +1,7 @@
 From c955c99664e9902542ce4a0787ffac909a22a69c Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Thu, 8 Dec 2011 17:07:29 -0800
-Subject: [PATCH 1105/1120] HDFS-2246. Shortcut a local client reads to a Datanodes files directly.
+Subject: [PATCH 1105/1179] HDFS-2246. Shortcut a local client reads to a Datanodes files directly.
 
 Reason: Performance
 Author: Jitendra Nath Pandey, Eli Collins

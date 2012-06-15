@@ -223,7 +223,7 @@ public class TestEditLogRace extends TestCase {
       File editFile = FSImage.getImageFile(it.next(), NameNodeFile.EDITS);
       System.out.println("Verifying file: " + editFile);
       int numEdits = FSEditLog.loadFSEdits(
-        new FSEditLog.EditLogFileInputStream(editFile));
+        new FSEditLog.EditLogFileInputStream(editFile), null);
       System.out.println("Number of edits: " + numEdits);
     }
   }

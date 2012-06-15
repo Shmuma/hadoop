@@ -18,7 +18,7 @@ JDiff Statistics
 <TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
   <TABLE summary="Navigation bar" BORDER="0" CELLPADDING="0" CELLSPACING="3">
     <TR ALIGN="center" VALIGN="top">
-      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/index.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u3</tt></B></FONT></A>&nbsp;</TD>
+      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/index.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u4</tt></B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="changes-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> &nbsp;<FONT CLASS="NavBarFont1">Package</FONT>&nbsp;</TD>
       <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1"> &nbsp;<FONT CLASS="NavBarFont1">Class</FONT>&nbsp;</TD>
@@ -53,7 +53,7 @@ Where <code>added</code> is the number of packages added, <code>removed</code> i
 This definition is applied recursively for the classes and their program elements, so the value for a changed package will be less than 1, unless every class in that package has changed.
 The definition ensures that if all packages are removed and all new packages are
 added, the change will be 100%. Values are rounded here, so a value of 0% indicates a percentage difference of less than 0.5%.
-<p>The overall difference between the two APIs is approximately 26%.
+<p>The overall difference between the two APIs is approximately 29%.
 </BLOCKQUOTE>
 <h3>Sections</h3>
 <a href="#packages">Packages</a> sorted by percentage difference<br>
@@ -72,12 +72,20 @@ added, the change will be 100%. Values are rounded here, so a value of 0% indica
   <TD><A HREF="pkg_org.apache.hadoop.security.html">org.apache.hadoop.security</A></TD>
 </TR>
 <TR>
+  <TD ALIGN="center">81</TD>
+  <TD><A HREF="pkg_org.apache.hadoop.mapreduce.lib.partition.html">org.apache.hadoop.mapreduce.lib.partition</A></TD>
+</TR>
+<TR>
   <TD ALIGN="center">76</TD>
   <TD><A HREF="pkg_org.apache.hadoop.metrics.ganglia.html">org.apache.hadoop.metrics.ganglia</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">66</TD>
   <TD><A HREF="pkg_org.apache.hadoop.filecache.html">org.apache.hadoop.filecache</A></TD>
+</TR>
+<TR>
+  <TD ALIGN="center">59</TD>
+  <TD><A HREF="pkg_org.apache.hadoop.mapreduce.lib.input.html">org.apache.hadoop.mapreduce.lib.input</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">41</TD>
@@ -89,7 +97,7 @@ added, the change will be 100%. Values are rounded here, so a value of 0% indica
 </TR>
 <TR>
   <TD ALIGN="center">39</TD>
-  <TD><A HREF="pkg_org.apache.hadoop.mapreduce.lib.input.html">org.apache.hadoop.mapreduce.lib.input</A></TD>
+  <TD><A HREF="pkg_org.apache.hadoop.mapreduce.lib.output.html">org.apache.hadoop.mapreduce.lib.output</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">39</TD>
@@ -102,10 +110,6 @@ added, the change will be 100%. Values are rounded here, so a value of 0% indica
 <TR>
   <TD ALIGN="center">38</TD>
   <TD><A HREF="pkg_org.apache.hadoop.ipc.metrics.html">org.apache.hadoop.ipc.metrics</A></TD>
-</TR>
-<TR>
-  <TD ALIGN="center">33</TD>
-  <TD><A HREF="pkg_org.apache.hadoop.mapreduce.lib.partition.html">org.apache.hadoop.mapreduce.lib.partition</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">25</TD>
@@ -140,8 +144,16 @@ added, the change will be 100%. Values are rounded here, so a value of 0% indica
   <TD><A HREF="pkg_org.apache.hadoop.html">org.apache.hadoop</A></TD>
 </TR>
 <TR>
+  <TD ALIGN="center">14</TD>
+  <TD><A HREF="pkg_org.apache.hadoop.mapreduce.lib.map.html">org.apache.hadoop.mapreduce.lib.map</A></TD>
+</TR>
+<TR>
   <TD ALIGN="center">13</TD>
   <TD><A HREF="pkg_org.apache.hadoop.tools.html">org.apache.hadoop.tools</A></TD>
+</TR>
+<TR>
+  <TD ALIGN="center">13</TD>
+  <TD><A HREF="pkg_org.apache.hadoop.net.html">org.apache.hadoop.net</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">13</TD>
@@ -150,10 +162,6 @@ added, the change will be 100%. Values are rounded here, so a value of 0% indica
 <TR>
   <TD ALIGN="center">12</TD>
   <TD><A HREF="pkg_org.apache.hadoop.fs.permission.html">org.apache.hadoop.fs.permission</A></TD>
-</TR>
-<TR>
-  <TD ALIGN="center">11</TD>
-  <TD><A HREF="pkg_org.apache.hadoop.mapreduce.lib.output.html">org.apache.hadoop.mapreduce.lib.output</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">9</TD>
@@ -198,137 +206,143 @@ added, the change will be 100%. Values are rounded here, so a value of 0% indica
 </TR>
 <TR>
   <TD ALIGN="center">2</TD>
-  <TD>0.06666666666666667</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=20.0></TD>
+  <TD>0.0625</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=18.75></TD>
 </TR>
 <TR>
   <TD ALIGN="center">3</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">5</TD>
-  <TD>0.06666666666666667</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=20.0></TD>
+  <TD>0.0625</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=18.75></TD>
 </TR>
 <TR>
   <TD ALIGN="center">6</TD>
-  <TD>0.06666666666666667</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=20.0></TD>
+  <TD>0.0625</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=18.75></TD>
 </TR>
 <TR>
   <TD ALIGN="center">9</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
-</TR>
-<TR>
-  <TD ALIGN="center">11</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">12</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">13</TD>
-  <TD>0.06666666666666667</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=20.0></TD>
+  <TD>0.09375</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=28.125></TD>
+</TR>
+<TR>
+  <TD ALIGN="center">14</TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">16</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">18</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">19</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">21</TD>
-  <TD>0.1</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=30.0></TD>
+  <TD>0.09375</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=28.125></TD>
 </TR>
 <TR>
   <TD ALIGN="center">22</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">25</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
-</TR>
-<TR>
-  <TD ALIGN="center">33</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">38</TD>
-  <TD>0.06666666666666667</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=20.0></TD>
+  <TD>0.0625</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=18.75></TD>
 </TR>
 <TR>
   <TD ALIGN="center">39</TD>
-  <TD>0.06666666666666667</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=20.0></TD>
+  <TD>0.0625</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=18.75></TD>
 </TR>
 <TR>
   <TD ALIGN="center">40</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">41</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
+</TR>
+<TR>
+  <TD ALIGN="center">59</TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">66</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">76</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
+</TR>
+<TR>
+  <TD ALIGN="center">81</TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <TR>
   <TD ALIGN="center">93</TD>
-  <TD>0.03333333333333333</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=10.0></TD>
+  <TD>0.03125</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=9.375></TD>
 </TR>
 <!-- START_PACKAGE_HISTOGRAM
-2,0.06666666666666667
-3,0.03333333333333333
-5,0.06666666666666667
-6,0.06666666666666667
-9,0.03333333333333333
-11,0.03333333333333333
-12,0.03333333333333333
-13,0.06666666666666667
-16,0.03333333333333333
-18,0.03333333333333333
-19,0.03333333333333333
-21,0.1
-22,0.03333333333333333
-25,0.03333333333333333
-33,0.03333333333333333
-38,0.06666666666666667
-39,0.06666666666666667
-40,0.03333333333333333
-41,0.03333333333333333
-66,0.03333333333333333
-76,0.03333333333333333
-93,0.03333333333333333
+2,0.0625
+3,0.03125
+5,0.0625
+6,0.0625
+9,0.03125
+12,0.03125
+13,0.09375
+14,0.03125
+16,0.03125
+18,0.03125
+19,0.03125
+21,0.09375
+22,0.03125
+25,0.03125
+38,0.0625
+39,0.0625
+40,0.03125
+41,0.03125
+59,0.03125
+66,0.03125
+76,0.03125
+81,0.03125
+93,0.03125
 END_PACKAGE_HISTOGRAM -->
 </TABLE>
 <hr>
@@ -426,6 +440,11 @@ org.apache.hadoop.util.GenericOptionsParser</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">44</TD>
+  <TD><A HREF="org.apache.hadoop.util.ProcfsBasedProcessTree.html">
+org.apache.hadoop.util.ProcfsBasedProcessTree</A></TD>
+</TR>
+<TR>
+  <TD ALIGN="center">44</TD>
   <TD><A HREF="org.apache.hadoop.ipc.Client.html">
 org.apache.hadoop.ipc.Client</A></TD>
 </TR>
@@ -443,11 +462,6 @@ org.apache.hadoop.ipc.RPC.Server</A></TD>
   <TD ALIGN="center">42</TD>
   <TD><A HREF="org.apache.hadoop.security.authorize.ServiceAuthorizationManager.html">
 org.apache.hadoop.security.authorize.ServiceAuthorizationManager</A></TD>
-</TR>
-<TR>
-  <TD ALIGN="center">42</TD>
-  <TD><A HREF="org.apache.hadoop.util.ProcfsBasedProcessTree.html">
-org.apache.hadoop.util.ProcfsBasedProcessTree</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">35</TD>
@@ -586,6 +600,11 @@ org.apache.hadoop.util.Shell</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">22</TD>
+  <TD><A HREF="org.apache.hadoop.mapreduce.JobContext.html">
+org.apache.hadoop.mapreduce.JobContext</A></TD>
+</TR>
+<TR>
+  <TD ALIGN="center">22</TD>
   <TD><A HREF="org.apache.hadoop.util.ServletUtil.html">
 org.apache.hadoop.util.ServletUtil</A></TD>
 </TR>
@@ -608,11 +627,6 @@ org.apache.hadoop.mapred.lib.db.DBOutputFormat</A></TD>
   <TD ALIGN="center">20</TD>
   <TD><A HREF="org.apache.hadoop.mapred.lib.db.DBOutputFormat.DBRecordWriter.html">
 org.apache.hadoop.mapred.lib.db.DBOutputFormat.DBRecordWriter</A></TD>
-</TR>
-<TR>
-  <TD ALIGN="center">20</TD>
-  <TD><A HREF="org.apache.hadoop.mapreduce.JobContext.html">
-org.apache.hadoop.mapreduce.JobContext</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">20</TD>
@@ -666,6 +680,11 @@ org.apache.hadoop.io.compress.DecompressorStream</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">15</TD>
+  <TD><A HREF="org.apache.hadoop.http.HttpServer.html">
+org.apache.hadoop.http.HttpServer</A></TD>
+</TR>
+<TR>
+  <TD ALIGN="center">15</TD>
   <TD><A HREF="org.apache.hadoop.ipc.Server.html">
 org.apache.hadoop.ipc.Server</A></TD>
 </TR>
@@ -695,9 +714,9 @@ org.apache.hadoop.mapreduce.lib.output.FileOutputCommitter</A></TD>
 org.apache.hadoop.util.LinuxMemoryCalculatorPlugin</A></TD>
 </TR>
 <TR>
-  <TD ALIGN="center">13</TD>
-  <TD><A HREF="org.apache.hadoop.http.HttpServer.html">
-org.apache.hadoop.http.HttpServer</A></TD>
+  <TD ALIGN="center">12</TD>
+  <TD><A HREF="org.apache.hadoop.net.NetUtils.html">
+org.apache.hadoop.net.NetUtils</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">12</TD>
@@ -726,6 +745,11 @@ org.apache.hadoop.util.MemoryCalculatorPlugin</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">11</TD>
+  <TD><A HREF="org.apache.hadoop.conf.Configuration.html">
+org.apache.hadoop.conf.Configuration</A></TD>
+</TR>
+<TR>
+  <TD ALIGN="center">11</TD>
   <TD><A HREF="org.apache.hadoop.io.compress.zlib.BuiltInZlibDeflater.html">
 org.apache.hadoop.io.compress.zlib.BuiltInZlibDeflater</A></TD>
 </TR>
@@ -746,13 +770,13 @@ org.apache.hadoop.mapred.tools.MRAdmin</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">11</TD>
-  <TD><A HREF="org.apache.hadoop.util.VersionInfo.html">
-org.apache.hadoop.util.VersionInfo</A></TD>
+  <TD><A HREF="org.apache.hadoop.net.DNS.html">
+org.apache.hadoop.net.DNS</A></TD>
 </TR>
 <TR>
-  <TD ALIGN="center">10</TD>
-  <TD><A HREF="org.apache.hadoop.conf.Configuration.html">
-org.apache.hadoop.conf.Configuration</A></TD>
+  <TD ALIGN="center">11</TD>
+  <TD><A HREF="org.apache.hadoop.util.VersionInfo.html">
+org.apache.hadoop.util.VersionInfo</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">10</TD>
@@ -793,6 +817,11 @@ org.apache.hadoop.tools.HadoopArchives</A></TD>
   <TD ALIGN="center">8</TD>
   <TD><A HREF="org.apache.hadoop.fs.FileUtil.html">
 org.apache.hadoop.fs.FileUtil</A></TD>
+</TR>
+<TR>
+  <TD ALIGN="center">8</TD>
+  <TD><A HREF="org.apache.hadoop.mapred.JobHistory.JobInfo.html">
+org.apache.hadoop.mapred.JobHistory.JobInfo</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">8</TD>
@@ -851,11 +880,6 @@ org.apache.hadoop.mapred.JobConf</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">6</TD>
-  <TD><A HREF="org.apache.hadoop.mapred.JobHistory.JobInfo.html">
-org.apache.hadoop.mapred.JobHistory.JobInfo</A></TD>
-</TR>
-<TR>
-  <TD ALIGN="center">6</TD>
   <TD><A HREF="org.apache.hadoop.mapred.JobHistory.Keys.html">
 org.apache.hadoop.mapred.JobHistory.Keys</A></TD>
 </TR>
@@ -896,6 +920,11 @@ org.apache.hadoop.metrics.spi.AbstractMetricsContext</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">4</TD>
+  <TD><A HREF="org.apache.hadoop.net.SocketInputStream.html">
+org.apache.hadoop.net.SocketInputStream</A></TD>
+</TR>
+<TR>
+  <TD ALIGN="center">4</TD>
   <TD><A HREF="org.apache.hadoop.fs.Path.html">
 org.apache.hadoop.fs.Path</A></TD>
 </TR>
@@ -908,6 +937,11 @@ org.apache.hadoop.mapreduce.Job</A></TD>
   <TD ALIGN="center">4</TD>
   <TD><A HREF="org.apache.hadoop.io.compress.bzip2.BZip2DummyCompressor.html">
 org.apache.hadoop.io.compress.bzip2.BZip2DummyCompressor</A></TD>
+</TR>
+<TR>
+  <TD ALIGN="center">4</TD>
+  <TD><A HREF="org.apache.hadoop.mapred.Counters.html">
+org.apache.hadoop.mapred.Counters</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">4</TD>
@@ -981,11 +1015,6 @@ org.apache.hadoop.io.MD5Hash</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">2</TD>
-  <TD><A HREF="org.apache.hadoop.mapred.Counters.html">
-org.apache.hadoop.mapred.Counters</A></TD>
-</TR>
-<TR>
-  <TD ALIGN="center">2</TD>
   <TD><A HREF="org.apache.hadoop.fs.ChecksumFileSystem.html">
 org.apache.hadoop.fs.ChecksumFileSystem</A></TD>
 </TR>
@@ -1010,251 +1039,245 @@ org.apache.hadoop.fs.FilterFileSystem</A></TD>
 </TR>
 <TR>
   <TD ALIGN="center">1</TD>
-  <TD>0.015151515151515152</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=4.545454545454546></TD>
+  <TD>0.014814814814814815</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=4.444444444444445></TD>
 </TR>
 <TR>
   <TD ALIGN="center">2</TD>
-  <TD>0.05303030303030303</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=15.909090909090908></TD>
+  <TD>0.044444444444444446</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=13.333333333333334></TD>
 </TR>
 <TR>
   <TD ALIGN="center">3</TD>
-  <TD>0.045454545454545456</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=13.636363636363637></TD>
+  <TD>0.044444444444444446</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=13.333333333333334></TD>
 </TR>
 <TR>
   <TD ALIGN="center">4</TD>
-  <TD>0.06818181818181818</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=20.454545454545453></TD>
+  <TD>0.08148148148148149</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=24.444444444444443></TD>
 </TR>
 <TR>
   <TD ALIGN="center">5</TD>
-  <TD>0.022727272727272728</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=6.818181818181818></TD>
+  <TD>0.022222222222222223</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=6.666666666666667></TD>
 </TR>
 <TR>
   <TD ALIGN="center">6</TD>
-  <TD>0.045454545454545456</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=13.636363636363637></TD>
+  <TD>0.037037037037037035</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=11.11111111111111></TD>
 </TR>
 <TR>
   <TD ALIGN="center">7</TD>
-  <TD>0.03787878787878788</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=11.363636363636363></TD>
+  <TD>0.037037037037037035</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=11.11111111111111></TD>
 </TR>
 <TR>
   <TD ALIGN="center">8</TD>
-  <TD>0.030303030303030304</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=9.090909090909092></TD>
+  <TD>0.037037037037037035</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=11.11111111111111></TD>
 </TR>
 <TR>
   <TD ALIGN="center">9</TD>
-  <TD>0.030303030303030304</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=9.090909090909092></TD>
+  <TD>0.02962962962962963</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=8.88888888888889></TD>
 </TR>
 <TR>
   <TD ALIGN="center">10</TD>
-  <TD>0.030303030303030304</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=9.090909090909092></TD>
+  <TD>0.022222222222222223</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=6.666666666666667></TD>
 </TR>
 <TR>
   <TD ALIGN="center">11</TD>
-  <TD>0.03787878787878788</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=11.363636363636363></TD>
+  <TD>0.05185185185185185</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=15.555555555555555></TD>
 </TR>
 <TR>
   <TD ALIGN="center">12</TD>
-  <TD>0.03787878787878788</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=11.363636363636363></TD>
-</TR>
-<TR>
-  <TD ALIGN="center">13</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.044444444444444446</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=13.333333333333334></TD>
 </TR>
 <TR>
   <TD ALIGN="center">14</TD>
-  <TD>0.03787878787878788</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=11.363636363636363></TD>
+  <TD>0.037037037037037035</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=11.11111111111111></TD>
 </TR>
 <TR>
   <TD ALIGN="center">15</TD>
-  <TD>0.022727272727272728</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=6.818181818181818></TD>
+  <TD>0.02962962962962963</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=8.88888888888889></TD>
 </TR>
 <TR>
   <TD ALIGN="center">16</TD>
-  <TD>0.030303030303030304</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=9.090909090909092></TD>
+  <TD>0.02962962962962963</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=8.88888888888889></TD>
 </TR>
 <TR>
   <TD ALIGN="center">17</TD>
-  <TD>0.015151515151515152</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=4.545454545454546></TD>
+  <TD>0.014814814814814815</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=4.444444444444445></TD>
 </TR>
 <TR>
   <TD ALIGN="center">18</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">20</TD>
-  <TD>0.045454545454545456</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=13.636363636363637></TD>
+  <TD>0.037037037037037035</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=11.11111111111111></TD>
 </TR>
 <TR>
   <TD ALIGN="center">22</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.014814814814814815</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=4.444444444444445></TD>
 </TR>
 <TR>
   <TD ALIGN="center">23</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">24</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">25</TD>
-  <TD>0.10606060606060606</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=31.818181818181817></TD>
+  <TD>0.1037037037037037</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=31.11111111111111></TD>
 </TR>
 <TR>
   <TD ALIGN="center">26</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">27</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">29</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">30</TD>
-  <TD>0.015151515151515152</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=4.545454545454546></TD>
+  <TD>0.014814814814814815</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=4.444444444444445></TD>
 </TR>
 <TR>
   <TD ALIGN="center">33</TD>
-  <TD>0.03787878787878788</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=11.363636363636363></TD>
+  <TD>0.037037037037037035</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=11.11111111111111></TD>
 </TR>
 <TR>
   <TD ALIGN="center">35</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">42</TD>
-  <TD>0.022727272727272728</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=6.818181818181818></TD>
+  <TD>0.014814814814814815</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=4.444444444444445></TD>
 </TR>
 <TR>
   <TD ALIGN="center">43</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">44</TD>
-  <TD>0.015151515151515152</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=4.545454545454546></TD>
+  <TD>0.022222222222222223</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=6.666666666666667></TD>
 </TR>
 <TR>
   <TD ALIGN="center">50</TD>
-  <TD>0.05303030303030303</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=15.909090909090908></TD>
+  <TD>0.05185185185185185</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=15.555555555555555></TD>
 </TR>
 <TR>
   <TD ALIGN="center">52</TD>
-  <TD>0.015151515151515152</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=4.545454545454546></TD>
+  <TD>0.014814814814814815</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=4.444444444444445></TD>
 </TR>
 <TR>
   <TD ALIGN="center">56</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">60</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">64</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">66</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">86</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">95</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <TR>
   <TD ALIGN="center">100</TD>
-  <TD>0.007575757575757576</TD>
-  <TD><img alt="|" src="../black.gif" height=20 width=2.272727272727273></TD>
+  <TD>0.007407407407407408</TD>
+  <TD><img alt="|" src="../black.gif" height=20 width=2.2222222222222223></TD>
 </TR>
 <!-- START_CLASS_HISTOGRAM
-1,0.015151515151515152
-2,0.05303030303030303
-3,0.045454545454545456
-4,0.06818181818181818
-5,0.022727272727272728
-6,0.045454545454545456
-7,0.03787878787878788
-8,0.030303030303030304
-9,0.030303030303030304
-10,0.030303030303030304
-11,0.03787878787878788
-12,0.03787878787878788
-13,0.007575757575757576
-14,0.03787878787878788
-15,0.022727272727272728
-16,0.030303030303030304
-17,0.015151515151515152
-18,0.007575757575757576
-20,0.045454545454545456
-22,0.007575757575757576
-23,0.007575757575757576
-24,0.007575757575757576
-25,0.10606060606060606
-26,0.007575757575757576
-27,0.007575757575757576
-29,0.007575757575757576
-30,0.015151515151515152
-33,0.03787878787878788
-35,0.007575757575757576
-42,0.022727272727272728
-43,0.007575757575757576
-44,0.015151515151515152
-50,0.05303030303030303
-52,0.015151515151515152
-56,0.007575757575757576
-60,0.007575757575757576
-64,0.007575757575757576
-66,0.007575757575757576
-86,0.007575757575757576
-95,0.007575757575757576
-100,0.007575757575757576
+1,0.014814814814814815
+2,0.044444444444444446
+3,0.044444444444444446
+4,0.08148148148148149
+5,0.022222222222222223
+6,0.037037037037037035
+7,0.037037037037037035
+8,0.037037037037037035
+9,0.02962962962962963
+10,0.022222222222222223
+11,0.05185185185185185
+12,0.044444444444444446
+14,0.037037037037037035
+15,0.02962962962962963
+16,0.02962962962962963
+17,0.014814814814814815
+18,0.007407407407407408
+20,0.037037037037037035
+22,0.014814814814814815
+23,0.007407407407407408
+24,0.007407407407407408
+25,0.1037037037037037
+26,0.007407407407407408
+27,0.007407407407407408
+29,0.007407407407407408
+30,0.014814814814814815
+33,0.037037037037037035
+35,0.007407407407407408
+42,0.014814814814814815
+43,0.007407407407407408
+44,0.022222222222222223
+50,0.05185185185185185
+52,0.014814814814814815
+56,0.007407407407407408
+60,0.007407407407407408
+64,0.007407407407407408
+66,0.007407407407407408
+86,0.007407407407407408
+95,0.007407407407407408
+100,0.007407407407407408
 END_CLASS_HISTOGRAM -->
 </TABLE>
 <hr>
@@ -1278,44 +1301,44 @@ The numbers of program elements (packages, classes. constructors, methods and fi
 <TR>
   <TD>Packages</TD>
   <TD ALIGN="right">0</TD>
-  <TD ALIGN="right">18</TD>
-  <TD ALIGN="right">30</TD>
-  <TD ALIGN="right">48</TD>
+  <TD ALIGN="right">19</TD>
+  <TD ALIGN="right">32</TD>
+  <TD ALIGN="right">51</TD>
 </TR>
 <TR>
   <TD>Classes and <i>Interfaces</i></TD>
   <TD ALIGN="right">6</TD>
-  <TD ALIGN="right">127</TD>
-  <TD ALIGN="right">132</TD>
-  <TD ALIGN="right">265</TD>
+  <TD ALIGN="right">156</TD>
+  <TD ALIGN="right">135</TD>
+  <TD ALIGN="right">297</TD>
 </TR>
 <TR>
   <TD>Constructors</TD>
   <TD ALIGN="right">2</TD>
-  <TD ALIGN="right">22</TD>
+  <TD ALIGN="right">24</TD>
   <TD ALIGN="right">16</TD>
-  <TD ALIGN="right">40</TD>
+  <TD ALIGN="right">42</TD>
 </TR>
 <TR>
   <TD>Methods</TD>
-  <TD ALIGN="right">42</TD>
-  <TD ALIGN="right">280</TD>
-  <TD ALIGN="right">59</TD>
-  <TD ALIGN="right">381</TD>
+  <TD ALIGN="right">40</TD>
+  <TD ALIGN="right">291</TD>
+  <TD ALIGN="right">61</TD>
+  <TD ALIGN="right">392</TD>
 </TR>
 <TR>
   <TD>Fields</TD>
-  <TD ALIGN="right">3</TD>
-  <TD ALIGN="right">90</TD>
-  <TD ALIGN="right">5</TD>
-  <TD ALIGN="right">98</TD>
+  <TD ALIGN="right">2</TD>
+  <TD ALIGN="right">95</TD>
+  <TD ALIGN="right">6</TD>
+  <TD ALIGN="right">103</TD>
 </TR>
 <TR>
   <TD><b>Total</b></TD>
-  <TD ALIGN="right">53</TD>
-  <TD ALIGN="right">537</TD>
-  <TD ALIGN="right">242</TD>
-  <TD ALIGN="right">832</TD>
+  <TD ALIGN="right">50</TD>
+  <TD ALIGN="right">585</TD>
+  <TD ALIGN="right">250</TD>
+  <TD ALIGN="right">885</TD>
 </TR>
 </TABLE>
 </HTML>

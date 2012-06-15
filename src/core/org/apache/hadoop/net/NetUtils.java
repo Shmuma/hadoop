@@ -22,8 +22,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.SocketException;
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.net.ConnectException;
@@ -35,11 +37,14 @@ import javax.net.SocketFactory;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.commons.net.util.SubnetUtils;
+import org.apache.commons.net.util.SubnetUtils.SubnetInfo;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.ipc.VersionedProtocol;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.apache.hadoop.thirdparty.guava.common.base.Preconditions;
 
 public class NetUtils {
   private static final Log LOG = LogFactory.getLog(NetUtils.class);
@@ -275,24 +280,10 @@ public class NetUtils {
   }
   
   /**
-   * Same as getInputStream(socket, socket.getSoTimeout()).<br><br>
+   * Same as <code>getInputStream(socket, socket.getSoTimeout()).</code>
+   * <br><br>
    * 
-   * From documentation for {@link #getInputStream(Socket, long)}:<br>
-   * Returns InputStream for the socket. If the socket has an associated
-   * SocketChannel then it returns a 
-   * {@link SocketInputStream} with the given timeout. If the socket does not
-   * have a channel, {@link Socket#getInputStream()} is returned. In the later
-   * case, the timeout argument is ignored and the timeout set with 
-   * {@link Socket#setSoTimeout(int)} applies for reads.<br><br>
-   *
-   * Any socket created using socket factories returned by {@link #NetUtils},
-   * must use this interface instead of {@link Socket#getInputStream()}.
-   *     
    * @see #getInputStream(Socket, long)
-   * 
-   * @param socket
-   * @return InputStream for reading from the socket.
-   * @throws IOException
    */
   public static InputStream getInputStream(Socket socket) 
                                            throws IOException {
@@ -300,28 +291,33 @@ public class NetUtils {
   }
   
   /**
-   * Returns InputStream for the socket. If the socket has an associated
-   * SocketChannel then it returns a 
-   * {@link SocketInputStream} with the given timeout. If the socket does not
-   * have a channel, {@link Socket#getInputStream()} is returned. In the later
-   * case, the timeout argument is ignored and the timeout set with 
-   * {@link Socket#setSoTimeout(int)} applies for reads.<br><br>
+   * Return a {@link SocketInputWrapper} for the socket and set the given
+   * timeout. If the socket does not have an associated channel, then its socket
+   * timeout will be set to the specified value. Otherwise, a
+   * {@link SocketInputStream} will be created which reads with the configured
+   * timeout.
    * 
    * Any socket created using socket factories returned by {@link #NetUtils},
    * must use this interface instead of {@link Socket#getInputStream()}.
+   *
+   * In general, this should be called only once on each socket: see the note
+   * in {@link SocketInputWrapper#setTimeout(long)} for more information.
    *     
    * @see Socket#getChannel()
    * 
    * @param socket
-   * @param timeout timeout in milliseconds. This may not always apply. zero
-   *        for waiting as long as necessary.
-   * @return InputStream for reading from the socket.
+   * @param timeout timeout in milliseconds. zero for waiting as
+   *                long as necessary.
+   * @return SocketInputWrapper for reading from the socket.
    * @throws IOException
    */
-  public static InputStream getInputStream(Socket socket, long timeout) 
+  public static SocketInputWrapper getInputStream(Socket socket, long timeout) 
                                            throws IOException {
-    return (socket.getChannel() == null) ? 
-          socket.getInputStream() : new SocketInputStream(socket, timeout);
+    InputStream stm = (socket.getChannel() == null) ? 
+          socket.getInputStream() : new SocketInputStream(socket);
+    SocketInputWrapper w = new SocketInputWrapper(socket, stm);
+    w.setTimeout(timeout);
+    return w;
   }
   
   /**
@@ -374,7 +370,7 @@ public class NetUtils {
     return (socket.getChannel() == null) ? 
             socket.getOutputStream() : new SocketOutputStream(socket, timeout);            
   }
-  
+
   /**
    * This is a drop-in replacement for 
    * {@link Socket#connect(SocketAddress, int)}.
@@ -389,11 +385,27 @@ public class NetUtils {
    * @see java.net.Socket#connect(java.net.SocketAddress, int)
    * 
    * @param socket
-   * @param endpoint 
-   * @param timeout - timeout in milliseconds
+   * @param address the remote address
+   * @param timeout timeout in milliseconds
+   */
+  public static void connect(Socket socket,
+      SocketAddress address,
+      int timeout) throws IOException {
+    connect(socket, address, null, timeout);
+  }
+
+  /**
+   * Like {@link NetUtils#connect(Socket, SocketAddress, int)} but
+   * also takes a local address and port to bind the socket to. 
+   * 
+   * @param socket
+   * @param address the remote address
+   * @param localAddr the local address to bind the socket to
+   * @param timeout timeout in milliseconds
    */
   public static void connect(Socket socket, 
-                             SocketAddress endpoint, 
+                             SocketAddress endpoint,
+                             SocketAddress localAddr,
                              int timeout) throws IOException {
     if (socket == null || endpoint == null || timeout < 0) {
       throw new IllegalArgumentException("Illegal argument for connect()");
@@ -401,6 +413,15 @@ public class NetUtils {
     
     SocketChannel ch = socket.getChannel();
     
+    if (localAddr != null) {
+      Class localClass = localAddr.getClass();
+      Class remoteClass = endpoint.getClass();
+      Preconditions.checkArgument(localClass.equals(remoteClass),
+          "Local address %s must be of same family as remote address %s.",
+          localAddr, endpoint);
+      socket.bind(localAddr);
+    }
+
     if (ch == null) {
       // let the default implementation handle it.
       socket.connect(endpoint, timeout);
@@ -459,5 +480,71 @@ public class NetUtils {
       hostNames.add(normalizeHostName(name));
     }
     return hostNames;
+  }
+
+  /**
+   * @return true if the given string is a subnet specified
+   *     using CIDR notation, false otherwise
+   */
+  public static boolean isValidSubnet(String subnet) {
+    try {
+      new SubnetUtils(subnet);
+      return true;
+    } catch (IllegalArgumentException iae) {
+      return false;
+    }
+  }
+
+  /**
+   * Add all addresses associated with the given nif in the
+   * given subnet to the given list.
+   */
+  private static void addMatchingAddrs(NetworkInterface nif,
+      SubnetInfo subnetInfo, List<InetAddress> addrs) {
+    Enumeration<InetAddress> ifAddrs = nif.getInetAddresses();
+    while (ifAddrs.hasMoreElements()) {
+      InetAddress ifAddr = ifAddrs.nextElement();
+      if (subnetInfo.isInRange(ifAddr.getHostAddress())) {
+        addrs.add(ifAddr);
+      }
+    }
+  }
+
+  /**
+   * Return an InetAddress for each interface that matches the
+   * given subnet specified using CIDR notation.
+   *
+   * @param subnet subnet specified using CIDR notation
+   * @param returnSubinterfaces
+   *            whether to return IPs associated with subinterfaces
+   * @throws IllegalArgumentException if subnet is invalid
+   */
+  public static List<InetAddress> getIPs(String subnet,
+      boolean returnSubinterfaces) {
+    List<InetAddress> addrs = new ArrayList<InetAddress>();
+    SubnetInfo subnetInfo = new SubnetUtils(subnet).getInfo();
+    Enumeration<NetworkInterface> nifs;
+
+    try {
+      nifs = NetworkInterface.getNetworkInterfaces();
+    } catch (SocketException e) {
+      LOG.error("Unable to get host interfaces", e);
+      return addrs;
+    }
+
+    while (nifs.hasMoreElements()) {
+      NetworkInterface nif = nifs.nextElement();
+      // NB: adding addresses even if the nif is not up
+      addMatchingAddrs(nif, subnetInfo, addrs);
+
+      if (!returnSubinterfaces) {
+        continue;
+      }
+      Enumeration<NetworkInterface> subNifs = nif.getSubInterfaces();
+      while (subNifs.hasMoreElements()) {
+        addMatchingAddrs(subNifs.nextElement(), subnetInfo, addrs);
+      }
+    }
+    return addrs;
   }
 }

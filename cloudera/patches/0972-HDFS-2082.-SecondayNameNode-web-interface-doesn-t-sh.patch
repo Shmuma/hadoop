@@ -1,7 +1,7 @@
 From 9d0bd80bedd72f3b366d5ceda970109a0d3e124a Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Fri, 17 Jun 2011 16:02:59 -0700
-Subject: [PATCH 0972/1120] HDFS-2082. SecondayNameNode web interface doesn't show the right info
+Subject: [PATCH 0972/1179] HDFS-2082. SecondayNameNode web interface doesn't show the right info
 
 Reason: Bug
 Author: Aaron T. Myers

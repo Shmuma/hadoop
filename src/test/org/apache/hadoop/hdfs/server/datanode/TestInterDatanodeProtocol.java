@@ -22,6 +22,7 @@ import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
@@ -62,14 +63,34 @@ public class TestInterDatanodeProtocol extends junit.framework.TestCase {
     return blocks.get(blocks.size() - 1);
   }
 
+  /** Test block MD access via a DN */
+  public void testBlockMetaDataInfo() throws Exception {
+    checkBlockMetaDataInfo(false);
+  }
+
+  /** The same as above, but use hostnames for DN<->DN communication */
+  public void testBlockMetaDataInfoWithHostname() throws Exception {
+    checkBlockMetaDataInfo(true);
+  }
+
   /**
    * The following test first creates a file.
    * It verifies the block information from a datanode.
-   * Then, it updates the block with new information and verifies again. 
+   * Then, it updates the block with new information and verifies again.
+   * @param useDnHostname if DNs should access DNs by hostname (vs IP)
    */
-  public void testBlockMetaDataInfo() throws Exception {
+  private void checkBlockMetaDataInfo(boolean useDnHostname) throws Exception {    
     Configuration conf = new Configuration();
     MiniDFSCluster cluster = null;
+
+    conf.setBoolean(DFSConfigKeys.DFS_DATANODE_USE_DN_HOSTNAME, useDnHostname);
+    if (useDnHostname) {
+      // Since the mini cluster only listens on the loopback we have to
+      // ensure the hostname used to access DNs maps to the loopback. We
+      // do this by telling the DN to advertise localhost as its hostname
+      // instead of the default hostname.
+      conf.set("slave.host.name", "localhost");
+    }
 
     try {
       cluster = new MiniDFSCluster(conf, 3, true, null);
@@ -89,7 +110,7 @@ public class TestInterDatanodeProtocol extends junit.framework.TestCase {
 
       //connect to a data node
       InterDatanodeProtocol idp = DataNode.createInterDataNodeProtocolProxy(
-          datanodeinfo[0], conf, 0);
+          datanodeinfo[0], conf, 0, useDnHostname);
       DataNode datanode = cluster.getDataNode(datanodeinfo[0].getIpcPort());
       assertTrue(datanode != null);
       

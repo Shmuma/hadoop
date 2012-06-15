@@ -1,7 +1,7 @@
 From e87de0366ed98d24abb2f575509937ec25f38330 Mon Sep 17 00:00:00 2001
 From: Roman Shaposhnik <rvs@cloudera.com>
 Date: Mon, 22 Aug 2011 14:50:45 -0700
-Subject: [PATCH 1038/1120] CLOUDERA-BUILD. 32-bit builds of jsvc embed 64-bit library paths
+Subject: [PATCH 1038/1179] CLOUDERA-BUILD. 32-bit builds of jsvc embed 64-bit library paths
 
 ---
  src/c++/jsvc/build.xml |    4 ++--

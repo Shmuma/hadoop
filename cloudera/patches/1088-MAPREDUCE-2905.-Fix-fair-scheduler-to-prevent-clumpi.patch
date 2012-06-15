@@ -1,7 +1,7 @@
 From 898431eb9641a2932a09ff1373f478b0f77075d5 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 22 Nov 2011 11:44:28 -0800
-Subject: [PATCH 1088/1120] MAPREDUCE-2905. Fix fair scheduler to prevent clumping of tasks when assignmultiple is enabled.
+Subject: [PATCH 1088/1179] MAPREDUCE-2905. Fix fair scheduler to prevent clumping of tasks when assignmultiple is enabled.
 
 Reason: spread load more evenly on clusters with many slots
 Author: Todd Lipcon and Jeff Bean

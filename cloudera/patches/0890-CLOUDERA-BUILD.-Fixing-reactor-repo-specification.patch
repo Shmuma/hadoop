@@ -1,7 +1,7 @@
 From e4596923b767eb163e141e41d5058c983e95f885 Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Wed, 23 Feb 2011 09:53:00 -0800
-Subject: [PATCH 0890/1120] CLOUDERA-BUILD. Fixing reactor repo specification.
+Subject: [PATCH 0890/1179] CLOUDERA-BUILD. Fixing reactor repo specification.
 
 ---
  cloudera/do-release-build |    8 ++++----

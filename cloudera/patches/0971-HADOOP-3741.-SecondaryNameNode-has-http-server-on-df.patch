@@ -1,7 +1,7 @@
 From 68250308093f335bac63e65171ae22db03412c13 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Fri, 17 Jun 2011 12:30:43 -0700
-Subject: [PATCH 0971/1120] HADOOP-3741. SecondaryNameNode has http server on dfs.secondary.http.address but without any contents
+Subject: [PATCH 0971/1179] HADOOP-3741. SecondaryNameNode has http server on dfs.secondary.http.address but without any contents
 
 Reason: New Feature
 Author: Tsz Wo (Nicholas), SZE

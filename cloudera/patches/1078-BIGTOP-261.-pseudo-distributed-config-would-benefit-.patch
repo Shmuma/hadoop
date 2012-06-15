@@ -1,7 +1,7 @@
 From ea81df1ff5de3b12df08e22eeffca29295914eae Mon Sep 17 00:00:00 2001
 From: Roman Shaposhnik <rvs@cloudera.com>
 Date: Wed, 16 Nov 2011 17:22:21 -0800
-Subject: [PATCH 1078/1120] BIGTOP-261. pseudo distributed config would benefit from dfs.safemode.extension set to 0 and dfs.safemode.min.datanodes set to 1
+Subject: [PATCH 1078/1179] BIGTOP-261. pseudo distributed config would benefit from dfs.safemode.extension set to 0 and dfs.safemode.min.datanodes set to 1
 
 Reason: Improvement
 Author: Roman Shaposhnik

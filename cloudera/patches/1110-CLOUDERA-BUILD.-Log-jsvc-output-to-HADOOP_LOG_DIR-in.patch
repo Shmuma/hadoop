@@ -1,7 +1,7 @@
 From 60a51e89b21e9577519b447d3779acc8b83ce990 Mon Sep 17 00:00:00 2001
 From: Harsh J <harsh@cloudera.com>
 Date: Wed, 23 Nov 2011 14:09:55 +0530
-Subject: [PATCH 1110/1120] CLOUDERA-BUILD. Log jsvc output to HADOOP_LOG_DIR instead of /tmp.
+Subject: [PATCH 1110/1179] CLOUDERA-BUILD. Log jsvc output to HADOOP_LOG_DIR instead of /tmp.
 
 Description: JSVC output currently goes to /tmp and is not configurable.
 Reason: Customer request

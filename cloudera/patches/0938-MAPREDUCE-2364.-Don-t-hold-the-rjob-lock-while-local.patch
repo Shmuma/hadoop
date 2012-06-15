@@ -1,7 +1,7 @@
 From 978164b1b4e1ed07f236b21c6cc757b3a96f3ec0 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 15 Mar 2011 15:01:08 -0700
-Subject: [PATCH 0938/1120] MAPREDUCE-2364. Don't hold the rjob lock while localizing resources.
+Subject: [PATCH 0938/1179] MAPREDUCE-2364. Don't hold the rjob lock while localizing resources.
 
 Reason: TT deadlock, patch from branch 0.20-security-203
 Author: Devaraj Das

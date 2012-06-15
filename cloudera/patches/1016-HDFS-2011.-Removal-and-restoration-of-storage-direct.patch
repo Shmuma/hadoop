@@ -1,7 +1,7 @@
 From 8eff3591387814abe8e079f2689bf9a38aa498f2 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Tue, 5 Jul 2011 18:15:17 -0700
-Subject: [PATCH 1016/1120] HDFS-2011. Removal and restoration of storage directories on checkpointing failure doesn't work properly
+Subject: [PATCH 1016/1179] HDFS-2011. Removal and restoration of storage directories on checkpointing failure doesn't work properly
 
 Reason: Bug
 Author: Ravi Prakash

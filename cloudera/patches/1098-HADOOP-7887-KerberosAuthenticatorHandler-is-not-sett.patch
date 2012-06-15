@@ -1,7 +1,7 @@
 From b9bc59e6d6f024d69f7cbee65b50fc0d5f99ead4 Mon Sep 17 00:00:00 2001
 From: Alejandro Abdelnur <tucu@cloudera.com>
 Date: Wed, 7 Dec 2011 15:38:31 -0800
-Subject: [PATCH 1098/1120] HADOOP-7887 KerberosAuthenticatorHandler is not setting KerberosName name rules from configuration
+Subject: [PATCH 1098/1179] HADOOP-7887 KerberosAuthenticatorHandler is not setting KerberosName name rules from configuration
 
   Author: Alejandro Abdelnur
   Ref: CDH-3890

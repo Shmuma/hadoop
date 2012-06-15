@@ -159,7 +159,7 @@ public class UtilsForTests {
     }
   }
 
-  static String slurp(File f) throws IOException {
+  public static String slurp(File f) throws IOException {
     int len = (int) f.length();
     byte[] buf = new byte[len];
     FileInputStream in = new FileInputStream(f);

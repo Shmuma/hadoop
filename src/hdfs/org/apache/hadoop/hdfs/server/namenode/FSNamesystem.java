@@ -29,6 +29,8 @@ import org.apache.hadoop.hdfs.security.token.block.ExportedBlockKeys;
 import org.apache.hadoop.hdfs.server.common.GenerationStamp;
 import org.apache.hadoop.hdfs.server.common.HdfsConstants;
 import org.apache.hadoop.hdfs.server.common.HdfsConstants.StartupOption;
+import org.apache.hadoop.hdfs.server.common.Storage.StorageDirType;
+import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.UpgradeStatusReport;
 import org.apache.hadoop.hdfs.server.namenode.BlocksMap.BlockInfo;
@@ -281,8 +283,8 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
   private long replicationRecheckInterval;
   // default block size of a file
   private long defaultBlockSize = 0;
-  // allow appending to hdfs files
-  private boolean supportAppends = true;
+  // allow file appending (for test coverage)
+  private boolean allowBrokenAppend = false;
   //resourceRecheckInterval is how often namenode checks for the disk space availability
   private long resourceRecheckInterval;
   // The actual resource checker instance.
@@ -331,9 +333,15 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
   FSNamesystem(NameNode nn, Configuration conf) throws IOException {
     try {
       initialize(nn, conf);
-    } catch(IOException e) {
+    } catch (IOException e) {
       LOG.error(getClass().getSimpleName() + " initialization failed.", e);
       close();
+      shutdown();
+      throw e;
+    } catch (RuntimeException e) {
+      LOG.error(getClass().getSimpleName() + " initialization failed.", e);
+      close();
+      shutdown();
       throw e;
     }
   }
@@ -503,7 +511,12 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     LOG.info(DFSConfigKeys.DFS_BLOCK_INVALIDATE_LIMIT_KEY + "=" + this.blockInvalidateLimit);
 
     this.accessTimePrecision = conf.getLong("dfs.access.time.precision", 0);
-    this.supportAppends = conf.getBoolean("dfs.support.append", false);
+    this.allowBrokenAppend = conf.getBoolean("dfs.support.broken.append", false);
+    if (conf.getBoolean("dfs.support.append", false)) {
+      LOG.warn("The dfs.support.append option is in your configuration, " +
+               "however append is not supported. This configuration option " +
+               "is no longer required to enable sync.");
+    }
     this.isAccessTokenEnabled = conf.getBoolean(
         DFSConfigKeys.DFS_BLOCK_ACCESS_TOKEN_ENABLE_KEY, false);
     if (isAccessTokenEnabled) {
@@ -1380,9 +1393,9 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
    */
   LocatedBlock appendFile(String src, String holder, String clientMachine
       ) throws IOException {
-    if (supportAppends == false) {
-      throw new IOException("Append to hdfs not supported." +
-                            " Please refer to dfs.support.append configuration parameter.");
+    if (!allowBrokenAppend) {
+      throw new IOException("Append is not supported. " +
+          "Please see the dfs.support.append configuration parameter.");
     }
     startFileInternal(src, null, holder, clientMachine, false, true, 
                       false, (short)maxReplication, (long)0);
@@ -2256,13 +2269,11 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     }
 
     // If this commit does not want to close the file, persist
-    // blocks only if append is supported and return
+    // blocks and return
     src = leaseManager.findPath(pendingFile);
     if (!closeFile) {
-      if (supportAppends) {
-        dir.persistBlocks(src, pendingFile);
-        getEditLog().logSync();
-      }
+      dir.persistBlocks(src, pendingFile);
+      getEditLog().logSync();
       LOG.info("commitBlockSynchronization(" + lastblock + ") successful");
       return;
     }
@@ -5764,6 +5775,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     final Map<String, Object> info = new HashMap<String, Object>();
     final ArrayList<DatanodeDescriptor> deadNodeList =
       this.getDatanodeListForReport(DatanodeReportType.DEAD); 
+    removeDecomNodeFromDeadList(deadNodeList);
     for (DatanodeDescriptor node : deadNodeList) {
       final Map<String, Object> innerinfo = new HashMap<String, Object>();
       innerinfo.put("lastContact", getLastContact(node));
@@ -5792,6 +5804,30 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
       info.put(node.getHostName(), innerinfo);
     }
     return JSON.toString(info);
+  }
+
+  @Override  // NameNodeMXBean
+  public String getNameDirStatuses() {
+    Map<String, Map<File, StorageDirType>> statusMap =
+      new HashMap<String, Map<File, StorageDirType>>();
+    
+    Map<File, StorageDirType> activeDirs = new HashMap<File, StorageDirType>();
+    for (Iterator<StorageDirectory> it
+        = getFSImage().dirIterator(); it.hasNext();) {
+      StorageDirectory st = it.next();
+      activeDirs.put(st.getRoot(), st.getStorageDirType());
+    }
+    statusMap.put("active", activeDirs);
+    
+    List<Storage.StorageDirectory> removedStorageDirs
+        = getFSImage().getRemovedStorageDirs();
+    Map<File, StorageDirType> failedDirs = new HashMap<File, StorageDirType>();
+    for (StorageDirectory st : removedStorageDirs) {
+      failedDirs.put(st.getRoot(), st.getStorageDirType());
+    }
+    statusMap.put("failed", failedDirs);
+    
+    return JSON.toString(statusMap);
   }
 
   private long getLastContact(DatanodeDescriptor alivenode) {
@@ -5844,5 +5880,29 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
       }
     }
     return rackSet.size();
+  }
+
+  /**
+   * Remove an already decommissioned data node who is neither in include nor
+   * exclude lists from the dead node list.
+   * @param dead, array list of dead nodes
+   */
+  void removeDecomNodeFromDeadList(ArrayList<DatanodeDescriptor> dead) {
+    // If the include list is empty, any nodes are welcomed and it does not 
+    // make sense to exclude any nodes from the cluster.  Therefore, no remove.
+    if (hostsReader.getHosts().isEmpty()) {
+      return;
+    }
+    for (Iterator<DatanodeDescriptor> it = dead.iterator();it.hasNext();){
+      DatanodeDescriptor node = it.next();
+      if ((!inHostsList(node,null)) 
+          && (!inExcludedHostsList(node, null))
+          && node.isDecommissioned()){
+        // Include list is not empty, an existing datanode does not appear 
+        // in both include or exclude lists and it has been decommissioned.
+        // Remove it from dead node list.
+        it.remove();
+      } 
+    }
   }
 }

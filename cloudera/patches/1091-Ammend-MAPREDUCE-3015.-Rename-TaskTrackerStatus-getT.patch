@@ -1,7 +1,7 @@
 From 99b2072558bb79eea211c1965a6c896750c850ea Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sun, 27 Nov 2011 10:23:23 -0800
-Subject: [PATCH 1091/1120] Ammend MAPREDUCE-3015. Rename TaskTrackerStatus#getTaskFailures.
+Subject: [PATCH 1091/1179] Ammend MAPREDUCE-3015. Rename TaskTrackerStatus#getTaskFailures.
 
 Reason: JobTracker plugin compatibility
 Author: Eli Collins

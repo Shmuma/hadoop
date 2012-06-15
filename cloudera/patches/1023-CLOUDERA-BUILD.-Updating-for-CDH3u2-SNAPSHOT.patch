@@ -1,7 +1,7 @@
 From ad6ac50988232cc950bc69d0866e67f5565ec9fa Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Fri, 22 Jul 2011 10:06:59 -0700
-Subject: [PATCH 1023/1120] CLOUDERA-BUILD. Updating for CDH3u2 SNAPSHOT.
+Subject: [PATCH 1023/1179] CLOUDERA-BUILD. Updating for CDH3u2 SNAPSHOT.
 
 ---
  cloudera-pom.xml                                  |   27 ++++-----------------

@@ -1,7 +1,7 @@
 From fd14a491d0a1bcae807aa4d985b71c4170eb1136 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 16 Mar 2011 15:14:23 -0700
-Subject: [PATCH 0939/1120] HDFS-1759. Improve error message when starting secure DN without jsvc
+Subject: [PATCH 0939/1179] HDFS-1759. Improve error message when starting secure DN without jsvc
 
 Author: Todd Lipcon
 Ref: CDH-2554

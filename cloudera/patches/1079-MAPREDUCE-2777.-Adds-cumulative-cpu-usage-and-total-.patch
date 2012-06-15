@@ -1,7 +1,7 @@
 From e691c9ae61baee4920ac8dd8535bb75503339bd8 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Wed, 16 Nov 2011 16:30:55 -0800
-Subject: [PATCH 1079/1120] MAPREDUCE-2777. Adds cumulative cpu usage and total heap usage to task
+Subject: [PATCH 1079/1179] MAPREDUCE-2777. Adds cumulative cpu usage and total heap usage to task
  counters. Backport MAPREDUCE-220 and MAPREDUCE-2469.
 
 MAPREDUCE-220. Collecting cpu and memory usage for MapReduce tasks.

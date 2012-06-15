@@ -1,7 +1,7 @@
 From c7c90372c078febe77344c656b512c3d927c6a71 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 8 Mar 2011 10:16:20 -0800
-Subject: [PATCH 0908/1120] HDFS-1625. TestDataNodeMXBean fails if disk space usage changes during test run
+Subject: [PATCH 0908/1179] HDFS-1625. TestDataNodeMXBean fails if disk space usage changes during test run
 
 Reason: flaky test
 Author: Tsz Wo (Nicholas), SZE

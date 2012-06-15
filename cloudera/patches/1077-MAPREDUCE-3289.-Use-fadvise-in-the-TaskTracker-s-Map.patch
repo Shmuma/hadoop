@@ -1,7 +1,7 @@
 From b45a9f40b02b5d5859c389bfa7b17df94317614a Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Fri, 11 Nov 2011 14:40:01 -0800
-Subject: [PATCH 1077/1120] MAPREDUCE-3289. Use fadvise in the TaskTracker's MapOutputServlet.
+Subject: [PATCH 1077/1179] MAPREDUCE-3289. Use fadvise in the TaskTracker's MapOutputServlet.
 
 The TaskTracker now uses the posix_fadvise syscall to page in map output
 before serving it to the reducers. After serving the output, it evicts

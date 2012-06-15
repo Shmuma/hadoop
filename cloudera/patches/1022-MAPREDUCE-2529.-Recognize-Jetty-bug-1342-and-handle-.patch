@@ -1,7 +1,7 @@
 From 927c26b2cabbbe742026e5ba70855476dc38968e Mon Sep 17 00:00:00 2001
 From: Ahmed Radwan <ahmed@cloudera.com>
 Date: Mon, 18 Jul 2011 05:26:48 -0700
-Subject: [PATCH 1022/1120] MAPREDUCE-2529. Recognize Jetty bug 1342 and handle it.
+Subject: [PATCH 1022/1179] MAPREDUCE-2529. Recognize Jetty bug 1342 and handle it.
 
 Reason: Bug
 Author: Thomas Graves

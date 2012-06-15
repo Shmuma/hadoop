@@ -1,5 +1,5 @@
 fuse_connect.o: fuse_connect.c \
- /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/c++/libhdfs/hdfs.h \
+ /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/c++/libhdfs/hdfs.h \
  /usr/include/sys/types.h /usr/include/features.h \
  /usr/include/bits/predefs.h /usr/include/sys/cdefs.h \
  /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h \
@@ -26,12 +26,11 @@ fuse_connect.o: fuse_connect.c \
  /usr/include/bits/errno.h /usr/include/linux/errno.h \
  /usr/include/asm/errno.h /usr/include/asm-generic/errno.h \
  /usr/include/asm-generic/errno-base.h \
- /opt/cloudera/toolchain/sun-jdk-64bit-1.6.0.26/include/jni.h \
- /opt/cloudera/toolchain/sun-jdk-64bit-1.6.0.26/include/linux/jni_md.h \
- fuse_dfs.h /usr/include/assert.h /usr/include/strings.h \
- /usr/include/syslog.h /usr/include/sys/syslog.h \
- /usr/include/bits/syslog-path.h /usr/include/bits/syslog.h \
- /usr/include/fuse.h /usr/include/fuse/fuse.h \
+ /opt/toolchain/sun-jdk-64bit-1.6.0.26/include/jni.h \
+ /opt/toolchain/sun-jdk-64bit-1.6.0.26/include/linux/jni_md.h fuse_dfs.h \
+ /usr/include/assert.h /usr/include/strings.h /usr/include/syslog.h \
+ /usr/include/sys/syslog.h /usr/include/bits/syslog-path.h \
+ /usr/include/bits/syslog.h /usr/include/fuse.h /usr/include/fuse/fuse.h \
  /usr/include/fuse/fuse_common.h /usr/include/fuse/fuse_opt.h \
  /usr/include/utime.h /usr/include/sys/statvfs.h \
  /usr/include/bits/statvfs.h /usr/include/sys/uio.h \
@@ -40,7 +39,7 @@ fuse_connect.o: fuse_connect.c \
  /usr/include/sched.h /usr/include/bits/sched.h /usr/include/signal.h \
  /usr/include/bits/setjmp.h /usr/include/search.h
 
-/var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/c++/libhdfs/hdfs.h:
+/var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/c++/libhdfs/hdfs.h:
 
 /usr/include/sys/types.h:
 
@@ -148,9 +147,9 @@ fuse_connect.o: fuse_connect.c \
 
 /usr/include/asm-generic/errno-base.h:
 
-/opt/cloudera/toolchain/sun-jdk-64bit-1.6.0.26/include/jni.h:
+/opt/toolchain/sun-jdk-64bit-1.6.0.26/include/jni.h:
 
-/opt/cloudera/toolchain/sun-jdk-64bit-1.6.0.26/include/linux/jni_md.h:
+/opt/toolchain/sun-jdk-64bit-1.6.0.26/include/linux/jni_md.h:
 
 fuse_dfs.h:
 

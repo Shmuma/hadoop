@@ -1,7 +1,7 @@
 From c9e37a4c57a325228ecb3d333dba302ac2098e2f Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew@cloudera.com>
 Date: Tue, 20 Dec 2011 10:15:26 -0800
-Subject: [PATCH 1116/1120] Updating for CDH3u3 release.
+Subject: [PATCH 1116/1179] Updating for CDH3u3 release.
 
 ---
  cloudera-pom.xml                                  |    2 +-

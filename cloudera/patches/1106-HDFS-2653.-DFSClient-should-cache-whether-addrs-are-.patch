@@ -1,7 +1,7 @@
 From 2b54843a4f2fb1d85c4a2cc4a4ad981f961e6a77 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Fri, 9 Dec 2011 20:25:09 -0800
-Subject: [PATCH 1106/1120] HDFS-2653. DFSClient should cache whether addrs are non-local when
+Subject: [PATCH 1106/1179] HDFS-2653. DFSClient should cache whether addrs are non-local when
  short-circuiting is enabled.
 
 Reason: Performance

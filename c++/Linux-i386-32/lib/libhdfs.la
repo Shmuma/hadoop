@@ -17,7 +17,7 @@ old_library=''
 inherited_linker_flags=''
 
 # Libraries that this one depends upon.
-dependency_libs=' -L/opt/cloudera/toolchain/sun-jdk-32bit-1.6.0.26/jre/lib/i386/server -ljvm -ldl -lpthread'
+dependency_libs=' -L/opt/toolchain/sun-jdk-32bit-1.6.0.26/jre/lib/i386/server -ljvm -ldl -lpthread'
 
 # Names of additional weak libraries provided by this library
 weak_library_names=''
@@ -38,4 +38,4 @@ dlopen=''
 dlpreopen=''
 
 # Directory that this library needs to be installed in:
-libdir='/var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/build/c++/Linux-i386-32/lib'
+libdir='/var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/build/c++/Linux-i386-32/lib'

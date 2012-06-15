@@ -1,7 +1,7 @@
 From 371e8d5b2a38f743adecbe146b7c7e77683568c8 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 16 Nov 2011 12:33:47 -0800
-Subject: [PATCH 1082/1120] HADOOP-7761. Improve performance of raw comparisons.
+Subject: [PATCH 1082/1179] HADOOP-7761. Improve performance of raw comparisons.
 
 Reason: low risk performance improvement
 Author: Todd Lipcon

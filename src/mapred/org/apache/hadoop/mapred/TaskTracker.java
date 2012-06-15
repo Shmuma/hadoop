@@ -61,6 +61,7 @@ import org.apache.hadoop.filecache.TaskDistributedCacheManager;
 import org.apache.hadoop.filecache.TrackerDistributedCacheManager;
 import org.apache.hadoop.mapreduce.server.tasktracker.*;
 import org.apache.hadoop.mapreduce.server.tasktracker.userlogs.*;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.DF;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FileStatus;
@@ -73,6 +74,8 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.http.HttpServer;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.nativeio.NativeIO;
+import org.apache.hadoop.io.ReadaheadPool;
+import org.apache.hadoop.io.ReadaheadPool.ReadaheadRequest;
 import org.apache.hadoop.io.SecureIOUtils;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.RemoteException;
@@ -133,6 +136,12 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   @Deprecated
   static final String MAPRED_TASKTRACKER_PMEM_RESERVED_PROPERTY =
      "mapred.tasktracker.pmem.reserved";
+  
+  static final String TT_RESERVED_PHYSICALMEMORY_MB =
+    "mapreduce.tasktracker.reserved.physicalmemory.mb";
+  
+  static final String TT_MEMORY_MANAGER_MONITORING_INTERVAL = 
+    "mapreduce.tasktracker.taskmemorymanager.monitoringinterval";
 
   static final String CONF_VERSION_KEY = "mapreduce.tasktracker.conf.version";
   static final String CONF_VERSION_DEFAULT = "default";
@@ -368,6 +377,8 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     "mapreduce.tasktracker.outofband.heartbeat";
   private volatile boolean oobHeartbeatOnTaskCompletion;
   private boolean manageOsCacheInShuffle = false;
+  private int readaheadLength;
+  private ReadaheadPool readaheadPool = ReadaheadPool.getInstance();
 
   // Track number of completed tasks to send an out-of-band heartbeat
   private IntWritable finishedCount = new IntWritable(0);
@@ -384,6 +395,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   private long mapSlotMemorySizeOnTT = JobConf.DISABLED_MEMORY_LIMIT;
   private long reduceSlotSizeMemoryOnTT = JobConf.DISABLED_MEMORY_LIMIT;
   private long totalMemoryAllottedForTasks = JobConf.DISABLED_MEMORY_LIMIT;
+  private long reservedPhysicalMemoryOnTT = JobConf.DISABLED_MEMORY_LIMIT;
   private ResourceCalculatorPlugin resourceCalculatorPlugin = null;
 
   private UserLogManager userLogManager;
@@ -435,6 +447,11 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
    * Default value is {@link MRConstants#DEFAULT_DISK_HEALTH_CHECK_INTERVAL}
    */
   private long diskHealthCheckInterval;
+
+  /**
+   * Whether the TT performs a full or relaxed version check with the JT.
+   */
+  private boolean relaxedVersionCheck;
 
   /*
    * A list of commitTaskActions for whom commit response has been received 
@@ -994,6 +1011,9 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     manageOsCacheInShuffle = fConf.getBoolean(
         "mapred.tasktracker.shuffle.fadvise",
         true);
+    readaheadLength = fConf.getInt(
+        "mapred.tasktracker.shuffle.readahead.bytes",
+        4 * 1024 * 1024);
   }
 
   private void startJettyBugMonitor() {
@@ -1565,6 +1585,9 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
    */
   public TaskTracker(JobConf conf) throws IOException, InterruptedException {
     originalConf = conf;
+    relaxedVersionCheck = conf.getBoolean(
+        CommonConfigurationKeys.HADOOP_RELAXED_VERSION_CHECK_KEY,
+        CommonConfigurationKeys.HADOOP_RELAXED_VERSION_CHECK_DEFAULT);
     FILE_CACHE_SIZE = conf.getInt("mapred.tasktracker.file.cache.size", 2000);
     maxMapSlots = conf.getInt(
                   "mapred.tasktracker.map.tasks.maximum", 2);
@@ -1699,23 +1722,29 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   }
 
   /**
-   * @return true if the given remote build revision matches the
-   *    local revision or a configured set of permissible revisions
+   * @return true if this tasktracker is permitted to connect to
+   *    the given jobtracker version
    */
-  private boolean isPermittedRevision(String remoteRevision,
-      String localRevision) {
-    if (remoteRevision.equals(localRevision)) {
-      return true;
+  boolean isPermittedVersion(String jtBuildVersion, String jtVersion) {
+    boolean buildVersionMatch =
+      jtBuildVersion.equals(VersionInfo.getBuildVersion());
+    boolean versionMatch = jtVersion.equals(VersionInfo.getVersion());
+    if (buildVersionMatch && !versionMatch) {
+      throw new AssertionError("Invalid build. The build versions match" +
+          " but the JT version is " + jtVersion +
+          " and the TT version is " + VersionInfo.getVersion());
     }
-    String[] permittedRevisions =
-      fConf.getTrimmedStrings("hadoop.permitted.revisions");
-    for (String rev : permittedRevisions) {
-      if (remoteRevision.equals(rev)) {
-        LOG.info("Permitting Jobtracker build revision " + rev);
-        return true;
+    if (relaxedVersionCheck) {
+      if (!buildVersionMatch && versionMatch) {
+        LOG.info("Permitting tasktracker revision " + VersionInfo.getRevision() +
+            " to connect to jobtracker " + jtBuildVersion + " because " +
+            CommonConfigurationKeys.HADOOP_RELAXED_VERSION_CHECK_KEY +
+            " is enabled");
       }
+      return versionMatch;
+    } else {
+      return buildVersionMatch;
     }
-    return false;
   }
 
   /**
@@ -1741,17 +1770,18 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
         }
 
         // If the TaskTracker is just starting up:
-        // 1. Verify the build revision
+        // 1. Verify the versions matches with the JobTracker
         // 2. Get the system directory & filesystem
         if(justInited) {
-          String jobTrackerBV = jobClient.getBuildVersion();
-          String jobTrackerRev = jobTrackerBV.split(" ")[2];
-          String taskTrackerRev = VersionInfo.getBuildVersion().split(" ")[2];
-          if (!isPermittedRevision(jobTrackerRev, taskTrackerRev)) {
+          String jtBuildVersion = jobClient.getBuildVersion();
+          String jtVersion = jobClient.getVIVersion();
+          if (!isPermittedVersion(jtBuildVersion, jtVersion)) {
             String msg = "Shutting down. Incompatible buildVersion." +
-            "\nJobTracker's: " + jobTrackerBV + 
-            "\nTaskTracker's: "+ VersionInfo.getBuildVersion();
-            LOG.error(msg);
+              "\nJobTracker's: " + jtBuildVersion + 
+              "\nTaskTracker's: "+ VersionInfo.getBuildVersion() +
+              " and " + CommonConfigurationKeys.HADOOP_RELAXED_VERSION_CHECK_KEY +
+              " is " + (relaxedVersionCheck ? "enabled" : "not enabled");
+            LOG.fatal(msg);
             try {
               jobClient.reportTaskTrackerError(taskTrackerName, null, msg);
             } catch(Exception e ) {
@@ -2129,6 +2159,15 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     return tid.isMap() ? mapRetainSize : reduceRetainSize;
   }
   
+  /**
+   * @return The amount of physical memory that will not be used for running
+   *         tasks in bytes. Returns JobConf.DISABLED_MEMORY_LIMIT if it is not
+   *         configured.
+   */
+  long getReservedPhysicalMemoryOnTT() {
+    return reservedPhysicalMemoryOnTT;
+  }
+
   /**
    * Check if the jobtracker directed a 'reset' of the tasktracker.
    * 
@@ -2588,12 +2627,25 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   
   void addToMemoryManager(TaskAttemptID attemptId, boolean isMap,
                           JobConf conf) {
-    if (isTaskMemoryManagerEnabled()) {
-      taskMemoryManager.addTask(attemptId, 
-          isMap ? conf
-              .getMemoryForMapTask() * 1024 * 1024L : conf
-              .getMemoryForReduceTask() * 1024 * 1024L);
+    if (!isTaskMemoryManagerEnabled()) {
+      return; // Skip this if TaskMemoryManager is not enabled.
     }
+    // Obtain physical memory limits from the job configuration
+    long physicalMemoryLimit =
+      conf.getLong(isMap ? JobContext.MAP_MEMORY_PHYSICAL_MB :
+                   JobContext.REDUCE_MEMORY_PHYSICAL_MB,
+                   JobConf.DISABLED_MEMORY_LIMIT);
+    if (physicalMemoryLimit > 0) {
+      physicalMemoryLimit *= 1024L * 1024L;
+    }
+
+    // Obtain virtual memory limits from the job configuration
+    long virtualMemoryLimit = isMap ?
+      conf.getMemoryForMapTask() * 1024 * 1024 :
+      conf.getMemoryForReduceTask() * 1024 * 1024;
+
+    taskMemoryManager.addTask(attemptId, virtualMemoryLimit,
+                              physicalMemoryLimit);
   }
 
   void removeFromMemoryManager(TaskAttemptID attemptId) {
@@ -4040,22 +4092,32 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
          * send it to the reducer.
          */
         //open the map-output file
+        String filePath = mapOutputFileName.toUri().getPath();
         mapOutputIn = SecureIOUtils.openForRead(
-            new File(mapOutputFileName.toUri().getPath()), runAsUserName);
+            new File(filePath), runAsUserName);
 
         // readahead if possible
-        if (tracker.manageOsCacheInShuffle && info.partLength > 0) {
-          NativeIO.posixFadviseIfPossible(mapOutputIn.getFD(),
-              info.startOffset, info.partLength, NativeIO.POSIX_FADV_WILLNEED);
-        }
+        ReadaheadRequest curReadahead = null;
 
         //seek to the correct offset for the reduce
         mapOutputIn.skip(info.startOffset);
         long rem = info.partLength;
-        int len =
-          mapOutputIn.read(buffer, 0, (int)Math.min(rem, MAX_BYTES_TO_READ));
-        while (rem > 0 && len >= 0) {
+        long offset = info.startOffset;
+        while (rem > 0) {
+          if (tracker.manageOsCacheInShuffle && tracker.readaheadPool != null) {
+            curReadahead = tracker.readaheadPool.readaheadStream(
+              filePath, mapOutputIn.getFD(),
+              offset, tracker.readaheadLength,
+              info.startOffset + info.partLength,
+              curReadahead);
+          }
+          int len =
+            mapOutputIn.read(buffer, 0, (int)Math.min(rem, MAX_BYTES_TO_READ));
+          if (len < 0) {
+            break;
+          }
           rem -= len;
+          offset += len;
           try {
             shuffleMetrics.outputBytes(len);
             outStream.write(buffer, 0, len);
@@ -4065,8 +4127,10 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
             throw ie;
           }
           totalRead += len;
-          len =
-            mapOutputIn.read(buffer, 0, (int)Math.min(rem, MAX_BYTES_TO_READ));
+        }
+
+        if (curReadahead != null) {
+          curReadahead.cancel();
         }
         
         // drop cache if possible
@@ -4245,6 +4309,10 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   public TaskMemoryManagerThread getTaskMemoryManager() {
     return taskMemoryManager;
   }
+  
+  synchronized TaskInProgress getRunningTask(TaskAttemptID tid) {
+    return runningTasks.get(tid);
+  }
 
   /**
    * Normalize the negative values in configuration
@@ -4362,6 +4430,14 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
           + " Thrashing might happen.");
     }
 
+    reservedPhysicalMemoryOnTT =
+      fConf.getLong(TT_RESERVED_PHYSICALMEMORY_MB,
+                    JobConf.DISABLED_MEMORY_LIMIT);
+    reservedPhysicalMemoryOnTT =
+      reservedPhysicalMemoryOnTT == JobConf.DISABLED_MEMORY_LIMIT ?
+      JobConf.DISABLED_MEMORY_LIMIT :
+      reservedPhysicalMemoryOnTT * 1024 * 1024; // normalize to bytes
+
     // start the taskMemoryManager thread only if enabled
     setTaskMemoryManagerEnabledFlag();
     if (isTaskMemoryManagerEnabled()) {
@@ -4379,10 +4455,12 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       return;
     }
 
-    if (totalMemoryAllottedForTasks == JobConf.DISABLED_MEMORY_LIMIT) {
+    if (reservedPhysicalMemoryOnTT == JobConf.DISABLED_MEMORY_LIMIT
+        && totalMemoryAllottedForTasks == JobConf.DISABLED_MEMORY_LIMIT) {
       taskMemoryManagerEnabled = false;
-      LOG.warn("TaskTracker's totalMemoryAllottedForTasks is -1."
-          + " TaskMemoryManager is disabled.");
+      LOG.warn("TaskTracker's totalMemoryAllottedForTasks is -1 and " +
+               "reserved physical memory is not configured. " +
+               "TaskMemoryManager is disabled.");
       return;
     }
 

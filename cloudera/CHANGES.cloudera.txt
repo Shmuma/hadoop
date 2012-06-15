@@ -1,21 +1,633 @@
-commit 318bc781117fa276ae81a3d111f5eeba0020634f
+commit 214dd731e3bdb687cb55988d3f47dd9e248c5690
 Author: Eli Collins <eli@cloudera.com>
-Date:   Tue Mar 20 10:44:19 2012 -0700
+Date:   Mon May 7 10:34:10 2012 -0700
 
-    CLOUDERA-BUILD. Allow Datanodes and Tasktrackers to connect to Namenodes and Jobtrackers with
-    different build revisions.
+    HDFS-3376. DFSClient fails to make connection to DN if there are many unusable cached sockets
     
-    Reason: Allow DN/TT upgrade and host addition with refreshed builds
-    Author: Eli Collins
-    Ref: CDH-4560
+    After fixing the datanode side of keepalive to properly disconnect stale
+    clients, (HDFS-3357), the client side has the following issue: when it
+    connects to a DN, it first tries to use cached sockets, and will try a
+    configurable number of sockets from the cache. If there are more cached
+    sockets than the configured number of retries, and all of them have been
+    closed by the datanode side, then the client will throw an exception and
+    mark the replica node as dead.
+    
+    Reason: Bug
+    Author: Todd Lipcon
+    Ref: CDH-5622
 
-commit 78ca997f549a89d60b39ae466f02a2797fa8003a
+commit 7a4b0841defc7dbe6feb41816669a43661c869cc
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Fri May 4 14:08:13 2012 -0700
+
+    Amend HDFS-3357 backport. Fix timeouts for long running writers
+    
+    The previous backport set the read timeout for data xceviers to 60s (default).
+    This broke writers which sat without sending data for longer than this period
+    (e.g the HBase HLog). This does not appear to affect the trunk version of the
+    patch because trunk clients send periodic heartbeat packets through the
+    write pipeline.
+    
+    Reason: fix HBase crashing after previous HDFS-3357 backport
+    Author: Todd Lipcon
+    Ref: CDH-5662
+
+commit 2ef37731c488dc93e4347ad343158fe4a6c02dc4
+Author: Colin Patrick Mccabe <cmccabe@cloudera.com>
+Date:   Thu May 3 12:56:28 2012 -0700
+
+    HADOOP-4885.  Check for dfs.namenode.name.dir.restore
+    
+    Upstream uses the configuration option dfs.namenode.name.dir.restore,
+    not dfs.name.dir.restore.  We should check for both.
+    
+    Author: Colin Patrick McCabe
+    Reason: Reconcile configuration options with upstream
+    Ref: CDH-5580
+
+commit 4c2a2d5126405542d96cff0867f22e8c10956d93
+Author: Alejandro Abdelnur <tucu@cloudera.com>
+Date:   Fri May 4 10:22:50 2012 -0700
+
+    HADOOP-8343. Allow configuration of authorization for JmxJsonServlet and MetricsServlet (tucu)
+    
+      Reason: Required not to break CM
+      Author: Alejandro Abdelnur
+      Ref: CDH-5582
+
+commit 5fd8f4d8f80053817c5a9c0ee6636bf3cb3560af
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Thu May 3 16:48:17 2012 -0700
+
+    HDFS-3357. DataXceiver reads from client socket with incorrect/no timeout
+    
+    Reason: fix hung xceiver threads on datanodes
+    Author: Todd Lipcon
+    Ref: CDH-5622
+
+commit 388992866494519d32ddc9e793125c54692f6900
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Thu May 3 16:13:17 2012 -0700
+
+    HADOOP-8350. Improve NetUtils.getInputStream to return a stream which has a tunable timeout.
+    
+    Reason: necessary for HDFS-3357
+    Author: Todd Lipcon
+    Ref: CDH-5622
+
+commit eb95ac7cd89f243bebaba7ddfbf3787ff9739c31
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Thu May 3 15:46:40 2012 -0700
+
+    HDFS-3359. DFSClient.close should close cached sockets.
+    
+    Reason: address socket leak in clients, especially seen on TTs
+    Author: Todd Lipcon
+    Ref: CDH-5622
+
+commit 86067db46e4e4c2a5a0fa026907e02d2b755c9be
+Author: Colin Patrick Mccabe <cmccabe@cloudera.com>
+Date:   Thu Apr 26 16:21:57 2012 -0700
+
+    CDH-5535: Make sure that we abort when no edit log directories are left
+    
+    We should make sure to abort when there are no edit log directories left
+    to write to.
+
+commit cdbbf432dd714be3b33e9f1e2d9042951ab78e1d
+Author: Eli Collins <eli@cloudera.com>
+Date:   Mon Apr 23 21:30:13 2012 -0700
+
+    HADOOP-8230. Disable append.
+    
+    The dfs.support.append configuration option enables both sync and
+    append, and has been used thus far to enable sync for HBase support.
+    This change enables sync unconditionally, which has been enabled by
+    default in CDH3, and removes the ability to enable append since append
+    has known data loss bugs.
+    
+    Author: Eli Collins
+    Reason: Prevent data loss by disabling HDFS append
+    Ref: CDH-4506
+
+commit 1c79f4afcb7cd8a49aa997a7f47c6cbef24d527c
+Author: Alejandro Abdelnur <tucu@cloudera.com>
+Date:   Wed Apr 25 08:32:57 2012 -0700
+
+    HADOOP-8314. HttpServer#hasAdminAccess should return false if authorization is enabled but user is not authenticated. (tucu)
+    
+      Reason: security bug
+      Author: Alejandro Abdelnur
+      Ref: CDH-5384
+
+commit a130de520d2226ca81c6c8370218650ddd012bf2
+Author: Eli Collins <eli@cloudera.com>
+Date:   Thu Apr 12 12:20:04 2012 -0700
+
+    HADOOP-8209. Add an option to relax the build version check.
+    
+    Changes the behavior of datanodes and tasktrackers to only check for a version match (eg "0.20.2-cdh3u4") but ignore the other
+    build fields (revision, user, and source checksum) when checking for compatibility with namenodes and jobtrackers. In previous
+    releases datanodes refused to connect to namenodes if their build revision (svn revision) did not match, and tasktrackers refused
+    to connect to jobtrackers if their build version (version, revision, user, and source checksum) did not match. This behavior can
+    be restored by setting hadoop.relaxed.worker.version.check to false in core-site.xml
+    
+    Author: Eli Collins
+    Reason: Enable rolling upgrades of slave hosts within an update
+    Ref: CDH-5027
+
+commit 8b7c0be177f4b985ba1894b76e12ee32d78907fb
+Author: Colin Patrick Mccabe <cmccabe@cloudera.com>
+Date:   Thu Apr 12 14:27:18 2012 -0700
+
+    Backport HDFS-3055 (implement recovery mode for branch-1)
+    
+    Author: Colin McCabe
+    Reason: New Feature
+    Ref: CDH-4924
+
+commit 3df2f412897555d40bba7fcc21e9296f6aa079ce
+Author: Peter Linnell <plinnell@cloudera.com>
+Date:   Tue Apr 10 15:46:47 2012 -0700
+
+    DISTRO-53. bin/hadoop leaks pids when running a non-detached datanode via jsvc
+    
+    Author: Peter Linnell
+    Reason: Bug
+    Ref: CDH-4367
+
+commit 9c8a93fe0fed216da5b3f56bc28e3dfa640c6b85
+Author: Andrew Bayer <andrew@cloudera.com>
+Date:   Mon Apr 9 16:03:08 2012 -0700
+
+    CLOUDERA-BUILD. Preparing for CDH3u4 release.
+
+commit b820011d599b1f6d9315cc777576381f957d9808
+Author: Alejandro Abdelnur <tucu@apache.org>
+Date:   Fri Apr 6 08:45:36 2012 +0000
+
+    HADOOP-8249. invalid hadoop-auth cookies should trigger authentication if info is avail before returning HTTP 401 (tucu)
+    
+    git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1310235 13f79535-47bb-0310-9956-ffa450edef68
+
+commit 2a444b734bdf643bfc80c68b98b8c69fe2e2a12b
 Author: Aaron T. Myers <atm@cloudera.com>
 Date:   Wed Mar 14 11:16:06 2012 -0700
 
     The LTC should set supplementary groups in addition to euid and egid when switching users.
+    (cherry picked from commit 78ca997f549a89d60b39ae466f02a2797fa8003a)
 
-commit 217a3767c48ad11d4632e19a22897677268c40c4
+commit 3542e7fecac1649dc3e9ca85c16d38b9b50b0a1c
+Author: Peter Linnell <plinnell@cloudera.com>
+Date:   Thu Apr 5 18:42:14 2012 -0700
+
+    CLOUDERA-BUILD. Conf should be 0644.
+    
+    Author: Peter Linnell
+    Reason: Bug
+    Ref: CDH-4256
+
+commit 2e59f4098c52600ea6fbd651ce7008cc486963b0
+Author: Eli Collins <eli@apache.org>
+Date:   Sat Mar 31 01:01:57 2012 +0000
+
+    HDFS-3044. fsck move should be non-destructive by default. Contributed by Colin Patrick McCabe
+    
+    git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-1@1307673 13f79535-47bb-0310-9956-ffa450edef68
+
+commit ef5bef8f073eeefdecafca2e3660bf855bf7df07
+Author: Patrick Hunt <phunt@cloudera.com>
+Date:   Tue Apr 3 15:43:44 2012 +0000
+
+    MAPREDUCE-4012 Hadoop Job setup error leaves no useful info to users. (tgraves)
+    
+    Author: Thomas Graves
+    Reason: Bug
+    Ref: CDH-4854
+
+commit 24e11c17d1aa460fc8ee318a773fb0d7cdd82523
+Author: Patrick Hunt <phunt@cloudera.com>
+Date:   Tue May 10 20:18:44 2011 +0000
+
+    MAPREDUCE-2456. Log the reduce taskID and associated TaskTrackers with failed fetch notifications in the JobTracker log.
+    
+    Author: Jeffrey Naisbitt
+    Reason: Improvement
+    Ref: CDH-5019
+
+commit 696642abf31b303d3aef95fd651a2fdf2a5e4142
+Author: Eli Collins <eli@apache.org>
+Date:   Mon Mar 26 22:05:43 2012 +0000
+
+    HDFS-3129. NetworkTopology: getLeaf should check for invalid topologies. Contributed by Colin Patrick McCabe
+    
+    Reason: improvement
+    Author: Colin McCabe
+    Ref: CDH-3897
+
+commit 093e6e83c801662fd9d8ad3925a70d1d5eeac213
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Wed Jan 18 17:53:05 2012 -0800
+
+    HADOOP-7982. UserGroupInformation fails to login if thread's context classloader can't load HadoopLoginModule
+    
+    Reason: fixes "Failure to login" errors in some cases, particularly involving JNI/libhdfs
+    Author: Todd Lipcon
+    Ref: CDH-4305
+
+commit 80fd3539d82c6e4e97f57828c1c647520d180694
+Author: Tom White <tom@cloudera.com>
+Date:   Wed Mar 21 15:33:34 2012 -0700
+
+    HADOOP-7030. Add TableMapping topology implementation to read host to rack mapping from a file.
+    
+    Reason: Operator improvement
+    Author: Patrick Angeles and Tom White
+    Ref: CDH-3899
+
+commit c1568dc425945dfd4463b301d9a74f7ac12eac2a
+Author: Tom White <tom@cloudera.com>
+Date:   Mon Mar 19 14:04:13 2012 -0700
+
+    CDH-4334. Backport MAPREDUCE-3583 (ProcfsBasedProcessTree#constructProcessInfo() may throw NumberFormatException)
+
+commit bf08c86e98c5a346e27e63bdfa8f34435644cdd1
+Author: Todd Lipcon <todd@cloudera.com>
+Date:   Mon Mar 26 13:06:42 2012 -0700
+
+    Amend MAPREDUCE-3289. Fix TaskTracker fadvise support to only readahead a chunk at a time
+    
+    Reason: previous implementation could cause reduce fetch timeouts when some map output partitions are very large
+    Author: Todd Lipcon
+    Ref: CDH-5020
+
+commit 92d20469fe8cb4e1b6c9471b79f978c9543fd0c6
+Author: Eli Collins <eli@cloudera.com>
+Date:   Wed Mar 7 17:22:19 2012 -0800
+
+    HDFS-3148. The client should be able to use multiple local interfaces for data transfer.
+    
+    Clients should also be able to utilize multiple local interfaces for
+    outbound connections instead of always using the interface for the local
+    hostname. This can be accomplished with a new configuration parameter
+    (dfs.client.local.interfaces) that accepts a list of interfaces the
+    client can bind it's socket to. Since the client already caches
+    connections to DNs by default, choosing a local interface at random is a
+    good policy. Users can also pin a specific client to a specific
+    interface by specifying just that interface in
+    dfs.client.local.interfaces.
+    
+    Author: Eli Collins
+    Reason: Enable datanode multihoming
+    Ref: CDH-4292
+
+commit 63cf96b62842f8b5634087641a9f40492e43aed4
+Author: Eli Collins <eli@cloudera.com>
+Date:   Fri Mar 2 19:05:24 2012 -0800
+
+    HDFS-3150. Add option for clients to contact DNs via hostname in branch-1.
+    
+    Modifies Client/Datanode <-> Datanode access use the hostname field
+    instead of the IP. To enable this new client and Datanode configuration
+    options are introduced:
+    
+    1. dfs.client.use.datanode.hostname indicates all client to datanode
+    connections should use the datanode hostname (as clients outside cluster
+    may not be able to route the IP).
+    
+    2. dfs.datanode.use.datanode.hostname indicates whether Datanodes should
+    use hostnames when connecting to other Datanodes for data transfer.
+    
+    Author: Eli Collins
+    Reason: Enable datanode multihoming
+    Ref: CDH-4292
+
+commit 1f04ee26293004fcc481773acba15cbd30e0292f
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sat Mar 10 13:03:33 2012 -0800
+
+    HADOOP-7806. Support binding to sub-interfaces.
+    
+    Add the ability to specify sub-interfaces (eg "eth0:0") in
+    configuration options like dfs.datanode.dns.interface that currently
+    just accept interface names (eg "eth0").
+    
+    Author: Eli Collins
+    Reason: Improvement
+    Ref: CDH-3846
+
+commit f61144c1d90cdad986a466b9955a593461776306
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sat Mar 10 12:58:16 2012 -0800
+
+    HADOOP-8154. DNS#getIPs shouldn't silently return the local host IP
+    for bogus interface names.
+    
+    DNS#getIPs silently returns the local host IP for bogus interface
+    names. In this case let's throw an UnknownHostException. Specifying
+    "default" for the interface is still supported.
+    
+    Author: Eli Collins
+    Reason: Bug
+    Ref: CDH-4292
+
+commit 402cb922c498031014819a8cb01bf2c8f01d3491
+Author: Tom White <tom@cloudera.com>
+Date:   Tue Mar 13 13:57:13 2012 -0700
+
+    MAPREDUCE-1221. Kill tasks on a node if the free physical memory on that machine falls below a configured threshold
+    
+    Reason: Customer request
+    Author: Scott Chen, Tom White
+    Ref: CDH-3828
+
+commit 4982c344c20ecdf6475de2601fb21f167f4fddea
+Author: Sho Shimauchi <sho.shimauchi@gmail.com>
+Date:   Mon Mar 12 13:22:22 2012 +0900
+
+    HDFS-1773. Do not show decommissioned datanodes on web and JMX interfaces.
+    
+    Reason: Customer request
+    Author: Tanping Wang and Tsz-wo Sze
+    Ref: CDH-3799
+
+commit 51506d29c5e0fdd300b0a2a35b9331739a5d8d8c
+Author: Ahmed Radwan <ahmed@cloudera.com>
+Date:   Wed Mar 21 16:41:40 2012 -0700
+
+    MAPREDUCE-1740. NPE in getMatchingLevelForNodes when node locations are
+    variable depth.
+    
+    Author: Ahmed Radwan
+    Reason: Bug
+    Ref: CDH-4278
+
+commit 1c9d2fac2188cd2c7ecf3b93711f1ecac3544bf9
+Author: Ahmed Radwan <ahmed@cloudera.com>
+Date:   Mon Mar 19 18:12:38 2012 -0700
+
+    HADOOP-7987. Support setting the run-as user in unsecure mode.
+    
+    Author: Jitendra Nath Pandey
+    Reason: Improvement
+    Ref: CDH-4273
+
+commit d8a920cc5c603c98428bc2b41bc8f3c2b4eff794
+Author: Eli Collins <eli@apache.org>
+Date:   Wed Mar 7 18:16:29 2012 +0000
+
+    HDFS-2872. Add sanity checks during edits loading that generation stamps are non-decreasing.
+    
+    Author: Colin McCabe
+    Reason: Improvement
+    Ref: CDH-4355
+
+commit 565a64129238a55499661deda662d8bedab714b1
+Author: Tom White <tom@cloudera.com>
+Date:   Fri Feb 24 16:02:52 2012 -0800
+
+    MAPREDUCE-2835. Make per-job counter limits configurable.
+    
+    Reason: Operator improvement
+    Author: Tom White
+    Ref: CDH-4505
+
+commit 9b4d8ffe7fb92a3e1487760e3f04d420f170fb53
+Author: Harsh J <harsh@cloudera.com>
+Date:   Wed Mar 14 03:04:43 2012 +0530
+
+    MAPREDUCE-4001. Improve MAPREDUCE-3789's fix logic by looking at job's slot demands instead.
+    
+    Reason: Customer request
+    Author: Harsh J
+    Ref: CDH-4276
+
+commit fa4e0b8d682230dcb49bdf5939244f180ae86232
+Author: Eli Collins <eli@cloudera.com>
+Date:   Mon Mar 12 17:02:17 2012 -0700
+
+    HDFS-3078. 2NN https port setting is broken.
+    
+    Reason: Bug
+    Author: Eli Collins
+    Ref: CDH-4820
+
+commit a4b1840a88ab2fede2944a6f8b14f2a386fde586
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Mar 11 19:31:21 2012 -0700
+
+    HADOOP-6255. Pick up HADOOP_SECURITY_LOGGER.
+    
+    bin/hadoop needs to use HADOOP_SECURITY_LOGGER to set
+    hadoop.security.logger in log4j.properties.
+    
+    Reason: Bug
+    Author: Eric Yang
+    Ref: CDH-2609
+
+commit 06abe3168b8ee4b0cc4ed9a009ab218f47d32582
+Author: Harsh J <harsh@cloudera.com>
+Date:   Sun Mar 11 22:44:46 2012 +0530
+
+    MAPREDUCE-1109. ConcurrentModificationException in jobtracker.jsp
+    
+    Reason: Customer request
+    Author: Harsh J
+    Ref: CDH-4527
+
+commit b65e0a12168ed5ed9f9bbb88895f186762c4d5dc
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Mar 11 21:18:10 2012 -0700
+
+    HDFS-2132. Potential resource leak in EditLogFileOutputStream.close.
+    
+    EditLogFileOutputStream.close(...) sequentially closes a series of
+    underlying resources. If any of the calls to close() throw before the
+    last one, the later resources will never be closed.
+    
+    Reason: Bug
+    Author: Aaron T. Myers
+    Ref: CDH-3317
+
+commit b9577929b1d333a3c697d1965ac6e658a0199d1c
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Mar 11 20:13:26 2012 -0700
+
+    HDFS-1910. NameNode should not save fsimage twice.
+    
+    Reason: Bug
+    Author: Konstantin Shvachko
+    Ref: CDH-3867
+
+commit a6e1a230ab14e00c9d3f8826f1e7a1ac33144aa1
+Author: Todd Lipcon <todd@apache.org>
+Date:   Thu Feb 2 22:10:36 2012 +0000
+
+    HDFS-2877. If locking of a storage dir fails, it will remove the other NN's lock file on exit.
+    
+    In Storage.tryLock(), we call lockF.deleteOnExit() regardless of
+    whether we successfully lock the directory. So, if another NN has the
+    directory locked, then we'll fail to lock it the first time we start
+    another NN. But our failed start attempt will still remove the other
+    NN's lockfile, and a second attempt will erroneously start.
+    
+    Reason: Bug
+    Author: Todd Lipcon
+    Ref: CDH-4410
+
+commit 45504ce5fc7edb030ef9b9c91bd6772d8c140bf2
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Mar 11 18:50:58 2012 -0700
+
+    HDFS-2502. dfs.name.dir.restore not mentioned in hdfs-default.xml.
+    
+    Reason: Bug
+    Author: Harsh J
+    Ref: CDH-2703
+
+commit d82877c3adeb53bbbcb50ff918f12e0db778f2ee
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Mar 11 18:42:13 2012 -0700
+
+    HDFS-930. Better error message for DATA_TRANSFER_VERSION mismatched.
+    
+    Add some context information in the IOException during a version
+    mismatch to help debugging.
+    
+    Reason: Bug
+    Author: Karthik K
+    Ref: CDH-731
+
+commit 0ae25905defef0f846f60ab6287fb52cee23f98b
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Mar 11 18:28:41 2012 -0700
+
+    HADOOP-6056. Use java.net.preferIPv4Stack to force IPv4.
+    
+    This was mentioned on HADOOP-3427, there is a property,
+    java.net.preferIPv4Stack, which you set to true for the java net
+    process to switch to IPv4 everywhere. As Hadoop doesn't work on IPv6,
+    this should be set to true in the startup scripts.
+    
+    Reason: Improvement
+    Author: Todd Lipcon
+    Ref: CDH-4803
+
+commit ed28400e4ba1e172f76753fcd193953e6b818396
+Author: Eli Collins <eli@cloudera.com>
+Date:   Sun Mar 11 18:36:04 2012 -0700
+
+    HADOOP-5226. Add license headers to html and jsp files.
+    
+    Reason: Bug
+    Author: Tsz Wo (Nicholas), SZE
+    Ref: CDH-3278
+
+commit dcdbb78b84fe865235c0bb74cb27538fe0913328
+Author: Tom White <tom@cloudera.com>
+Date:   Mon Mar 5 17:06:13 2012 -0800
+
+    MAPREDUCE-157. Add configuration to control maximum age of job history files (mapreduce.jobhistory.max-age-ms).
+    
+    Reason: Improvement
+    Author: Jothi Padmanabhan and Tom White
+    Ref: CDH-3641
+
+commit bbd3103a93ebe5050396200fdfe9d2b3b3dfe45b
+Author: Tom White <tom@cloudera.com>
+Date:   Tue Mar 6 14:25:11 2012 -0800
+
+    MAPREDUCE-3997. jobhistory.jsp cuts off the job name at the first underscore of the job name
+    
+    Reason: Bug (customer request)
+    Author: Tom White
+    Ref: CDH-4408
+
+commit 390a845823cf6fb21c4a8112d0c47b8f9a1379fd
+Author: Eli Collins <eli@cloudera.com>
+Date:   Wed Mar 7 17:21:29 2012 -0800
+
+    HDFS-2788. HdfsServerConstants#DN_KEEPALIVE_TIMEOUT is dead code.
+    
+    Reason: Improvement
+    Author: Eli Collins
+    Ref: CDH-3777
+
+commit 69c028685a7aee1ef3188ec23c1c7576b5c3154e
+Author: Owen O'Malley <omalley@apache.org>
+Date:   Fri Mar 4 04:50:13 2011 +0000
+
+    commit 98d8043ef96dd9a67e23852b5e5caf8f0a4589db
+    Author: Krishna Ramachandran <ramach@yahoo-inc.com>
+    Date:   Thu Oct 21 12:21:50 2010 -0700
+    
+        . Delete PrintWriter using iterator to fix
+            java.util.ConcurrentModificationException (dking)
+    
+    git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-0.20-security-patches@1077739 13f79535-47bb-0310-9956-ffa450edef68
+
+commit 2032dfdfbb2c7d72ec5a88f9bd9f9dae172d62f6
+Author: Alejandro Abdelnur <tucu@apache.org>
+Date:   Tue Feb 28 18:26:53 2012 +0000
+
+    HADOOP-8098. KerberosAuthenticatorHandler should use _HOST replacement to resolve principal name (tucu)
+    
+    git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1294757 13f79535-47bb-0310-9956-ffa450edef68
+    
+       Reason: Improve usability
+       Author: Alejandro Abdelnur
+       Ref: CDH-4552
+
+commit 2179e0103e981dacea6ebcf8c8b6bb42ad9a5857
+Author: Aaron T. Myers <atm@cloudera.com>
+Date:   Sat Feb 25 15:13:18 2012 -0800
+
+    HDFS-2978. The NameNode should expose name dir statuses via JMX
+    
+    Reason: New Feature
+    Author: Aaron T. Myers
+    Ref: CDH-3682
+
+commit 5196b9947524cc431772cca3c98d4e5b555aa70e
+Author: Eli Collins <eli@cloudera.com>
+Date:   Fri Feb 24 13:32:20 2012 -0800
+
+    HDFS-3008. Negative caching of local addrs doesn't work.
+    
+    Reason: Bug
+    Author: Eli Collins
+    Ref: CDH-4597
+
+commit d3c862bdb692263affb6f09d2d2a29e8e0803e3c
+Author: Tom White <tom@cloudera.com>
+Date:   Tue Dec 27 14:46:52 2011 -0800
+
+    MAPREDUCE-3607. Port missing new API mapreduce lib classes to 1.x.
+    
+    Reason: Compatibility
+    Author: Tom White
+    Ref: CDH-4006
+
+commit 024eb44082b7a1e316776e453b078f323634fd86
+Author: Eli Collins <eli@cloudera.com>
+Date:   Fri Feb 17 11:12:45 2012 -0800
+
+    HADOOP-8027. Visiting /jmx on the daemon web interfaces may print unnecessary error in logs.
+    
+    Reason: Improvement
+    Author: Aaron T. Myers
+    Ref: CDH-4348
+
+commit 68d637c76db3c79df7207d5262f505c342165116
+Author: Alejandro Abdelnur <tucu@cloudera.com>
+Date:   Fri Feb 17 14:19:29 2012 -0800
+
+    DISTRO-373. UserGroupInformation "JAAS Configuration already set"
+    
+      Reason: A double initialization was being triggered because of HADOOP-6716
+      Author: Alejandro Abdelnur
+
+commit ea5a944575665c464ac180a5a20f631ee03e1606
 Author: Eli Collins <eli@cloudera.com>
 Date:   Mon Feb 13 23:27:11 2012 -0800
 
@@ -24,6 +636,50 @@ Date:   Mon Feb 13 23:27:11 2012 -0800
     Reason: Bug
     Author: Eli Collins
     Ref: CDH-4455
+
+commit ff285af0ac3de0969be4332692bf4762c5c109bd
+Author: Alejandro Abdelnur <tucu@cloudera.com>
+Date:   Wed Feb 15 13:16:16 2012 -0800
+
+    MAPREDUCE-3789 CapacityTaskScheduler may perform unnecessary reservations in heterogenous tracker environments
+    
+      Reason: Customer impacted by this bug
+      Author: Harsh Chouraria
+      Ref: CDH-4276
+
+commit 3040fcd9cc551d92be0082f2448fed2f03590531
+Author: Alejandro Abdelnur <tucu@cloudera.com>
+Date:   Tue Feb 14 15:45:41 2012 -0800
+
+    CLOUDERA BUILD. Create hadoop-client and hadoop-minicluster artifacts for downstream projects
+    
+      Reason: backport HADOOP-8009 for easier build/test for downstream projects
+      Author: Alejandro Abdelnur
+      Ref: CDH-4502
+
+commit 1086b02e9ea0ee22bc7c5cf438422156c4353d58
+Author: Alejandro Abdelnur <tucu@cloudera.com>
+Date:   Mon Feb 6 10:40:32 2012 -0800
+
+    MAPREDUCE-3727 jobtoken location property in jobconf refers to wrong jobtoken file.
+    
+      This backport is backporting also a portion of HADOOP-7001 (Configuration#unset method)
+    
+      Reason: Oozie Hive actions are impacted by this bug
+      Author: Alejandro Abdelnur
+      Ref: CDH-4232
+
+commit 66d9c9225ef865aba6dd14cefb55a31990ba7c74
+Author: Andrew Bayer <andrew@cloudera.com>
+Date:   Mon Jan 30 12:45:17 2012 -0800
+
+    Fixing versions.
+
+commit 780248004ecc4796f8eab4ce2b5bee4914465aed
+Author: Andrew Bayer <andrew@cloudera.com>
+Date:   Mon Jan 30 11:49:54 2012 -0800
+
+    Updating for CDH3u4 development.
 
 commit 03b655719d13929bd68bb2c2f9cee615b389cea9
 Author: Eli Collins <eli@cloudera.com>

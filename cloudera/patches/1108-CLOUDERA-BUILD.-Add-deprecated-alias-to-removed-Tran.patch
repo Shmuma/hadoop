@@ -1,7 +1,7 @@
 From 164e84c499699ada743fdc5f39dce212f3e742fc Mon Sep 17 00:00:00 2001
 From: Philip Zeyliger <philip@cloudera.com>
 Date: Sun, 4 Dec 2011 21:31:52 -0800
-Subject: [PATCH 1108/1120] CLOUDERA-BUILD. Add deprecated alias to removed TransferFsImage method.
+Subject: [PATCH 1108/1179] CLOUDERA-BUILD. Add deprecated alias to removed TransferFsImage method.
 
 The fix for HDFS-2305/CDH-2761 changed the method signature
 of a static method in TransferFsImage.  This adds back

@@ -1,7 +1,7 @@
 From a390e45180fbaaf4a3ea84d97ec0316c182ec8c9 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sun, 20 Nov 2011 11:22:14 -0800
-Subject: [PATCH 1084/1120] HADOOP-6614. RunJar should provide more diags when it can't create a temp file.
+Subject: [PATCH 1084/1179] HADOOP-6614. RunJar should provide more diags when it can't create a temp file.
 
 Author: Jonathan Hsieh
 Ref: CDH-3841

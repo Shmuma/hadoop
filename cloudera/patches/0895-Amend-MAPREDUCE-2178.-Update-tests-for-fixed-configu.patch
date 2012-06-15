@@ -1,7 +1,7 @@
 From 25ece8066682682f6fdd595845dbf71555aef5bb Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 1 Mar 2011 13:17:58 -0800
-Subject: [PATCH 0895/1120] Amend MAPREDUCE-2178. Update tests for fixed configuration checking code
+Subject: [PATCH 0895/1179] Amend MAPREDUCE-2178. Update tests for fixed configuration checking code
 
 Author: Todd Lipcon
 Ref: CDH-2755

@@ -103,6 +103,8 @@ Method Differences Index
 (<code>TokenIdentifier</code>)</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.tools.HadoopArchives.html#org.apache.hadoop.tools.HadoopArchives.archive_removed(java.util.List, java.lang.String, org.apache.hadoop.fs.Path)" class="hiddenlink" target="rightframe"><strike>archive</strike>
 (<code>List, String, Path</code>)</A></nobr><br>
+<nobr><A HREF="org.apache.hadoop.util.ProcfsBasedProcessTree.html#org.apache.hadoop.util.ProcfsBasedProcessTree.assertAndDestroyProcessGroup_added(java.lang.String, long, boolean)" class="hiddenlink" target="rightframe"><b>assertAndDestroyProcessGroup</b>
+(<code>String, long, boolean</code>)</A></nobr><br>
 <i>authorize</i><br>
 &nbsp;&nbsp;<nobr><A HREF="org.apache.hadoop.ipc.RPC.Server.html#org.apache.hadoop.ipc.RPC.Server.authorize_changed(org.apache.hadoop.security.UserGroupInformation, org.apache.hadoop.ipc.ConnectionHeader, java.net.InetAddress)" class="hiddenlink" target="rightframe">type&nbsp;
 (<code>UserGroupInformation, ConnectionHeader, InetAddress</code>)&nbsp;in&nbsp;org.apache.hadoop.ipc.RPC.Server
@@ -270,6 +272,8 @@ Method Differences Index
 </A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.mapred.TaskTracker.html#org.apache.hadoop.mapred.TaskTracker.commitPending_changed(org.apache.hadoop.mapred.TaskAttemptID, org.apache.hadoop.mapred.TaskStatus, org.apache.hadoop.mapred.JvmContext)" class="hiddenlink" target="rightframe">commitPending
 (<code>TaskAttemptID, TaskStatus, JvmContext</code>)</A></nobr><br>
+<nobr><A HREF="org.apache.hadoop.net.NetUtils.html#org.apache.hadoop.net.NetUtils.connect_added(java.net.Socket, java.net.SocketAddress, java.net.SocketAddress, int)" class="hiddenlink" target="rightframe"><b>connect</b>
+(<code>Socket, SocketAddress, SocketAddress, int</code>)</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.io.compress.zlib.ZlibCompressor.html#org.apache.hadoop.io.compress.zlib.ZlibCompressor.construct_added(org.apache.hadoop.io.compress.zlib.ZlibCompressor.CompressionLevel, org.apache.hadoop.io.compress.zlib.ZlibCompressor.CompressionStrategy, org.apache.hadoop.io.compress.zlib.ZlibCompressor.CompressionHeader, int)" class="hiddenlink" target="rightframe"><b>construct</b>
 (<code>CompressionLevel, CompressionStrategy, CompressionHeader, int</code>)</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.mapred.lib.db.DBOutputFormat.html#org.apache.hadoop.mapred.lib.db.DBOutputFormat.constructQuery_changed(java.lang.String, java.lang.String[])" class="hiddenlink" target="rightframe">constructQuery
@@ -353,8 +357,8 @@ Method Differences Index
 <a href="#X"><font size="-2">X</font></a> 
  <a href="#topheader"><font size="-2">TOP</font></a>
 <br>
-<nobr><A HREF="org.apache.hadoop.util.ProcfsBasedProcessTree.html#org.apache.hadoop.util.ProcfsBasedProcessTree.destroy_removed()" class="hiddenlink" target="rightframe"><strike>destroy</strike>
-()</A></nobr><br>
+<nobr><A HREF="org.apache.hadoop.util.ProcfsBasedProcessTree.html#org.apache.hadoop.util.ProcfsBasedProcessTree.destroy_added(boolean)" class="hiddenlink" target="rightframe"><b>destroy</b>
+(<code>boolean</code>)</A></nobr><br>
 <i>doAs</i><br>
 &nbsp;&nbsp;<nobr><A HREF="org.apache.hadoop.security.UserGroupInformation.html#org.apache.hadoop.security.UserGroupInformation.doAs_added(java.security.PrivilegedExceptionAction)" class="hiddenlink" target="rightframe">type&nbsp;<b>
 (<code>PrivilegedExceptionAction</code>)</b>&nbsp;in&nbsp;org.apache.hadoop.security.UserGroupInformation
@@ -609,8 +613,17 @@ Method Differences Index
 &nbsp;&nbsp;<nobr><A HREF="org.apache.hadoop.mapred.TaskLog.html#org.apache.hadoop.mapred.TaskLog.getIndexFile_removed(java.lang.String, boolean)" class="hiddenlink" target="rightframe">type&nbsp;<strike>
 (<code>String, boolean</code>)</strike>&nbsp;in&nbsp;org.apache.hadoop.mapred.TaskLog
 </A></nobr><br>
+<nobr><A HREF="org.apache.hadoop.net.NetUtils.html#org.apache.hadoop.net.NetUtils.getInputStream_changed(java.net.Socket, long)" class="hiddenlink" target="rightframe">getInputStream
+(<code>Socket, long</code>)</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.conf.Configuration.html#org.apache.hadoop.conf.Configuration.getInstances_added(java.lang.String, java.lang.Class)" class="hiddenlink" target="rightframe"><b>getInstances</b>
 (<code>String, Class</code>)</A></nobr><br>
+<i>getIPs</i><br>
+&nbsp;&nbsp;<nobr><A HREF="org.apache.hadoop.net.DNS.html#org.apache.hadoop.net.DNS.getIPs_added(java.lang.String, boolean)" class="hiddenlink" target="rightframe">type&nbsp;<b>
+(<code>String, boolean</code>)</b>&nbsp;in&nbsp;org.apache.hadoop.net.DNS
+</A></nobr><br>
+&nbsp;&nbsp;<nobr><A HREF="org.apache.hadoop.net.NetUtils.html#org.apache.hadoop.net.NetUtils.getIPs_added(java.lang.String, boolean)" class="hiddenlink" target="rightframe">type&nbsp;<b>
+(<code>String, boolean</code>)</b>&nbsp;in&nbsp;org.apache.hadoop.net.NetUtils
+</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.mapred.TaskLogAppender.html#org.apache.hadoop.mapred.TaskLogAppender.getIsCleanup_added()" class="hiddenlink" target="rightframe"><b>getIsCleanup</b>
 ()</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.mapred.JobConf.html#org.apache.hadoop.mapred.JobConf.getJarUnpackPattern_added()" class="hiddenlink" target="rightframe"><b>getJarUnpackPattern</b>
@@ -633,6 +646,8 @@ Method Differences Index
 &nbsp;&nbsp;<nobr><A HREF="org.apache.hadoop.mapred.TaskLog.html#org.apache.hadoop.mapred.TaskLog.getJobDir_added(org.apache.hadoop.mapreduce.JobID)" class="hiddenlink" target="rightframe">type&nbsp;<b>
 (<code>JobID</code>)</b>&nbsp;in&nbsp;org.apache.hadoop.mapred.TaskLog
 </A></nobr><br>
+<nobr><A HREF="org.apache.hadoop.mapred.JobHistory.JobInfo.html#org.apache.hadoop.mapred.JobHistory.JobInfo.getJobHistoryFileNameParts_added(java.lang.String)" class="hiddenlink" target="rightframe"><b>getJobHistoryFileNameParts</b>
+(<code>String</code>)</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.mapred.TaskTracker.html#org.apache.hadoop.mapred.TaskTracker.getJobJarFile_added(java.lang.String, java.lang.String)" class="hiddenlink" target="rightframe"><b>getJobJarFile</b>
 (<code>String, String</code>)</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.mapred.JobStatus.html#org.apache.hadoop.mapred.JobStatus.getJobRunState_added(int)" class="hiddenlink" target="rightframe"><b>getJobRunState</b>
@@ -863,6 +878,8 @@ Method Differences Index
 &nbsp;&nbsp;<nobr><A HREF="org.apache.hadoop.mapred.TaskTracker.html#org.apache.hadoop.mapred.TaskTracker.getVersion_added()" class="hiddenlink" target="rightframe">type&nbsp;<b>
 ()</b>&nbsp;in&nbsp;org.apache.hadoop.mapred.TaskTracker
 </A></nobr><br>
+<nobr><A HREF="org.apache.hadoop.mapred.JobTracker.html#org.apache.hadoop.mapred.JobTracker.getVIVersion_added()" class="hiddenlink" target="rightframe"><b>getVIVersion</b>
+()</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.fs.FileSystem.Statistics.html#org.apache.hadoop.fs.FileSystem.Statistics.getWriteOps_added()" class="hiddenlink" target="rightframe"><b>getWriteOps</b>
 ()</A></nobr><br>
 <A NAME="H"></A>
@@ -939,6 +956,8 @@ Method Differences Index
 ()</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.mapred.TaskTracker.html#org.apache.hadoop.mapred.TaskTracker.isHealthy_added()" class="hiddenlink" target="rightframe"><b>isHealthy</b>
 ()</A></nobr><br>
+<nobr><A HREF="org.apache.hadoop.http.HttpServer.html#org.apache.hadoop.http.HttpServer.isInstrumentationAccessAllowed_added(javax.servlet.ServletContext, javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)" class="hiddenlink" target="rightframe"><b>isInstrumentationAccessAllowed</b>
+(<code>ServletContext, HttpServletRequest, HttpServletResponse</code>)</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.security.UserGroupInformation.html#org.apache.hadoop.security.UserGroupInformation.isLoginKeytabBased_added()" class="hiddenlink" target="rightframe"><b>isLoginKeytabBased</b>
 ()</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.security.SecurityUtil.html#org.apache.hadoop.security.SecurityUtil.isOriginalTGT_added(java.lang.String)" class="hiddenlink" target="rightframe"><b>isOriginalTGT</b>
@@ -947,6 +966,8 @@ Method Differences Index
 ()</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.util.Shell.html#org.apache.hadoop.util.Shell.isTimedOut_added()" class="hiddenlink" target="rightframe"><b>isTimedOut</b>
 ()</A></nobr><br>
+<nobr><A HREF="org.apache.hadoop.net.NetUtils.html#org.apache.hadoop.net.NetUtils.isValidSubnet_added(java.lang.String)" class="hiddenlink" target="rightframe"><b>isValidSubnet</b>
+(<code>String</code>)</A></nobr><br>
 <A NAME="J"></A>
 <br><font size="+2">J</font>&nbsp;
 <a href="#A"><font size="-2">A</font></a> 
@@ -1269,7 +1290,9 @@ Method Differences Index
 (<code>Policy</code>)</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.mapred.JobQueueInfo.html#org.apache.hadoop.mapred.JobQueueInfo.setQueueState_added(java.lang.String)" class="hiddenlink" target="rightframe"><b>setQueueState</b>
 (<code>String</code>)</A></nobr><br>
-<nobr><A HREF="org.apache.hadoop.util.ProcfsBasedProcessTree.html#org.apache.hadoop.util.ProcfsBasedProcessTree.setSigKillInterval_removed(long)" class="hiddenlink" target="rightframe"><strike>setSigKillInterval</strike>
+<nobr><A HREF="org.apache.hadoop.util.ProcfsBasedProcessTree.html#org.apache.hadoop.util.ProcfsBasedProcessTree.setSigKillInterval_changed(long)" class="hiddenlink" target="rightframe">setSigKillInterval
+(<code>long</code>)</A></nobr><br>
+<nobr><A HREF="org.apache.hadoop.net.SocketInputStream.html#org.apache.hadoop.net.SocketInputStream.setTimeout_added(long)" class="hiddenlink" target="rightframe"><b>setTimeout</b>
 (<code>long</code>)</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.mapreduce.Job.html#org.apache.hadoop.mapreduce.Job.setupProgress_added()" class="hiddenlink" target="rightframe"><b>setupProgress</b>
 ()</A></nobr><br>
@@ -1358,6 +1381,8 @@ Method Differences Index
 <br>
 <nobr><A HREF="org.apache.hadoop.util.RunJar.html#org.apache.hadoop.util.RunJar.unJar_added(java.io.File, java.io.File, java.util.regex.Pattern)" class="hiddenlink" target="rightframe"><b>unJar</b>
 (<code>File, File, Pattern</code>)</A></nobr><br>
+<nobr><A HREF="org.apache.hadoop.conf.Configuration.html#org.apache.hadoop.conf.Configuration.unset_added(java.lang.String)" class="hiddenlink" target="rightframe"><b>unset</b>
+(<code>String</code>)</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.mapred.TaskTracker.html#org.apache.hadoop.mapred.TaskTracker.updatePrivateDistributedCacheSizes_added(org.apache.hadoop.mapreduce.JobID, long[])" class="hiddenlink" target="rightframe"><b>updatePrivateDistributedCacheSizes</b>
 (<code>JobID, long[]</code>)</A></nobr><br>
 <nobr><A HREF="org.apache.hadoop.io.compress.bzip2.CBZip2InputStream.html#org.apache.hadoop.io.compress.bzip2.CBZip2InputStream.updateProcessedByteCount_added(int)" class="hiddenlink" target="rightframe"><b>updateProcessedByteCount</b>

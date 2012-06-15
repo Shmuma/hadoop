@@ -1,7 +1,7 @@
 From 6ef50ae8cebf1b974e3fd4da6c18e2b7ff12dc52 Mon Sep 17 00:00:00 2001
 From: Ahmed Radwan <ahmed@cloudera.com>
 Date: Fri, 11 Nov 2011 15:38:00 -0800
-Subject: [PATCH 1069/1120] HDFS-94. The "Heap Size" in HDFS web ui may not be accurate.
+Subject: [PATCH 1069/1179] HDFS-94. The "Heap Size" in HDFS web ui may not be accurate.
 
 Reason: Bug
 Author: Dmytro Molkov

@@ -1,7 +1,7 @@
 From be5652e5aa6a3888f4e52608c3a591b03ad48487 Mon Sep 17 00:00:00 2001
 From: Tom White <tom@cloudera.com>
 Date: Wed, 6 Jul 2011 17:43:59 +0100
-Subject: [PATCH 1019/1120] CLOUDERA-BUILD. Undeprecate backported MapReduce library classes using the old API.
+Subject: [PATCH 1019/1179] CLOUDERA-BUILD. Undeprecate backported MapReduce library classes using the old API.
 
 Ref: CDH-3203
 ---

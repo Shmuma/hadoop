@@ -1,7 +1,7 @@
 From 3d21fccdb5d67426a05655377e5dc0b926479673 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Tue, 13 Dec 2011 18:46:10 -0800
-Subject: [PATCH 1109/1120] CLOUDERA-BUILD. Update url for searching generated docs.
+Subject: [PATCH 1109/1179] CLOUDERA-BUILD. Update url for searching generated docs.
 
 ---
  src/docs/src/documentation/skinconf.xml |    2 +-

@@ -1,7 +1,7 @@
 From 1476f32a4bb161a3ffc81231b99b472b0dbe3adb Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Tue, 5 Jul 2011 10:30:44 -0700
-Subject: [PATCH 1002/1120] HDFS-1753. Resource Leak in StreamFile.
+Subject: [PATCH 1002/1179] HDFS-1753. Resource Leak in StreamFile.
 
 Reason: Bug
 Author: Uma Maheswara Rao G

@@ -1,7 +1,7 @@
 From ec8790e50f212782f59ec904210e6cd07a62eb8e Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 9 Mar 2011 14:38:33 -0800
-Subject: [PATCH 0916/1120] MAPREDUCE-2374. Don't use PrintWriter API for writing taskjvm.sh
+Subject: [PATCH 0916/1179] MAPREDUCE-2374. Don't use PrintWriter API for writing taskjvm.sh
 
 Reason: PrintWriter obscures errors. Also seems to fix a race condition
         which caused "Text file busy" errors launching taskjvm.sh

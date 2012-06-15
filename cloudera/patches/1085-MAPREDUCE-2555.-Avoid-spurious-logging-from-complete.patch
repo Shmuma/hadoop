@@ -1,7 +1,7 @@
 From abe5bf1c3ef82f90c356695fc16eb615293a56df Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sat, 19 Nov 2011 23:15:06 -0800
-Subject: [PATCH 1085/1120] MAPREDUCE-2555. Avoid spurious logging from completed tasks.
+Subject: [PATCH 1085/1179] MAPREDUCE-2555. Avoid spurious logging from completed tasks.
 
 Author: Thomas Graves
 Ref: CDH-3855

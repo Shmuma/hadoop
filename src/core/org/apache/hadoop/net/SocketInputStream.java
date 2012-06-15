@@ -167,4 +167,8 @@ public class SocketInputStream extends InputStream
   public void waitForReadable() throws IOException {
     reader.waitForIO(SelectionKey.OP_READ);
   }
+
+  public void setTimeout(long timeoutMs) {
+    reader.setTimeout(timeoutMs);
+  }
 }

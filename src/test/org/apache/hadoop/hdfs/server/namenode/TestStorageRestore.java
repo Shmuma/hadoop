@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.namenode.FSImage.NameNodeFile;
@@ -87,7 +88,7 @@ public class TestStorageRestore {
  
     FileSystem.setDefaultUri(config, "hdfs://"+NAME_NODE_HOST + "0");
     config.set("dfs.secondary.http.address", "0.0.0.0:0");
-    config.setBoolean("dfs.name.dir.restore", true);
+    config.setBoolean(DFSConfigKeys.DFS_NAMENODE_NAME_DIR_RESTORE_KEY, true);
   }
 
   @After

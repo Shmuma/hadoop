@@ -1,7 +1,7 @@
 From 64eca816d6b6e35c27464065d300a05932165ac8 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Fri, 26 Aug 2011 12:44:14 -0700
-Subject: [PATCH 1040/1120] HDFS-970. FSImage writing should always fsync before close
+Subject: [PATCH 1040/1179] HDFS-970. FSImage writing should always fsync before close
 
 Reason: Bug
 Author: Todd Lipcon

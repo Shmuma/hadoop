@@ -39,11 +39,11 @@ fuse_stat_struct.o: fuse_stat_struct.c /usr/include/math.h \
  /usr/include/unistd.h /usr/include/bits/posix_opt.h \
  /usr/include/bits/environments.h /usr/include/bits/confname.h \
  /usr/include/getopt.h /usr/include/bits/unistd.h \
- /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/c++/libhdfs/hdfs.h \
+ /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/c++/libhdfs/hdfs.h \
  /usr/include/bits/waitflags.h /usr/include/bits/waitstatus.h \
  /usr/include/alloca.h /usr/include/bits/stdlib.h \
- /opt/cloudera/toolchain/sun-jdk-64bit-1.6.0.26/include/jni.h \
- /opt/cloudera/toolchain/sun-jdk-64bit-1.6.0.26/include/linux/jni_md.h \
+ /opt/toolchain/sun-jdk-64bit-1.6.0.26/include/jni.h \
+ /opt/toolchain/sun-jdk-64bit-1.6.0.26/include/linux/jni_md.h \
  fuse_context_handle.h
 
 /usr/include/math.h:
@@ -222,7 +222,7 @@ fuse_stat_struct.h:
 
 /usr/include/bits/unistd.h:
 
-/var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/c++/libhdfs/hdfs.h:
+/var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/c++/libhdfs/hdfs.h:
 
 /usr/include/bits/waitflags.h:
 
@@ -232,8 +232,8 @@ fuse_stat_struct.h:
 
 /usr/include/bits/stdlib.h:
 
-/opt/cloudera/toolchain/sun-jdk-64bit-1.6.0.26/include/jni.h:
+/opt/toolchain/sun-jdk-64bit-1.6.0.26/include/jni.h:
 
-/opt/cloudera/toolchain/sun-jdk-64bit-1.6.0.26/include/linux/jni_md.h:
+/opt/toolchain/sun-jdk-64bit-1.6.0.26/include/linux/jni_md.h:
 
 fuse_context_handle.h:

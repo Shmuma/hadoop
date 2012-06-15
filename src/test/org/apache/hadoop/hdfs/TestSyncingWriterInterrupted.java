@@ -41,8 +41,8 @@ public class TestSyncingWriterInterrupted {
   @Before
   public void setUp() throws Exception {
     conf = new Configuration();
-    conf.setBoolean("dfs.support.append", true);
     conf.setInt("dfs.client.block.recovery.retries", 1);
+    conf.setBoolean("dfs.support.broken.append", true);
   }
   
   @Test(timeout=90000)

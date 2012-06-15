@@ -41,10 +41,9 @@ import org.apache.hadoop.security.KerberosInfo;
     clientPrincipal = DFSConfigKeys.DFS_DATANODE_USER_NAME_KEY)
 public interface DatanodeProtocol extends VersionedProtocol {
   /**
-   * 27: nextGenerationStamp has a new parameter indicating if it is for
-   * NameNode initiated lease recovery or not
+   * 28: Added an additional member to NamespaceInfo
    */
-  public static final long versionID = 27L;
+  public static final long versionID = 28L;
 
   // error code
   final static int NOTIFY = 0;

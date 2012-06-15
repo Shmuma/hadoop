@@ -1,7 +1,7 @@
 From bc52432d9832d82bc4f60166c7c718e65fe63359 Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Fri, 25 Feb 2011 15:31:32 -0800
-Subject: [PATCH 0891/1120] CLOUDERA-BUILD. Rolling back attempt to speed up build by pre-caching artifacts in Maven repo - ended up breaking in non-Maven context.
+Subject: [PATCH 0891/1179] CLOUDERA-BUILD. Rolling back attempt to speed up build by pre-caching artifacts in Maven repo - ended up breaking in non-Maven context.
 
 ---
  ivy/ivysettings.xml |    1 -

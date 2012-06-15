@@ -1,7 +1,7 @@
 From e7430c8cbd2d182716ac7efb08cb2187c1edab95 Mon Sep 17 00:00:00 2001
 From: Aaron Kimball <aaron@cloudera.com>
 Date: Fri, 12 Mar 2010 14:48:08 -0800
-Subject: [PATCH 0057/1120] Updated Sqoop documentation for MAPREDUCE-816, MAPREDUCE-789.
+Subject: [PATCH 0057/1179] Updated Sqoop documentation for MAPREDUCE-816, MAPREDUCE-789.
 
 Reason: Documentation improvement
 Author: Aaron Kimball

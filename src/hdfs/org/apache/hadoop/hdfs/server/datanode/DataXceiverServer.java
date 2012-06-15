@@ -128,6 +128,8 @@ class DataXceiverServer implements Runnable, FSConstants {
       try {
         Socket s = ss.accept();
         s.setTcpNoDelay(true);
+        // Timeouts are set within DataXceiver.run()
+
         new DataXceiver(s, datanode, this).start();
       } catch (SocketTimeoutException ignored) {
         // wake up to see if should continue to run

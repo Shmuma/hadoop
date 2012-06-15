@@ -1,7 +1,7 @@
 From 329522db408a8cbd943f7a8f62b646b8b238bfe3 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Tue, 28 Jun 2011 14:20:35 -0700
-Subject: [PATCH 0986/1120] HADOOP-7144. Expose JMX with something like JMXProxyServlet
+Subject: [PATCH 0986/1179] HADOOP-7144. Expose JMX with something like JMXProxyServlet
 
 Reason: Provide the ability to get JMX metrics and status info via HTTP
 Author: Robert Joseph Evans

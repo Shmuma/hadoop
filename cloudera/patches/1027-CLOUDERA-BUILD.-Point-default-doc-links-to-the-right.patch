@@ -1,7 +1,7 @@
 From 95683ebe551b9e4ee2e0b0419696dc46e2710162 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sat, 13 Aug 2011 19:17:59 -0700
-Subject: [PATCH 1027/1120] CLOUDERA-BUILD. Point *-default doc links to the right place.
+Subject: [PATCH 1027/1179] CLOUDERA-BUILD. Point *-default doc links to the right place.
 
 ---
  src/docs/src/documentation/content/xdocs/site.xml |    6 +++---

@@ -3116,8 +3116,13 @@ public class JobTracker implements MRConstants, InterTrackerProtocol,
   ////////////////////////////////////////////////////
   // InterTrackerProtocol
   ////////////////////////////////////////////////////
-  
-  public String getBuildVersion() throws IOException{
+
+  // Just returns the VersionInfo version (unlike MXBean#getVersion)
+  public String getVIVersion() throws IOException {
+    return VersionInfo.getVersion();
+  }
+
+  public String getBuildVersion() throws IOException {
     return VersionInfo.getBuildVersion();
   }
 
@@ -4585,9 +4590,11 @@ public class JobTracker implements MRConstants, InterTrackerProtocol,
             if (failedFetchTrackerName == null) {
               failedFetchTrackerName = "Lost task tracker";
             }
-            failedFetchMap.getJob().fetchFailureNotification(failedFetchMap, 
-                                                             mapTaskId, 
-                                                             failedFetchTrackerName);
+            failedFetchMap.getJob().fetchFailureNotification(failedFetchMap,
+                                                             mapTaskId,
+                                                             failedFetchTrackerName,
+                                                             taskId,
+                                                             trackerName);
           }
         }
       }

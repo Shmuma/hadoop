@@ -1,7 +1,7 @@
 From e7c439b8842ae77d185c85d56ce294f8c6467507 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 21 Apr 2010 23:03:27 -0700
-Subject: [PATCH 1073/1120] HDFS-1001. DataXceiver and BlockReader disagree on when to send/recv CHECKSUM_OK
+Subject: [PATCH 1073/1179] HDFS-1001. DataXceiver and BlockReader disagree on when to send/recv CHECKSUM_OK
 
 Reason: This patch is necessary for backport of HDFS-941 (socket reuse).
 Author: bc Wong

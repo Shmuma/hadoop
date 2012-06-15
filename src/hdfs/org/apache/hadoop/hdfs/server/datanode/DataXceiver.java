@@ -44,6 +44,7 @@ import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.net.NetUtils;
+import org.apache.hadoop.net.SocketInputWrapper;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.SecretManager.InvalidToken;
 import org.apache.hadoop.util.DataChecksum;
@@ -64,7 +65,8 @@ class DataXceiver extends Thread implements Runnable, FSConstants {
   DataXceiverServer dataXceiverServer;
   
   private int socketKeepaliveTimeout;
-  
+  private boolean connectToDnViaHostname;
+
   public DataXceiver(Socket s, DataNode datanode, 
       DataXceiverServer dataXceiverServer) {
     super(datanode.threadGroup, "DataXceiver (initializing)");
@@ -82,6 +84,10 @@ class DataXceiver extends Thread implements Runnable, FSConstants {
     
     LOG.debug("Number of active connections is: " + datanode.getXceiverCount());
     updateThreadName("waiting for handshake");
+    
+    this.connectToDnViaHostname = datanode.getConf().getBoolean(
+        DFSConfigKeys.DFS_DATANODE_USE_DN_HOSTNAME,
+        DFSConfigKeys.DFS_DATANODE_USE_DN_HOSTNAME_DEFAULT);
   }
 
   /**
@@ -100,14 +106,14 @@ class DataXceiver extends Thread implements Runnable, FSConstants {
    * Read/write data from/to the DataXceiverServer.
    */
   public void run() {
-    DataInputStream in=null;
+    DataInputStream in = null;
+    SocketInputWrapper sin = null;
     int opsProcessed = 0;
     try {
+      sin = NetUtils.getInputStream(s, datanode.socketTimeout);
       in = new DataInputStream(
-          new BufferedInputStream(NetUtils.getInputStream(s), 
-                                  SMALL_BUFFER_SIZE));
+          new BufferedInputStream(sin, SMALL_BUFFER_SIZE));
       boolean local = s.getInetAddress().equals(s.getLocalAddress());
-      int stdTimeout = s.getSoTimeout();
 
       // We process requests in a loop, and stay around for a short timeout.
       // This optimistic behaviour allows the other end to reuse connections.
@@ -119,11 +125,15 @@ class DataXceiver extends Thread implements Runnable, FSConstants {
         try {
           if (opsProcessed != 0) {
             assert socketKeepaliveTimeout > 0;
-            s.setSoTimeout(socketKeepaliveTimeout);
+            sin.setTimeout(socketKeepaliveTimeout);
+          } else {
+            sin.setTimeout(datanode.socketTimeout);
           }
           short version = in.readShort();
           if ( version != DataTransferProtocol.DATA_TRANSFER_VERSION ) {
-            throw new IOException( "Version Mismatch" );
+            throw new IOException("Version Mismatch (Expected: " +
+               DataTransferProtocol.DATA_TRANSFER_VERSION  +
+               ", Received: " +  version + " )");
           }
 
           op = in.readByte();
@@ -144,10 +154,9 @@ class DataXceiver extends Thread implements Runnable, FSConstants {
           break;
         }
         
-        // restore normal timeout
-        if (opsProcessed != 0) {
-          s.setSoTimeout(stdTimeout);
-        }
+        // restore normal timeout. To lessen risk of HDFS-3357 backport in CDH3,
+        // set to having no timeout, which was the prior behavior.
+        sin.setTimeout(0);
         // Indentation is left alone here so that patches merge easier from 0.20.20x
         
       // Make sure the xciver count is not exceeded
@@ -160,6 +169,9 @@ class DataXceiver extends Thread implements Runnable, FSConstants {
       long startTime = DataNode.now();
       switch ( op ) {
       case DataTransferProtocol.OP_READ_BLOCK:
+        // set non-zero timeout, so that we don't wait forever for
+        // a writer to send a status code after reading a block
+        sin.setTimeout(datanode.socketTimeout);
         readBlock( in );
         datanode.myMetrics.readBlockOp.inc(DataNode.now() - startTime);
         if (local)
@@ -390,14 +402,16 @@ class DataXceiver extends Thread implements Runnable, FSConstants {
       if (targets.length > 0) {
         InetSocketAddress mirrorTarget = null;
         // Connect to backup machine
+        final String dnName = targets[0].getName(connectToDnViaHostname);
         mirrorNode = targets[0].getName();
-        mirrorTarget = NetUtils.createSocketAddr(mirrorNode);
+        mirrorTarget = NetUtils.createSocketAddr(dnName);
         mirrorSock = datanode.newSocket();
         try {
           int timeoutValue = datanode.socketTimeout +
                              (HdfsConstants.READ_TIMEOUT_EXTENSION * numTargets);
           int writeTimeout = datanode.socketWriteTimeout + 
                              (HdfsConstants.WRITE_TIMEOUT_EXTENSION * numTargets);
+          LOG.debug("Connecting to " + dnName);
           NetUtils.connect(mirrorSock, mirrorTarget, timeoutValue);
           mirrorSock.setSoTimeout(timeoutValue);
           mirrorSock.setSendBufferSize(DEFAULT_DATA_SOCKET_SIZE);
@@ -692,9 +706,10 @@ class DataXceiver extends Thread implements Runnable, FSConstants {
     updateThreadName("replacing block " + block + " from " + sourceID);
     try {
       // get the output stream to the proxy
-      InetSocketAddress proxyAddr = NetUtils.createSocketAddr(
-          proxySource.getName());
+      final String dnName = proxySource.getName(connectToDnViaHostname);
+      InetSocketAddress proxyAddr = NetUtils.createSocketAddr(dnName);
       proxySock = datanode.newSocket();
+      LOG.debug("Connecting to " + dnName);
       NetUtils.connect(proxySock, proxyAddr, datanode.socketTimeout);
       proxySock.setSoTimeout(datanode.socketTimeout);
 

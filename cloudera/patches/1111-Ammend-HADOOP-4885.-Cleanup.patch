@@ -1,7 +1,7 @@
 From 9817a9bd9bf215c4f66268e8d5e9f87cd8a417b4 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sun, 18 Dec 2011 13:28:21 -0800
-Subject: [PATCH 1111/1120] Ammend HADOOP-4885. Cleanup.
+Subject: [PATCH 1111/1179] Ammend HADOOP-4885. Cleanup.
 
 Author: Eli Collins
 Ref: CDH-3921

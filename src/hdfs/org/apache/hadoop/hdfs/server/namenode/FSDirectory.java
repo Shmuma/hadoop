@@ -59,10 +59,6 @@ class FSDirectory implements FSConstants, Closeable {
   /** Access an existing dfs name directory. */
   FSDirectory(FSNamesystem ns, Configuration conf) {
     this(new FSImage(), ns, conf);
-    if (conf.getBoolean("dfs.name.dir.restore", false)) {
-      NameNode.LOG.info("Enabling dfs.name.dir storage restoration");
-      fsImage.setRestoreFailedStorage(true);
-    }
     fsImage.setCheckpointDirectories(FSImage.getCheckpointDirs(conf, null),
                                 FSImage.getCheckpointEditsDirs(conf, null));
   }
@@ -77,6 +73,21 @@ class FSDirectory implements FSConstants, Closeable {
         DFSConfigKeys.DFS_LIST_LIMIT, DFSConfigKeys.DFS_LIST_LIMIT_DEFAULT);
     this.lsLimit = configuredLimit>0 ? 
         configuredLimit : DFSConfigKeys.DFS_LIST_LIMIT_DEFAULT;
+    boolean restore = conf.getBoolean
+        (DFSConfigKeys.DFS_NAMENODE_NAME_DIR_RESTORE_KEY,
+        DFSConfigKeys.DFS_NAMENODE_NAME_DIR_RESTORE_DEFAULT);
+    if (conf.getBoolean
+        (DFSConfigKeys.DFS_NAMENODE_NAME_DIR_RESTORE_KEY_DEPRECATED,
+        DFSConfigKeys.DFS_NAMENODE_NAME_DIR_RESTORE_DEFAULT)) {
+      NameNode.LOG.warn(
+          DFSConfigKeys.DFS_NAMENODE_NAME_DIR_RESTORE_KEY_DEPRECATED + " is " +
+          "deprecated; please use " +
+          DFSConfigKeys.DFS_NAMENODE_NAME_DIR_RESTORE_KEY + " instead.");
+      restore = true;
+    }
+    if (restore) {
+      fsImage.setRestoreFailedStorage(true);
+    }
     initialize(conf);
   }
     

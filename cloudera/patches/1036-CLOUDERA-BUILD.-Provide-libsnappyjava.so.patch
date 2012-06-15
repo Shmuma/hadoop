@@ -1,7 +1,7 @@
 From 935bf0003568fa985ea241b5e68c1dc462395d13 Mon Sep 17 00:00:00 2001
 From: Roman Shaposhnik <rvs@cloudera.com>
 Date: Wed, 17 Aug 2011 20:47:10 -0700
-Subject: [PATCH 1036/1120] CLOUDERA BUILD. Provide libsnappyjava.so
+Subject: [PATCH 1036/1179] CLOUDERA BUILD. Provide libsnappyjava.so
 
 ---
  cloudera/do-release-build   |   18 +++++++++++++++++-

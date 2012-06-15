@@ -1,7 +1,7 @@
 From 0929aa6f798e6e1b736bc8715ade29686bec08f3 Mon Sep 17 00:00:00 2001
 From: Tom White <tom@cloudera.com>
 Date: Fri, 11 Mar 2011 18:49:07 -0800
-Subject: [PATCH 0923/1120] HADOOP-7183. WritableComparator.get should not cache comparator objects
+Subject: [PATCH 0923/1179] HADOOP-7183. WritableComparator.get should not cache comparator objects
 
 Reason: regression in HADOOP-6881
 Author: Tom White

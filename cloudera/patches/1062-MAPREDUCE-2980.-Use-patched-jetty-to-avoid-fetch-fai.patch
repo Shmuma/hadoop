@@ -1,7 +1,7 @@
 From 4f2ec73b8231ee5c7f4b1423f5a5dd895386fd2c Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 28 Sep 2011 03:51:39 -0700
-Subject: [PATCH 1062/1120] MAPREDUCE-2980. Use patched jetty to avoid fetch failures and other HTTP-related issues
+Subject: [PATCH 1062/1179] MAPREDUCE-2980. Use patched jetty to avoid fetch failures and other HTTP-related issues
 
 This changes the jetty build to the following tag:
 https://github.com/toddlipcon/jetty-hadoop-fix/tree/6.1.26.cloudera.1

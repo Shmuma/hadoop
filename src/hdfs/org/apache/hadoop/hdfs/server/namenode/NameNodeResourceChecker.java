@@ -30,7 +30,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.DF;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 
-//import com.google.common.annotations.VisibleForTesting;
+import org.apache.hadoop.thirdparty.guava.common.annotations.VisibleForTesting;
 
 /**
  * 
@@ -133,7 +133,7 @@ public class NameNodeResourceChecker {
     return lowVolumes;
   }
 
-  //@VisibleForTesting
+  @VisibleForTesting
   void setVolumes(Map<String, DF> volumes) {
     this.volumes = volumes;
   }

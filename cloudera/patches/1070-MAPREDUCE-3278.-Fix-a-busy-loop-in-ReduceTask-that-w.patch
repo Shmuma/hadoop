@@ -1,7 +1,7 @@
 From a888190fdc5b6356dd5325073b3120c6dfc66288 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 26 Oct 2011 21:14:35 -0700
-Subject: [PATCH 1070/1120] MAPREDUCE-3278. Fix a busy loop in ReduceTask that would cause 100% cpu utilization during the fetch phase.
+Subject: [PATCH 1070/1179] MAPREDUCE-3278. Fix a busy loop in ReduceTask that would cause 100% cpu utilization during the fetch phase.
 
 Previously, if the number of fetch threads in the reducer exceeded the number
 of unique hosts on which map outputs were available, the reducer would spin

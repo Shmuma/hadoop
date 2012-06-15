@@ -1,7 +1,7 @@
 From 58815d50145c62a961f14a6f789491b3e4272fbe Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Mon, 18 Apr 2011 14:52:10 -0700
-Subject: [PATCH 0947/1120] HADOOP-7045. TestDU fails on systems with local file systems with extended attributes.
+Subject: [PATCH 0947/1179] HADOOP-7045. TestDU fails on systems with local file systems with extended attributes.
 
 We should modify the test to allow for some extra on-disk slack. The on-disk
 usage could also be smaller if the file data is all zeros or compression is

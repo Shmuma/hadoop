@@ -1,7 +1,7 @@
 From d23d17a52da7e94deac6d720e7d62706f00ee6f8 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Fri, 11 Nov 2011 14:38:40 -0800
-Subject: [PATCH 1071/1120] HADOOP-7753. Support fadvise and sync_file_range in NativeIO. Add ReadaheadPool infrastructure for use in HDFS and MR.
+Subject: [PATCH 1071/1179] HADOOP-7753. Support fadvise and sync_file_range in NativeIO. Add ReadaheadPool infrastructure for use in HDFS and MR.
 
 Reason: low-risk performance improvement
 Author: Todd Lipcon

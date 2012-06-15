@@ -281,6 +281,9 @@ document.write("Last Published: " + document.lastModified);
 <a href="#fetchdt"> fetchdt </a>
 </li>
 <li>
+<a href="#Recovery+Mode">Recovery Mode</a>
+</li>
+<li>
 <a href="#Upgrade+and+Rollback"> Upgrade and Rollback </a>
 </li>
 <li>
@@ -750,8 +753,32 @@ document.write("Last Published: " + document.lastModified);
       the delegation token file. 
       For command usage, see <a href="commands_manual.html#fetchdt"><span class="codefrag">fetchdt</span> command</a>. 
      </p>
-</div> 
-<a name="N101D8"></a><a name="Upgrade+and+Rollback"></a>
+</div>
+     
+<a name="N101D8"></a><a name="Recovery+Mode"></a>
+<h2 class="h3">Recovery Mode</h2>
+<div class="section">
+<p>Typically, you will configure multiple metadata storage locations.
+       Then, if one storage location is corrupt, you can read the
+       metadata from one of the other storage locations.</p>
+<p>However, what can you do if the only storage locations available are
+       corrupt?  In this case, there is a special NameNode startup mode called
+       Recovery mode that may allow you to recover most of your data.</p>
+<p>You can start the NameNode in recovery mode like so:
+        <span class="codefrag">namenode -recover</span>
+</p>
+<p>When in recovery mode, the NameNode will interactively prompt you at
+       the command line about possible courses of action you can take to
+       recover your data.</p>
+<p>If you don't want to be prompted, you can give the
+       <span class="codefrag">-force</span> option.  This option will force
+       recovery mode to always select the first choice.  Normally, this
+       will be the most reasonable choice.</p>
+<p>Because Recovery mode can cause you to lose data, you should always
+       back up your edit log and fsimage before using it.</p>
+</div>
+     
+<a name="N101F6"></a><a name="Upgrade+and+Rollback"></a>
 <h2 class="h3"> Upgrade and Rollback </h2>
 <div class="section">
 <p>
@@ -810,7 +837,7 @@ document.write("Last Published: " + document.lastModified);
       
 </ul>
 </div> 
-<a name="N10216"></a><a name="File+Permissions+and+Security"></a>
+<a name="N10234"></a><a name="File+Permissions+and+Security"></a>
 <h2 class="h3"> File Permissions and Security </h2>
 <div class="section">
 <p>           
@@ -823,7 +850,7 @@ document.write("Last Published: " + document.lastModified);
       <a href="hdfs_permissions_guide.html">Permissions Guide</a>.
      </p>
 </div> 
-<a name="N10224"></a><a name="Scalability"></a>
+<a name="N10242"></a><a name="Scalability"></a>
 <h2 class="h3"> Scalability </h2>
 <div class="section">
 <p>
@@ -841,7 +868,7 @@ document.write("Last Published: " + document.lastModified);
       suggested configuration improvements for large Hadoop clusters.
      </p>
 </div> 
-<a name="N10236"></a><a name="Related+Documentation"></a>
+<a name="N10254"></a><a name="Related+Documentation"></a>
 <h2 class="h3"> Related Documentation </h2>
 <div class="section">
 <p>

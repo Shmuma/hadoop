@@ -43,6 +43,7 @@ org.apache.hadoop.mapred.tools
 org.apache.hadoop.mapreduce
 org.apache.hadoop.mapreduce.lib.db
 org.apache.hadoop.mapreduce.lib.input
+org.apache.hadoop.mapreduce.lib.jobcontrol
 org.apache.hadoop.mapreduce.lib.map
 org.apache.hadoop.mapreduce.lib.output
 org.apache.hadoop.mapreduce.lib.partition

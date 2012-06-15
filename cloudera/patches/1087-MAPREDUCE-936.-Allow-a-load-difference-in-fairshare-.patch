@@ -1,7 +1,7 @@
 From 1944559432d8af46f68feb041969bd26b2f950b8 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Tue, 15 Nov 2011 14:20:09 -0800
-Subject: [PATCH 1087/1120] MAPREDUCE-936. Allow a load difference in fairshare scheduler
+Subject: [PATCH 1087/1179] MAPREDUCE-936. Allow a load difference in fairshare scheduler
 
 Improves throughput of task scheduling in the scheduler, by allowing
 some nodes to have more tasks scheduled than others while scheduling

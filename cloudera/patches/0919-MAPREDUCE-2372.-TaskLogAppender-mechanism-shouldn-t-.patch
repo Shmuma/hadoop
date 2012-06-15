@@ -1,7 +1,7 @@
 From 50194947583182a237e14c08a968de770cd3f969 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 9 Mar 2011 14:20:28 -0800
-Subject: [PATCH 0919/1120] MAPREDUCE-2372. TaskLogAppender mechanism shouldn't be set in log4j.properties
+Subject: [PATCH 0919/1179] MAPREDUCE-2372. TaskLogAppender mechanism shouldn't be set in log4j.properties
 
 Reason: fixes cleanup tasks to log to proper directory even if using a CDH2
         log4j.properties

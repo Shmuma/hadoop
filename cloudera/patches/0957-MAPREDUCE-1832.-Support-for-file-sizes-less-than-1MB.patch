@@ -1,7 +1,7 @@
 From b9c48d0bf87c3ca3cabd467c6b03360a022e5669 Mon Sep 17 00:00:00 2001
 From: Konstantin Boudnik <cos@apache.org>
 Date: Wed, 4 May 2011 14:10:34 -0700
-Subject: [PATCH 0957/1120] MAPREDUCE-1832. Support for file sizes less than 1MB in DFSIO benchmark.
+Subject: [PATCH 0957/1179] MAPREDUCE-1832. Support for file sizes less than 1MB in DFSIO benchmark.
 
 Reason: Reverting backport of MAPREDUCE-1614 and completing the merge of MAPREDUCE-1832.
 Author: Konstantin Boudnik

@@ -1,7 +1,7 @@
 From a04c9e2a6bd20dcb50e7242b1c0fb35e5614d1cc Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Sun, 18 Dec 2011 14:05:30 -0800
-Subject: [PATCH 1115/1120] HDFS-2702. A single failed name dir can cause the NN to exit.
+Subject: [PATCH 1115/1179] HDFS-2702. A single failed name dir can cause the NN to exit.
 
 There's a bug in FSEditLog#rollEditLog which results in the NN process
 exiting if a single name dir has failed.

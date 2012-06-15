@@ -1,7 +1,7 @@
 From ae79e854209b90fcf5e574a8c927cde3bdd3eb9c Mon Sep 17 00:00:00 2001
 From: Jonathan Hsieh <jon@cloudera.com>
 Date: Tue, 6 Dec 2011 08:08:25 -0800
-Subject: [PATCH 1104/1120] HADOOP-6886 LocalFileSystem Needs createNonRecursive API
+Subject: [PATCH 1104/1179] HADOOP-6886 LocalFileSystem Needs createNonRecursive API
 
 Reason: Bug (HBase data loss)
 Author: Jitendra Nath Pandey and Nicholas Spiegelberg

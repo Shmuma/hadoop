@@ -32,7 +32,6 @@ import java.util.StringTokenizer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.io.LongWritable;
@@ -180,7 +179,7 @@ public class TestDFSIO extends Configured implements Tool {
 
   public void testIOs(int fileSize, int nrFiles)
     throws IOException {
-    config.setBoolean(DFSConfigKeys.DFS_SUPPORT_APPEND_KEY, true);
+    config.setBoolean("dfs.support.broken.append", true);
     MiniDFSCluster cluster = null;
     try {
       cluster = new MiniDFSCluster(config, 2, true, null);
@@ -577,7 +576,7 @@ public class TestDFSIO extends Configured implements Tool {
     LOG.info("baseDir = " + getBaseDir(config));
 
     config.setInt("test.io.file.buffer.size", bufferSize);
-    config.setBoolean(DFSConfigKeys.DFS_SUPPORT_APPEND_KEY, true);
+    config.setBoolean("dfs.support.broken.append", true);
     FileSystem fs = FileSystem.get(config);
 
     if (isSequential) {

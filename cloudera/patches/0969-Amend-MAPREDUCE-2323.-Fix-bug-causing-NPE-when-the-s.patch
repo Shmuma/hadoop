@@ -1,7 +1,7 @@
 From a7f154b738ffdb129eb07be88abc925e447d6b00 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Fri, 17 Jun 2011 17:04:09 -0700
-Subject: [PATCH 0969/1120] Amend MAPREDUCE-2323. Fix bug causing NPE when the "set pool" option is used twice on the same job.
+Subject: [PATCH 0969/1179] Amend MAPREDUCE-2323. Fix bug causing NPE when the "set pool" option is used twice on the same job.
 
 Reason: important bug fix
 Ref: CDH-3036

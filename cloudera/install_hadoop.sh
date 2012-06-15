@@ -194,8 +194,10 @@ ln -s /var/run/hadoop-$APACHE_BRANCH $LIB_DIR/pids
 # Make the pseudo-distributed config
 for conf in conf.pseudo ; do
   install -d -m 0755 $ETC_DIR/$conf
-  # Install the default configurations
+  # Install the default configurations 
   (cd ${BUILD_DIR}/conf && tar -cf - .) | (cd $ETC_DIR/$conf && tar -xf -)
+  chmod -R 0644 $ETC_DIR/$conf/*
+
   # Overlay the -site files
   (cd ${BUILD_DIR}/../../example-confs/$conf && tar -cf - .) | (cd $ETC_DIR/$conf && tar -xf -)
 done

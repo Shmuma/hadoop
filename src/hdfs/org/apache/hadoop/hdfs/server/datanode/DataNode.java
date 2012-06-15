@@ -75,10 +75,8 @@ import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager.AccessMode;
 import org.apache.hadoop.hdfs.security.token.block.ExportedBlockKeys;
-import org.apache.hadoop.hdfs.server.common.GenerationStamp;
 import org.apache.hadoop.hdfs.server.common.HdfsConstants;
 import org.apache.hadoop.hdfs.server.common.IncorrectVersionException;
-import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.HdfsConstants.StartupOption;
 import org.apache.hadoop.hdfs.server.datanode.FSDataset.VolumeInfo;
 import org.apache.hadoop.hdfs.server.datanode.SecureDataNodeStarter.SecureResources;
@@ -227,8 +225,9 @@ public class DataNode extends Configured
   private long readaheadLength = 0;
 
   int writePacketSize = 0;
-  private boolean supportAppends;
-
+  private boolean connectToDnViaHostname;
+  private boolean relaxedVersionCheck;
+  
   /**
    * Testing hook that allows tests to delay the sending of blockReceived
    * RPCs to the namenode. This can help find bugs in append.
@@ -297,7 +296,6 @@ public class DataNode extends Configured
         DFSConfigKeys.DFS_DATANODE_USER_NAME_KEY);
 
     datanodeObject = this;
-    supportAppends = conf.getBoolean("dfs.support.append", true);
     userWithLocalPathAccess = conf.get(
         DFSConfigKeys.DFS_BLOCK_LOCAL_PATH_ACCESS_USER_KEY);
 
@@ -371,6 +369,10 @@ public class DataNode extends Configured
         DFSConfigKeys.DFS_DATANODE_DROP_CACHE_BEHIND_READS_KEY,
         DFSConfigKeys.DFS_DATANODE_DROP_CACHE_BEHIND_READS_DEFAULT);
 
+    this.relaxedVersionCheck = conf.getBoolean(
+        CommonConfigurationKeys.HADOOP_RELAXED_VERSION_CHECK_KEY,
+        CommonConfigurationKeys.HADOOP_RELAXED_VERSION_CHECK_DEFAULT);
+
     InetSocketAddress socAddr = DataNode.getStreamingAddr(conf);
     int tmpPort = socAddr.getPort();
     storage = new DataStorage();
@@ -436,7 +438,7 @@ public class DataNode extends Configured
     selfAddr = new InetSocketAddress(ss.getInetAddress().getHostAddress(),
                                      tmpPort);
     this.dnRegistration.setName(machineName + ":" + tmpPort);
-    LOG.info("Opened info server at " + tmpPort);
+    LOG.info("Opened streaming server at " + tmpPort);
       
     this.threadGroup = new ThreadGroup("dataXceiverServer");
     this.dataXceiverServer = new Daemon(threadGroup, 
@@ -468,6 +470,11 @@ public class DataNode extends Configured
       LOG.info("Periodic Block Verification is disabled because " +
                reason + ".");
     }
+
+    this.connectToDnViaHostname = conf.getBoolean(
+        DFSConfigKeys.DFS_DATANODE_USE_DN_HOSTNAME,
+        DFSConfigKeys.DFS_DATANODE_USE_DN_HOSTNAME_DEFAULT);
+    LOG.debug("Connect to datanode via hostname is " + connectToDnViaHostname);
 
     //create a servlet to serve full-file content
     InetSocketAddress infoSocAddr = DataNode.getInfoAddr(conf);
@@ -564,23 +571,31 @@ public class DataNode extends Configured
   }
   
   /**
-   * @return true if the given remote build revision matches the
-   *    local revision or a configured set of permissible revisions
+   * @return true if this datanode is permitted to connect to
+   *    the given namenode version
    */
-  private boolean isPermittedRevision(String remoteRevision,
-      String localRevision) {
-    if (remoteRevision.equals(localRevision)) {
-      return true;
+  boolean isPermittedVersion(NamespaceInfo nsInfo) {
+    boolean versionMatch =
+      nsInfo.getVersion().equals(VersionInfo.getVersion());
+    boolean revisionMatch =
+      nsInfo.getRevision().equals(VersionInfo.getRevision());
+
+    if (revisionMatch && !versionMatch) {
+      throw new AssertionError("Invalid build. The revisions match" +
+          " but the NN version is " + nsInfo.getVersion() +
+          " and the DN version is " + VersionInfo.getVersion());
     }
-    String[] permittedRevisions =
-      getConf().getTrimmedStrings("hadoop.permitted.revisions");
-    for (String rev : permittedRevisions) {
-      if (remoteRevision.equals(rev)) {
-        LOG.info("Permitting Namenode build revision " + rev);
-        return true;
+    if (relaxedVersionCheck) {
+      if (versionMatch && !revisionMatch) {
+        LOG.info("Permitting datanode revision " + VersionInfo.getRevision() +
+            " to connect to namenode revision " + nsInfo.getRevision() +
+            " because " + CommonConfigurationKeys.HADOOP_RELAXED_VERSION_CHECK_KEY +
+            " is enabled");
       }
+      return versionMatch;
+    } else {
+      return revisionMatch;
     }
-    return false;
   }
 
   private NamespaceInfo handshake() throws IOException {
@@ -596,13 +611,13 @@ public class DataNode extends Configured
         } catch (InterruptedException ie) {}
       }
     }
-    String errorMsg = null;
-    // verify build revision
-    if (!isPermittedRevision(
-          nsInfo.getBuildVersion(), Storage.getBuildVersion())) {
-      errorMsg = "Incompatible build versions: namenode BV = " 
-        + nsInfo.getBuildVersion() + "; datanode BV = "
-        + Storage.getBuildVersion();
+    if (!isPermittedVersion(nsInfo)) {
+      String errorMsg = "Incompatible versions: namenode version " +
+        nsInfo.getVersion() + " revision " + nsInfo.getRevision() +
+        " datanode version " + VersionInfo.getVersion() + " revision " +
+        VersionInfo.getRevision() + " and " +
+        CommonConfigurationKeys.HADOOP_RELAXED_VERSION_CHECK_KEY +
+        " is " + (relaxedVersionCheck ? "enabled" : "not enabled");
       LOG.fatal(errorMsg);
       notifyNamenode(DatanodeProtocol.NOTIFY, errorMsg);
       throw new IOException(errorMsg);
@@ -621,10 +636,10 @@ public class DataNode extends Configured
   } 
 
   public static InterDatanodeProtocol createInterDataNodeProtocolProxy(
-      DatanodeID datanodeid, final Configuration conf, final int socketTimeout)
-    throws IOException {
-    final InetSocketAddress addr = NetUtils.createSocketAddr(
-        datanodeid.getHost() + ":" + datanodeid.getIpcPort());
+      DatanodeInfo info, final Configuration conf, final int socketTimeout,
+      boolean connectToDnViaHostname) throws IOException {
+    final String dnName = info.getNameWithIpcPort(connectToDnViaHostname);
+    final InetSocketAddress addr = NetUtils.createSocketAddr(dnName);
     if (InterDatanodeProtocol.LOG.isDebugEnabled()) {
       InterDatanodeProtocol.LOG.info("InterDatanodeProtocol addr=" + addr);
     }
@@ -760,12 +775,12 @@ public class DataNode extends Configured
       dnRegistration.exportedKeys = ExportedBlockKeys.DUMMY_KEYS;
     }
 
-    if (supportAppends) {
-      Block[] bbwReport = data.getBlocksBeingWrittenReport();
-      long[] blocksBeingWritten = BlockListAsLongs
-          .convertToArrayLongs(bbwReport);
-      namenode.blocksBeingWrittenReport(dnRegistration, blocksBeingWritten);
-    }
+
+    Block[] bbwReport = data.getBlocksBeingWrittenReport();
+    long[] blocksBeingWritten =
+      BlockListAsLongs.convertToArrayLongs(bbwReport);
+    namenode.blocksBeingWrittenReport(dnRegistration, blocksBeingWritten);
+
     // random short delay - helps scatter the BR from all DNs
     // - but we can start generating the block report immediately
     data.requestAsyncBlockReport();
@@ -902,7 +917,7 @@ public class DataNode extends Configured
   }
     
   /** Number of concurrent xceivers per node. */
-  int getXceiverCount() {
+  public int getXceiverCount() {
     return threadGroup == null ? 0 : threadGroup.activeCount();
   }
     
@@ -1417,9 +1432,10 @@ public class DataNode extends Configured
       BlockSender blockSender = null;
       
       try {
-        InetSocketAddress curTarget = 
-          NetUtils.createSocketAddr(targets[0].getName());
+        final String dnName = targets[0].getName(connectToDnViaHostname);
+        InetSocketAddress curTarget = NetUtils.createSocketAddr(dnName);
         sock = newSocket();
+        LOG.debug("Connecting to " + dnName);
         NetUtils.connect(sock, curTarget, socketTimeout);
         sock.setSoTimeout(targets.length * socketTimeout);
 
@@ -1916,7 +1932,6 @@ public class DataNode extends Configured
   private LocatedBlock recoverBlock(Block block, boolean keepLength,
       DatanodeInfo[] targets, boolean closeFile) throws IOException {
 
-    DatanodeID[] datanodeids = (DatanodeID[])targets;
     // If the block is already being recovered, then skip recovering it.
     // This can happen if the namenode and client start recovering the same
     // file at the same time.
@@ -1942,7 +1957,7 @@ public class DataNode extends Configured
       int rwrCount = 0;
       
       List<BlockRecord> blockRecords = new ArrayList<BlockRecord>();
-      for(DatanodeID id : datanodeids) {
+      for (DatanodeInfo id : targets) {
         try {
           InterDatanodeProtocol datanode;
           if (dnRegistration.getHost().equals(id.getHost()) &&
@@ -1950,7 +1965,7 @@ public class DataNode extends Configured
             datanode = this;
           } else {
             datanode = DataNode.createInterDataNodeProtocolProxy(id, getConf(),
-                socketTimeout);
+                socketTimeout, connectToDnViaHostname);
           }
           BlockRecoveryInfo info = datanode.startBlockRecovery(block);
           if (info == null) {
@@ -2009,7 +2024,7 @@ public class DataNode extends Configured
 
       if (syncList.isEmpty() && errorCount > 0) {
         throw new IOException("All datanodes failed: block=" + block
-            + ", datanodeids=" + Arrays.asList(datanodeids));
+            + ", datanodeids=" + Arrays.asList(targets));
       }
       if (!keepLength) {
         block.setNumBytes(minlength);

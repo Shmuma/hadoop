@@ -1,7 +1,7 @@
 From dc1f32f60531bc146d6c42f473d5ba6a0b59fff3 Mon Sep 17 00:00:00 2001
 From: Jonathan Hsieh <jon@cloudera.com>
 Date: Wed, 30 Nov 2011 08:54:06 -0800
-Subject: [PATCH 1102/1120] HADOOP-7870 Fix recursive create.
+Subject: [PATCH 1102/1179] HADOOP-7870 Fix recursive create.
 
 Reason: Bug (hbase data loss)
 Author: Jonathan Hsieh

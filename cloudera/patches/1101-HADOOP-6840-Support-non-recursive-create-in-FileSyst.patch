@@ -1,7 +1,7 @@
 From 9934440df63c790387a54b212aacad4ee12a9dc9 Mon Sep 17 00:00:00 2001
 From: Jonathan Hsieh <jon@cloudera.com>
 Date: Mon, 28 Nov 2011 10:19:56 -0800
-Subject: [PATCH 1101/1120] HADOOP-6840 Support non-recursive create() in FileSystem and SequenceFile.Writer
+Subject: [PATCH 1101/1179] HADOOP-6840 Support non-recursive create() in FileSystem and SequenceFile.Writer
 
 Reason: Bug (hbase data loss)
 Author: Nicolas Spiegelberg and Jitendra Nath Pandey

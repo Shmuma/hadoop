@@ -1,7 +1,7 @@
 From e6697b11c4d14cfb0832eae2ac0c496684a69f22 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Wed, 21 Sep 2011 16:02:24 -0700
-Subject: [PATCH 1054/1120] HADOOP-7621. alfredo config should be in a file not readable by users
+Subject: [PATCH 1054/1179] HADOOP-7621. alfredo config should be in a file not readable by users
 
 Reason: Bug
 Author: Alejandro Abdelnur

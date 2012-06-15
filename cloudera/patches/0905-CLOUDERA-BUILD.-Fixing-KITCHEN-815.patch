@@ -1,7 +1,7 @@
 From c388c047ece60f560187add9446de412292a583c Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Mon, 28 Feb 2011 11:00:42 -0800
-Subject: [PATCH 0905/1120] CLOUDERA-BUILD. Fixing KITCHEN-815.
+Subject: [PATCH 0905/1179] CLOUDERA-BUILD. Fixing KITCHEN-815.
 
 * Invoking mvn before anything else now for property generation, etc.
 * Adding ant-contrib jar to support that.

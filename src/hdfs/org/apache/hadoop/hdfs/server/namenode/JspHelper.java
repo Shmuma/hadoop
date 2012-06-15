@@ -176,9 +176,12 @@ public class JspHelper {
   }
   public void DFSNodesStatus(ArrayList<DatanodeDescriptor> live,
                              ArrayList<DatanodeDescriptor> dead) {
-    if (fsn != null)
+    if (fsn != null) {
       fsn.DFSNodesStatus(live, dead);
+      fsn.removeDecomNodeFromDeadList(dead);  
+    }
   }
+
   public void addTableHeader(JspWriter out) throws IOException {
     out.print("<table class=\"nnbrowse datatable\">\n");
   }

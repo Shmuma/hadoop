@@ -1,7 +1,7 @@
 From 45504c489dfa7255be40ecf2f2a7a8c60cece01b Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 26 Oct 2011 17:57:22 -0700
-Subject: [PATCH 1075/1120] HDFS-2267. DataXceiver thread name incorrect while waiting on op during keepalive.
+Subject: [PATCH 1075/1179] HDFS-2267. DataXceiver thread name incorrect while waiting on op during keepalive.
 
 Reason: trivial bug fix for thread names after HDFS-941
 Author: Todd Lipcon

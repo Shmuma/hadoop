@@ -1,7 +1,7 @@
 From fd48669392567338109a981164083c781d5e7993 Mon Sep 17 00:00:00 2001
 From: Jenkins <dev-kitchen@cloudera.com>
 Date: Sat, 12 Mar 2011 13:40:39 -0800
-Subject: [PATCH 0924/1120] CLOUDERA-BUILD. Updating versions for cdh3u0 release.
+Subject: [PATCH 0924/1179] CLOUDERA-BUILD. Updating versions for cdh3u0 release.
 
 ---
  cloudera-pom.xml                                  |    4 ++--

@@ -1,7 +1,7 @@
 From f0cefd74f8727ebd331c6712ab5b4c004e46a629 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Tue, 15 Mar 2011 10:37:46 -0700
-Subject: [PATCH 0929/1120] CLOUDERA-BUILD. Nuke DFSConfigKeys.DFS_BLOCK_SIZE_KEY.
+Subject: [PATCH 0929/1179] CLOUDERA-BUILD. Nuke DFSConfigKeys.DFS_BLOCK_SIZE_KEY.
 
 Ref: CDH-2828
 ---

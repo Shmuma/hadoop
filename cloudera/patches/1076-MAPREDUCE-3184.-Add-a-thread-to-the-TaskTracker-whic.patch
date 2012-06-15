@@ -1,7 +1,7 @@
 From 139923b6c91849e59e4288f65c245f7a71cecc22 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Mon, 14 Nov 2011 15:43:23 -0800
-Subject: [PATCH 1076/1120] MAPREDUCE-3184. Add a thread to the TaskTracker which monitors for spinning Jetty selector threads, and shuts down the daemon when one is detected.
+Subject: [PATCH 1076/1179] MAPREDUCE-3184. Add a thread to the TaskTracker which monitors for spinning Jetty selector threads, and shuts down the daemon when one is detected.
 
 Reason: detect common JVM/Jetty bug and cause the TT to suicide, minimizing impact on running jobs
 Author: Todd Lipcon

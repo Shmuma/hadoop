@@ -1,7 +1,7 @@
 From 97c67eea39f2d15ecb7a479efda60204fc46e4c5 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Mon, 7 Mar 2011 12:25:32 -0800
-Subject: [PATCH 0913/1120] Amend MAPREDUCE-2234. Previous patch resulted in too many ls -l calls during heartbeats
+Subject: [PATCH 0913/1179] Amend MAPREDUCE-2234. Previous patch resulted in too many ls -l calls during heartbeats
 
 The previous commit under this JIRA changed the checkLocalDirs function to use
 the checkDir() function that takes a permission. This is fine at startup, but

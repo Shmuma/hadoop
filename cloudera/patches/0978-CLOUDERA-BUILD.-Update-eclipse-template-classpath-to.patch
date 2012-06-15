@@ -1,7 +1,7 @@
 From 699edb198e0518572957f7edb77570615850da59 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Wed, 22 Jun 2011 15:22:51 -0700
-Subject: [PATCH 0978/1120] CLOUDERA-BUILD. Update eclipse template classpath to remove dupes and update verions.
+Subject: [PATCH 0978/1179] CLOUDERA-BUILD. Update eclipse template classpath to remove dupes and update verions.
 
 ---
  .eclipse.templates/.classpath |   15 +++++----------

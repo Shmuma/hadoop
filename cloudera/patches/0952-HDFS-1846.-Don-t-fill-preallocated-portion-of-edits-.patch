@@ -1,7 +1,7 @@
 From e863f5bee5763ec354384645b9d62743a052fae9 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Thu, 28 Apr 2011 00:20:22 -0700
-Subject: [PATCH 0952/1120] HDFS-1846. Don't fill preallocated portion of edits log with 0x00
+Subject: [PATCH 0952/1179] HDFS-1846. Don't fill preallocated portion of edits log with 0x00
 
 Reason: Improvement
 Author: Aaron T. Myers

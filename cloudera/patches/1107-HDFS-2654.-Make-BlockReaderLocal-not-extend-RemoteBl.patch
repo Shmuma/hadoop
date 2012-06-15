@@ -1,7 +1,7 @@
 From 7a636fd4deeb1fbe8f73dd1cab15c180e996ef8a Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Fri, 9 Dec 2011 16:55:46 -0800
-Subject: [PATCH 1107/1120] HDFS-2654. Make BlockReaderLocal not extend RemoteBlockReader2.
+Subject: [PATCH 1107/1179] HDFS-2654. Make BlockReaderLocal not extend RemoteBlockReader2.
 
 Reason: Performance
 Author: Eli Collins

@@ -1,7 +1,7 @@
 From 0eeb795d156edf6f4e7c5c4b722d85737cd49736 Mon Sep 17 00:00:00 2001
 From: Roman Shaposhnik <rvs@cloudera.com>
 Date: Fri, 17 Jun 2011 10:07:31 -0700
-Subject: [PATCH 0974/1120] CLOUDERA-BUILD. Building RPMs from SRPMs in CDH needs to rebuild the projects
+Subject: [PATCH 0974/1179] CLOUDERA-BUILD. Building RPMs from SRPMs in CDH needs to rebuild the projects
 
 ---
  cloudera/do-release-build         |   36 +++++++++---------------------------

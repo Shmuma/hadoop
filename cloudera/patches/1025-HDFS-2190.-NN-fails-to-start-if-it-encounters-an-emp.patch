@@ -1,7 +1,7 @@
 From 33a9d3f31ae34a873890b2a8b16bfb49808dc537 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Mon, 8 Aug 2011 15:05:11 -0700
-Subject: [PATCH 1025/1120] HDFS-2190. NN fails to start if it encounters an empty or malformed fstime file
+Subject: [PATCH 1025/1179] HDFS-2190. NN fails to start if it encounters an empty or malformed fstime file
 
 Reason: Bug
 Author: Aaron T. Myers

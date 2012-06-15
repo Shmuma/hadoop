@@ -1666,16 +1666,37 @@ public class JobInProgress {
   
   // returns the (cache)level at which the nodes matches
   private int getMatchingLevelForNodes(Node n1, Node n2) {
+    return getMatchingLevelForNodes(n1, n2, this.maxLevel);
+  }
+
+  static int getMatchingLevelForNodes(Node n1, Node n2, int maxLevel) {
     int count = 0;
+
+    // In the case that the two nodes are at different levels in the
+    // node heirarchy, walk upwards on the deeper one until the
+    // levels are equal. Each of these counts as "distance" since it
+    // assumedly is going through another rack.
+    int level1 = n1.getLevel(), level2 = n2.getLevel();
+    while (n1 != null && level1 > level2) {
+      n1 = n1.getParent();
+      level1--;
+      count++;
+    }
+    while (n2 != null && level2 > level1) {
+      n2 = n2.getParent();
+      level2--;
+      count++;
+    }
+
     do {
-      if (n1.equals(n2)) {
-        return count;
+      if (n1.equals(n2) || count >= maxLevel) {
+        return Math.min(count, maxLevel);
       }
       ++count;
       n1 = n1.getParent();
       n2 = n2.getParent();
     } while (n1 != null);
-    return this.maxLevel;
+    return maxLevel;
   }
 
   /**
@@ -3251,13 +3272,17 @@ public class JobInProgress {
   
   synchronized void fetchFailureNotification(TaskInProgress tip, 
                                              TaskAttemptID mapTaskId, 
-                                             String trackerName) {
+                                             String mapTrackerName,
+                                             TaskAttemptID reduceTaskId,
+                                             String reduceTrackerName) {
     Integer fetchFailures = mapTaskIdToFetchFailuresMap.get(mapTaskId);
     fetchFailures = (fetchFailures == null) ? 1 : (fetchFailures+1);
     mapTaskIdToFetchFailuresMap.put(mapTaskId, fetchFailures);
-    LOG.info("Failed fetch notification #" + fetchFailures + " for task " + 
-            mapTaskId);
-    
+    LOG.info("Failed fetch notification #" + fetchFailures + " for map task: "
+             + mapTaskId + " running on tracker: " + mapTrackerName
+             + " and reduce task: " + reduceTaskId + " running on tracker: "
+             + reduceTrackerName);
+
     float failureRate = (float)fetchFailures / runningReduceTasks;
     // declare faulty if fetch-failures >= max-allowed-failures
     boolean isMapFaulty = failureRate >= MAX_ALLOWED_FETCH_FAILURES_PERCENT;
@@ -3269,7 +3294,7 @@ public class JobInProgress {
       failedTask(tip, mapTaskId, "Too many fetch-failures",                            
                  (tip.isMapTask() ? TaskStatus.Phase.MAP : 
                                     TaskStatus.Phase.REDUCE), 
-                 TaskStatus.State.FAILED, trackerName);
+                 TaskStatus.State.FAILED, mapTrackerName);
       
       mapTaskIdToFetchFailuresMap.remove(mapTaskId);
     }

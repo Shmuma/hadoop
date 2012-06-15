@@ -1,7 +1,7 @@
 From e732b3c97a9232182d3a28917ca3f9006f968ac9 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Fri, 18 Nov 2011 15:45:26 -0800
-Subject: [PATCH 1083/1120] MAPREDUCE-3343. TaskTracker Out of Memory because of distributed cache.
+Subject: [PATCH 1083/1179] MAPREDUCE-3343. TaskTracker Out of Memory because of distributed cache.
 
 This Out of Memory happens when you run large number of jobs (using
 the distributed cache) on a TaskTracker.

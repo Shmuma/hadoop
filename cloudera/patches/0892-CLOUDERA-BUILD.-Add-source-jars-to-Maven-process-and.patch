@@ -1,7 +1,7 @@
 From 3fd1dd275427012b93dab53d8e9b3c78aed1fc6f Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Fri, 25 Feb 2011 15:31:51 -0800
-Subject: [PATCH 0892/1120] CLOUDERA-BUILD. Add source jars to Maven process, and add
+Subject: [PATCH 0892/1179] CLOUDERA-BUILD. Add source jars to Maven process, and add
  hadoop-mrunit to Mavenization.
 
 * This is for KITCHEN-866 - and I discovered that in CDH2, we'd been

@@ -461,7 +461,15 @@ public class Configuration implements Iterable<Map.Entry<String,String>>,
     getProps().setProperty(name, value);
     updatingResource.put(name, UNKNOWN_RESOURCE);
   }
-  
+ 
+  /**
+   * Unset a previously set property.
+   */
+  public synchronized void unset(String name) {
+    getOverlay().remove(name);
+    getProps().remove(name);
+  }
+ 
   /**
    * Sets a property if it is currently unset.
    * @param name the property name

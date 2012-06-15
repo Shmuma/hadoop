@@ -1,7 +1,7 @@
 From 5fc6261a4c399bcb75bcc7cadf6cdd74f9362bcd Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Mon, 10 Oct 2011 18:02:41 -0700
-Subject: [PATCH 1064/1120] HDFS-2422. The NN should tolerate the same number of low-resource volumes as failed volumes
+Subject: [PATCH 1064/1179] HDFS-2422. The NN should tolerate the same number of low-resource volumes as failed volumes
 
 Reason: Bug
 Author: Aaron T. Myers

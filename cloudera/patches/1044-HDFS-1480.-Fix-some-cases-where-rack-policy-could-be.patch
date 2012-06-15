@@ -1,7 +1,7 @@
 From f29635a416a79d2aad6fa7361438381d9c02b713 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Mon, 15 Aug 2011 18:38:54 -0700
-Subject: [PATCH 1044/1120] HDFS-1480. Fix some cases where rack policy could be violated
+Subject: [PATCH 1044/1179] HDFS-1480. Fix some cases where rack policy could be violated
 
 This patch fixes an issue in determining replication targets where
 decomissioning or corrupt replicas were considered the same as

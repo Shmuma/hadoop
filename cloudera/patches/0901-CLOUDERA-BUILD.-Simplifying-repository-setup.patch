@@ -1,7 +1,7 @@
 From 01b42afec6b6e878ed7805aac2e9a95c779d9840 Mon Sep 17 00:00:00 2001
 From: Andrew Bayer <andrew.bayer@gmail.com>
 Date: Mon, 7 Mar 2011 10:50:47 -0800
-Subject: [PATCH 0901/1120] CLOUDERA-BUILD. Simplifying repository setup.
+Subject: [PATCH 0901/1179] CLOUDERA-BUILD. Simplifying repository setup.
 
 ---
  cloudera/maven-packaging/pom.xml |   19 +++++++++++++++++++

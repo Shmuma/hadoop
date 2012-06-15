@@ -117,13 +117,13 @@ DIST_ARCHIVES = $(distdir).tar.gz
 GZIP_ENV = --best
 distuninstallcheck_listfiles = find . -type f -print
 distcleancheck_listfiles = find . -type f -print
-ACLOCAL = ${SHELL} /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs/missing --run aclocal-1.11
-AMTAR = ${SHELL} /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs/missing --run tar
-ANT = /opt/cloudera/toolchain/Ant-1.8.1/bin/ant
+ACLOCAL = ${SHELL} /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs/missing --run aclocal-1.11
+AMTAR = ${SHELL} /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs/missing --run tar
+ANT = /opt/toolchain/apache-ant-1.8.2/bin/ant
 AR = /usr/bin/ar
-AUTOCONF = ${SHELL} /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs/missing --run autoconf
-AUTOHEADER = ${SHELL} /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs/missing --run autoheader
-AUTOMAKE = ${SHELL} /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs/missing --run automake-1.11
+AUTOCONF = ${SHELL} /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs/missing --run autoconf
+AUTOHEADER = ${SHELL} /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs/missing --run autoheader
+AUTOMAKE = ${SHELL} /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs/missing --run automake-1.11
 AWK = mawk
 BASH = /bin/bash
 CC = gcc
@@ -142,9 +142,9 @@ ECHO_N = -n
 ECHO_T = 
 EGREP = /bin/grep -E
 EXEEXT = 
-EXTERNAL_PATH = /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs
-GLOBAL_FOOTER_MK = include /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs/global_footer.mk
-GLOBAL_HEADER_MK = include /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs/global_header.mk
+EXTERNAL_PATH = /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs
+GLOBAL_FOOTER_MK = include /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs/global_footer.mk
+GLOBAL_HEADER_MK = include /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs/global_header.mk
 GREP = /bin/grep
 INSTALL = /usr/bin/install -c
 INSTALL_DATA = ${INSTALL} -m 644
@@ -156,7 +156,7 @@ LIBOBJS =
 LIBS = 
 LTLIBOBJS = 
 LTYPE = .a
-MAKEINFO = ${SHELL} /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs/missing --run makeinfo
+MAKEINFO = ${SHELL} /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs/missing --run makeinfo
 MKDIR_P = /bin/mkdir -p
 OBJEXT = o
 PACKAGE = fuse_dfs
@@ -169,7 +169,7 @@ PACKAGE_VERSION = 0.1.0
 PATH_SEPARATOR = :
 PERL = /usr/bin/perl
 PRODUCT_MK = 
-PYTHON = /var/lib/jenkins/workspace/CDH3-Selective/nightly-py-env/bin/python
+PYTHON = /var/lib/jenkins/workspace/CDH3u4-Full-RC/nightly-py-env/bin/python
 RANLIB = ranlib
 SET_MAKE = 
 SHARED_CFLAGS = 
@@ -178,10 +178,10 @@ SHARED_LDFLAGS =
 SHELL = /bin/bash
 STRIP = 
 VERSION = 0.1.0
-abs_builddir = /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs
-abs_srcdir = /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs
-abs_top_builddir = /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs
-abs_top_srcdir = /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs
+abs_builddir = /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs
+abs_srcdir = /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs
+abs_top_builddir = /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs
+abs_top_srcdir = /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs
 ac_ct_CC = gcc
 ac_ct_CXX = g++
 am__include = include
@@ -209,7 +209,7 @@ host_vendor = unknown
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs/install-sh
+install_sh = ${SHELL} /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
@@ -218,7 +218,7 @@ mandir = ${datarootdir}/man
 mkdir_p = /bin/mkdir -p
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs
+prefix = /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
@@ -698,14 +698,14 @@ uninstall-am:
 	pdf-am ps ps-am tags tags-recursive uninstall uninstall-am
 
 
-include /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs/global_header.mk
+include /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs/global_header.mk
 
 
 
 clean:
 	rm -rf autom4te.cache config.guess config.log config.status config.sub configure depcomp src/.deps install-sh Makefile.in src/Makefile.in src/Makefile missing Makefile src/fuse_dfs.o src/fuse_dfs aclocal.m4
 
-include /var/lib/jenkins/workspace/CDH3-Selective/build/cdh3/hadoop20/0.20.2-cdh3u3/source/src/contrib/fuse-dfs/global_footer.mk
+include /var/lib/jenkins/workspace/CDH3u4-Full-RC/build/cdh3/hadoop20/0.20.2-cdh3u4/source/src/contrib/fuse-dfs/global_footer.mk
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

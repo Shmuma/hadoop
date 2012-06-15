@@ -1,7 +1,7 @@
 From 927d00941693e7774174c795b91bba1811d801bd Mon Sep 17 00:00:00 2001
 From: Tom White <tom@cloudera.com>
 Date: Tue, 19 Apr 2011 14:19:58 -0700
-Subject: [PATCH 0948/1120] MAPREDUCE-1813. NPE in PipeMapred.MRErrorThread
+Subject: [PATCH 0948/1179] MAPREDUCE-1813. NPE in PipeMapred.MRErrorThread
 
 Reason: Bug
 Author: Ravi Gummadi

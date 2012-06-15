@@ -1,7 +1,7 @@
 From 04dffae7b2e160fedc5aa9fdb7daa0eb79e93b0f Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Tue, 15 Mar 2011 10:29:45 -0700
-Subject: [PATCH 0928/1120] HDFS-1189. Quota counts missed between clear quota and set quota.
+Subject: [PATCH 0928/1179] HDFS-1189. Quota counts missed between clear quota and set quota.
 
 Reason: Bug
 Author: John George

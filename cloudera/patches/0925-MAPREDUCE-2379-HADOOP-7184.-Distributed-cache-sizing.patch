@@ -1,7 +1,7 @@
 From 16fa5d016e9bbe79896adf0c24dd8510b31c0325 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Fri, 11 Mar 2011 15:55:15 -0800
-Subject: [PATCH 0925/1120] MAPREDUCE-2379, HADOOP-7184. Distributed cache sizing configurations are missing from mapred-default.xml
+Subject: [PATCH 0925/1179] MAPREDUCE-2379, HADOOP-7184. Distributed cache sizing configurations are missing from mapred-default.xml
 
 * Moves local.cache.size from core-default.xml into mapred-default.xml
 * Adds documentation for mapreduce.tasktracker.cache.local.numberdirectories

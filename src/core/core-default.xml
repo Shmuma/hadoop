@@ -45,6 +45,15 @@
 </property>
 
 <property>
+  <name>hadoop.security.instrumentation.requires.admin</name>
+  <value>false</value>
+  <description>
+    Indicates if administrator ACLs are required to access
+    instrumentation servlets (JMX, METRICS, CONF, STACKS).
+  </description>
+</property>
+
+<property>
   <name>hadoop.security.authentication</name>
   <value>simple</value>
   <description>Possible values are simple (no authentication), and kerberos
@@ -494,6 +503,19 @@
 </property>
 
 <property>
+  <name>net.topology.table.file.name</name>
+  <value></value>
+  <description> The file name for a topology file, which is used when the
+    topology.script.file.name property is set to
+    org.apache.hadoop.net.TableMapping. The file format is a two column text
+    file, with columns separated by whitespace. The first column is a DNS or
+    IP address and the second column specifies the rack where the address maps.
+    If no entry corresponding to a host in the cluster is found, then 
+    /default-rack is assumed.
+  </description>
+</property>
+
+<property>
   <name>hadoop.security.uid.cache.secs</name>
   <value>14400</value>
   <description> NativeIO maintains a cache from UID to UserName. This is
@@ -553,7 +575,7 @@
 
 <property>
   <name>hadoop.http.authentication.kerberos.principal</name>
-  <value>HTTP/localhost@LOCALHOST</value>
+  <value>HTTP/_HOST@LOCALHOST</value>
   <description>
     Indicates the Kerberos principal to be used for HTTP endpoint.
     The principal MUST start with 'HTTP/' as per Kerberos HTTP SPNEGO specification.
@@ -570,17 +592,18 @@
 </property>
 
 <property>
-  <name>hadoop.permitted.revisions</name>
-  <value>
-03b655719d13929bd68bb2c2f9cee615b389cea9,
-217a3767c48ad11d4632e19a22897677268c40c4
-  </value>
-  <description>A comma separate list of Hadoop build revisions to
-    permit when the Datanode or Tasktracker handshakes with the
-    Namenode or Jobtracker, respectively. Setting this allows it to
-    connect with a Namenode or Jobtracker running with a different
-    build revision. The default values are the original CDH3u3 release
-    and the first CDH3u3 refresh.
+  <name>hadoop.relaxed.worker.version.check</name>
+  <value>true</value>
+  <description>
+    This option changes the behavior of datanodes and tasktrackers to
+    only check for a version match (eg "0.20.2-cdh3u4") but ignore the
+    other build fields (revision, user, and source checksum) when
+    checking for compatibility with namenodes and jobtrackers. In
+    previous releases datanodes refused to connect to namenodes if
+    their build revision (svn revision) did not match, and
+    tasktrackers refused to connect to jobtrackers if their build
+    version (version, revision, user, and source checksum) did not
+    match. This behavior can be restored by disabling this option.
   </description>
 </property>
 

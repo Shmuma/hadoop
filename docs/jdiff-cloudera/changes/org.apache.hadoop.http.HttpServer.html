@@ -18,7 +18,7 @@ org.apache.hadoop.http.HttpServer
     <TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
     <TABLE summary="Navigation bar" BORDER="0" CELLPADDING="0" CELLSPACING="3">
     <TR ALIGN="center" VALIGN="top">
-      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/http/HttpServer.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u3</tt></B></FONT></A>&nbsp;</TD>
+      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/http/HttpServer.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u4</tt></B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="changes-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="pkg_org.apache.hadoop.http.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
@@ -113,6 +113,13 @@ Class org.apache.hadoop.http.<A HREF="../../api/org/apache/hadoop/http/HttpServe
   </TD>
   <TD VALIGN="TOP">Does the user sending the HttpServletRequest has the administrator ACLs If it isn't the case response will be modified to send an error to the user.</TD>
 </TR>
+<TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
+  <TD VALIGN="TOP" WIDTH="25%">
+  <A NAME="org.apache.hadoop.http.HttpServer.isInstrumentationAccessAllowed_added(javax.servlet.ServletContext, javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)"></A>
+  <nobr><code>boolean</code>&nbsp;<A HREF="../../api/org/apache/hadoop/http/HttpServer.html#isInstrumentationAccessAllowed(javax.servlet.ServletContext, javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)" target="_top"><tt>isInstrumentationAccessAllowed</tt></A>(<code>ServletContext,</nobr> HttpServletRequest<nobr>,</nobr> HttpServletResponse<nobr><nobr></code>)</nobr>
+  </TD>
+  <TD VALIGN="TOP">Checks the user has privileges to access to instrumentation servlets.</TD>
+</TR>
 </TABLE>
 &nbsp;
 <p>
@@ -142,6 +149,13 @@ Change of visibility from protected to public.<br>
 </TR>
 <TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
   <TD VALIGN="TOP" WIDTH="25%">
+  <A NAME="org.apache.hadoop.http.HttpServer.BIND_ADDRESS"></A>
+  <nobr><code>String</code>&nbsp;<A HREF="../../api/org/apache/hadoop/http/HttpServer.html#BIND_ADDRESS" target="_top"><tt>BIND_ADDRESS</tt></A></nobr>
+  </TD>
+  <TD>&nbsp;</TD>
+</TR>
+<TR BGCOLOR="#FFFFFF" CLASS="TableRowColor">
+  <TD VALIGN="TOP" WIDTH="25%">
   <A NAME="org.apache.hadoop.http.HttpServer.CONF_CONTEXT_ATTRIBUTE"></A>
   <nobr><code>String</code>&nbsp;<A HREF="../../api/org/apache/hadoop/http/HttpServer.html#CONF_CONTEXT_ATTRIBUTE" target="_top"><tt>CONF_CONTEXT_ATTRIBUTE</tt></A></nobr>
   </TD>
@@ -156,7 +170,7 @@ Change of visibility from protected to public.<br>
     <TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
     <TABLE summary="Navigation bar" BORDER="0" CELLPADDING="0" CELLSPACING="3">
     <TR ALIGN="center" VALIGN="top">
-      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/http/HttpServer.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u3</tt></B></FONT></A>&nbsp;</TD>
+      <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="../../api/org/apache/hadoop/http/HttpServer.html" target="_top"><FONT CLASS="NavBarFont1"><B><tt>hadoop 0.20.2-cdh3u4</tt></B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="changes-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1"> <A HREF="pkg_org.apache.hadoop.http.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
       <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>

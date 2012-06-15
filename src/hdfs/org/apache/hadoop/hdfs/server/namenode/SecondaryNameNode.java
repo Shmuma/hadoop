@@ -224,8 +224,8 @@ public class SecondaryNameNode implements Runnable {
             System.setProperty("https.cipherSuites", 
                 Krb5AndCertsSslSocketConnector.KRB5_CIPHER_SUITES.get(0));
             InetSocketAddress secInfoSocAddr = 
-              NetUtils.createSocketAddr(infoBindAddress + ":"+ conf.get(
-                "dfs.secondary.https.port", infoBindAddress + ":" + 0));
+              NetUtils.createSocketAddr(infoBindAddress + ":" + conf.getInt(
+                "dfs.secondary.https.port", 50490));
             imagePort = secInfoSocAddr.getPort();
             infoServer.addSslListener(secInfoSocAddr, conf, false, true);
           }
@@ -726,7 +726,7 @@ public class SecondaryNameNode implements Runnable {
       if ((sdName == null) || (sdEdits == null))
         throw new IOException("Could not locate checkpoint directories");
       loadFSImage(FSImage.getImageFile(sdName, NameNodeFile.IMAGE));
-      loadFSEdits(sdEdits);
+      loadFSEdits(sdEdits, null);
       sig.validateStorageInfo(this);
       saveNamespace(false);
     }

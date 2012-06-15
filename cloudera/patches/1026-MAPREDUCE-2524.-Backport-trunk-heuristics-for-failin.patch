@@ -1,7 +1,7 @@
 From 28582806dc186d5abcbdc0c442d72eff84aa2c34 Mon Sep 17 00:00:00 2001
 From: Ahmed Radwan <ahmed@cloudera.com>
 Date: Tue, 9 Aug 2011 19:24:53 -0700
-Subject: [PATCH 1026/1120] MAPREDUCE-2524. Backport trunk heuristics for failing maps when we get fetch
+Subject: [PATCH 1026/1179] MAPREDUCE-2524. Backport trunk heuristics for failing maps when we get fetch
  failures retrieving map output during shuffle.
 
 Reason: Improvement

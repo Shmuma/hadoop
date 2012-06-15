@@ -1,7 +1,7 @@
 From e7ab332a8037e7117919c833c0ac0a999307d681 Mon Sep 17 00:00:00 2001
 From: Roman Shaposhnik <rvs@cloudera.com>
 Date: Tue, 28 Jun 2011 09:20:13 -0700
-Subject: [PATCH 0983/1120] CLOUDERA BUILD. Making call succeed regardless of the file permissions
+Subject: [PATCH 0983/1179] CLOUDERA BUILD. Making call succeed regardless of the file permissions
 
 ---
  cloudera/do-release-build |    2 +-

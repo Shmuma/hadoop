@@ -1,7 +1,7 @@
 From dbf17dc0186ee1096f760751d2bb872798d91f26 Mon Sep 17 00:00:00 2001
 From: Alejandro Abdelnur <tucu@cloudera.com>
 Date: Thu, 25 Aug 2011 17:20:08 -0700
-Subject: [PATCH 1039/1120] CLOUDERA BUILD. Add Snappy-Java config file to switch off in-JAR native library
+Subject: [PATCH 1039/1179] CLOUDERA BUILD. Add Snappy-Java config file to switch off in-JAR native library
 
     Reason: Improvement
     Author: Alejandro Abdelnur

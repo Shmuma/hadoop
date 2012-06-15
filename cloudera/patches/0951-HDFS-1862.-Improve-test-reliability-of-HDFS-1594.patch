@@ -1,7 +1,7 @@
 From e78be89d287e49207547f82a68e92b0d9a6d5413 Mon Sep 17 00:00:00 2001
 From: Aaron T. Myers <atm@cloudera.com>
 Date: Wed, 27 Apr 2011 13:45:03 -0700
-Subject: [PATCH 0951/1120] HDFS-1862. Improve test reliability of HDFS-1594
+Subject: [PATCH 0951/1179] HDFS-1862. Improve test reliability of HDFS-1594
 
 Reason: Test
 Author: Aaron T. Myers

@@ -1,7 +1,7 @@
 From c30f419af201daea7d7131d5c50fef6b09997513 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Tue, 5 Jul 2011 12:15:41 -0700
-Subject: [PATCH 1005/1120] MAPREDUCE-2472. Extra whitespace in mapred.child.java.opts breaks JVM initialization.
+Subject: [PATCH 1005/1179] MAPREDUCE-2472. Extra whitespace in mapred.child.java.opts breaks JVM initialization.
 
 When creating taskjvm.sh, we split mapred.child.java.opts on " " and
 then create a quoted argument for each of those results. So, if you

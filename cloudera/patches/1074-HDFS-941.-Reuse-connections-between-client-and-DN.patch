@@ -1,7 +1,7 @@
 From 7ed1f860044cef4a43b1eceadf2d0a5e8f11c174 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Wed, 26 Oct 2011 16:53:27 -0700
-Subject: [PATCH 1074/1120] HDFS-941. Reuse connections between client and DN
+Subject: [PATCH 1074/1179] HDFS-941. Reuse connections between client and DN
 
 Also incorporates HDFS-2071. Use of isConnected() in DataXceiver is invalid
 

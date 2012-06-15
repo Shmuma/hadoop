@@ -1,7 +1,7 @@
 From 85731af89c0e110d0219cdb4f6ea1cf09eb2e53a Mon Sep 17 00:00:00 2001
 From: Tom White <tom@cloudera.com>
 Date: Wed, 2 Mar 2011 15:48:21 -0800
-Subject: [PATCH 0896/1120] MAPREDUCE-2351. mapred.job.tracker.history.completed.location should support an arbitrary filesystem URI
+Subject: [PATCH 0896/1179] MAPREDUCE-2351. mapred.job.tracker.history.completed.location should support an arbitrary filesystem URI
 
 Reason: Limitation
 Author: Tom White

@@ -1,7 +1,7 @@
 From d30b8b83175fbf96644cffbda37e90cb4703c139 Mon Sep 17 00:00:00 2001
 From: Todd Lipcon <todd@cloudera.com>
 Date: Thu, 12 May 2011 15:07:51 -0700
-Subject: [PATCH 0960/1120] HADOOP-6947. Kerberos login should set the refreshKrb5Config option
+Subject: [PATCH 0960/1179] HADOOP-6947. Kerberos login should set the refreshKrb5Config option
 
 Reason: necessary for daemons that will use multiple keytab files for different principals
 Author: Todd Lipcon

@@ -1,7 +1,7 @@
 From 12c64dfa5a3548776a039c835c5e5c7aa844a2f5 Mon Sep 17 00:00:00 2001
 From: Eli Collins <eli@cloudera.com>
 Date: Fri, 25 Nov 2011 23:45:41 -0800
-Subject: [PATCH 1090/1120] MAPREDUCE-2413. TT should handle disk failures by reinitializing itself.
+Subject: [PATCH 1090/1179] MAPREDUCE-2413. TT should handle disk failures by reinitializing itself.
  MAPREDUCE-2928. MR-2413 improvements.
  MAPREDUCE-2957. The TT should not re-init if it has no good local dirs.
  MAPREDUCE-2850. Add test for MAPREDUCE-2413.

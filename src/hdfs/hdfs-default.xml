@@ -28,7 +28,7 @@ creations/deletions), or "all".</description>
   <name>dfs.datanode.address</name>
   <value>0.0.0.0:50010</value>
   <description>
-    The address where the datanode server will listen to.
+    The datanode server address and port for data transfer.
     If the port is 0 then the server will start on a free port.
   </description>
 </property>
@@ -410,8 +410,11 @@ creations/deletions), or "all".</description>
 
 <property>
   <name>dfs.support.append</name>
-  <value>true</value>
-  <description>Does HDFS allow appends to files?</description>
+  <description>
+    This option is no longer supported. HBase no longer requires that
+    this option be enabled as sync is now enabled by default. See
+    HADOOP-8230 for additional information.
+  </description>
 </property>
 
 <property>
@@ -457,6 +460,45 @@ creations/deletions), or "all".</description>
   <name>dfs.namenode.delegation.token.renew-interval</name>
   <value>86400000</value>
   <description>The renewal interval for delegation token in milliseconds.
+  </description>
+</property>
+
+ <property>
+  <name>dfs.namenode.name.dir.restore</name>
+  <value>false</value>
+  <description>If true the NameNode will attempt to recover any failed
+    dfs.name.dir directories at the next checkpoint time (triggered by
+    the 2NN).
+  </description>
+</property>
+
+<property>
+  <name>dfs.client.use.datanode.hostname</name>
+  <value>false</value>
+  <description>Whether clients should use datanode hostnames when
+    connecting to datanodes.
+  </description>
+</property>
+
+<property>
+  <name>dfs.datanode.use.datanode.hostname</name>
+  <value>false</value>
+  <description>Whether datanodes should use datanode hostnames when
+    connecting to other datanodes for data transfer.
+  </description>
+</property>
+
+<property>
+  <name>dfs.client.local.interfaces</name>
+  <value></value>
+  <description>A comma separated list of network interface names to use
+    for data transfer between the client and datanodes. When creating
+    a connection to read from or write to a datanode, the client
+    chooses one of the specified interfaces at random and binds its
+    socket to the IP of that interface. Individual names may be
+    specified as either an interface name (eg "eth0"), a subinterface
+    name (eg "eth0:0"), or an IP address (which may be specified using
+    CIDR notation to match a range of IPs).
   </description>
 </property>
 
