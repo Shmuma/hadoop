@@ -1044,7 +1044,7 @@ class ReduceTask extends Task {
       public synchronized boolean reserve(int requestedSize, InputStream in) 
       throws InterruptedException {
         // Wait till the request can be fulfilled...
-        while ((size + requestedSize) > maxSize) {
+        while (((long)size + (long)requestedSize) > maxSize) {
           
           // Close the input...
           if (in != null) {
