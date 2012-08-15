@@ -89,6 +89,7 @@ export HADOOP_SECURITY_LOGGER="INFO,DRFAS"
 export _HADOOP_DAEMON_OUT=$HADOOP_LOG_DIR/hadoop-$HADOOP_IDENT_STRING-$command-$HOSTNAME.out
 export _HADOOP_DAEMON_PIDFILE=$HADOOP_PID_DIR/hadoop-$HADOOP_IDENT_STRING-$command.pid
 export _HADOOP_DAEMON_DETACHED="true"
+export DN_LOG_SCRIPT="$HADOOP_CONF_DIR/../hadoop_mgmt/dn_log.py"
 
 # Set default scheduling priority
 if [ "$HADOOP_NICENESS" = "" ]; then
@@ -117,10 +118,27 @@ case $startStop in
     echo starting $command, logging to $_HADOOP_DAEMON_OUT
     cd "$HADOOP_HOME"
 
+    if [ $command == "tasktracker" && x$HADOOP_TASKTRACKER_CPU_CORES -ne x ]; then
+        export CPU_CORES=$HADOOP_TASKTRACKER_CPU_CORES
+    fi
+
     nice -n $HADOOP_NICENESS "$HADOOP_HOME"/bin/hadoop --config $HADOOP_CONF_DIR $command "$@" < /dev/null
+
+    # datanode needs additional log processig daemon
+    if [ $command == "datanode" ]; then
+       if [ -f $DN_LOG_SCRIPT ]; then
+            python $DN_LOG_SCRIPT start
+       fi
+    fi
     ;;
           
   (stop)
+    # datanode needs additional log processig daemon
+    if [ $command == "datanode" ]; then
+       if [ -f $DN_LOG_SCRIPT ]; then
+            python $DN_LOG_SCRIPT stop
+       fi
+    fi
 
     if [ -f $_HADOOP_DAEMON_PIDFILE ]; then
       if kill -0 `cat $_HADOOP_DAEMON_PIDFILE` > /dev/null 2>&1; then
