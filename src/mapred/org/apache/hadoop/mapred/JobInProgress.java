@@ -19,6 +19,7 @@ package org.apache.hadoop.mapred;
 
 import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
+import java.sql.Date;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -278,7 +279,14 @@ public class JobInProgress {
   private Counters jobCounters = new Counters();
   
   private MetricsRecord jobMetrics;
-  
+
+  protected static enum HadoopMetrics {
+    MAP_WALL_CLOCK_SECONDS,
+    SHUFFLE_WALL_CLOCK_SECONDS,
+    SORT_WALL_CLOCK_SECONDS,
+    REDUCE_WALL_CLOCK_SECONDS
+  };
+
   // Maximum no. of fetch-failure notifications after which
   // the map task is killed
   private static final int MAX_FETCH_FAILURES_NOTIFICATIONS = 3;
@@ -1227,6 +1235,51 @@ public class JobInProgress {
         this.status.setReduceProgress((float) (this.status.reduceProgress() + 
                                            (progressDelta / reduces.length)));
       }
+
+      // Perform HadoopMetrics duty
+      updateHadoopMetricsRuntime(tip, status);
+    }
+  }
+
+  private void updateHadoopMetricsRuntime (TaskInProgress tip, TaskStatus status)
+  {
+    // record time according to task phase and status
+    long passed_ms;
+
+    switch (status.getRunState())
+    {
+      case RUNNING:
+        passed_ms = jobtracker.getClock().getTime() - status.getStartTime();
+        break;
+      case SUCCEEDED:
+      case FAILED:
+      case KILLED:
+      case FAILED_UNCLEAN:
+      case KILLED_UNCLEAN:
+        passed_ms = status.getFinishTime() - status.getStartTime();
+        break;
+      default:
+        return;
+    }
+    HadoopMetrics metrics = null;
+
+    switch (status.getPhase())
+    {
+      case MAP:
+        metrics = HadoopMetrics.MAP_WALL_CLOCK_SECONDS;
+        break;
+      case SHUFFLE:
+        metrics = HadoopMetrics.SHUFFLE_WALL_CLOCK_SECONDS;
+        break;
+      case SORT:
+        metrics = HadoopMetrics.SORT_WALL_CLOCK_SECONDS;
+        break;
+      case REDUCE:
+        metrics = HadoopMetrics.REDUCE_WALL_CLOCK_SECONDS;
+    }
+
+    if (metrics != null) {
+      tip.getCounters().findCounter(metrics).setValue(passed_ms / 1000);
     }
   }
 

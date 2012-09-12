@@ -21,6 +21,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.List;
+import java.util.Date;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -43,7 +44,7 @@ public abstract class TaskStatus implements Writable, Cloneable {
   // what state is the task in?
   public static enum State {RUNNING, SUCCEEDED, FAILED, UNASSIGNED, KILLED, 
                             COMMIT_PENDING, FAILED_UNCLEAN, KILLED_UNCLEAN}
-    
+
   private final TaskAttemptID taskid;
   private float progress;
   private volatile State runState;
@@ -55,7 +56,7 @@ public abstract class TaskStatus implements Writable, Cloneable {
   private long startTime; 
   private long finishTime; 
   private long outputSize = -1L;
-    
+
   private volatile Phase phase = Phase.STARTING; 
   private Counters counters;
   private boolean includeCounters;
@@ -248,7 +249,7 @@ public abstract class TaskStatus implements Writable, Cloneable {
           StringUtils.stringifyException(new Exception()));
     }
   }
-  
+
   /**
    * Get current phase of this task. Phase.Map in case of map tasks, 
    * for reduce one of Phase.SHUFFLE, Phase.SORT or Phase.REDUCE. 
