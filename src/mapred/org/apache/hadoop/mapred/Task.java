@@ -27,7 +27,6 @@ import java.text.NumberFormat;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Date;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -90,7 +89,7 @@ abstract public class Task implements Writable, Configurable {
     VIRTUAL_MEMORY_BYTES,
     COMMITTED_HEAP_BYTES
   }
-
+  
   /**
    * Counters to measure the usage of the different file systems.
    * Always return the String array with two elements. First one is the name of  
@@ -105,16 +104,6 @@ abstract public class Task implements Writable, Configurable {
    * Name of the FileSystem counters' group
    */
   protected static final String FILESYSTEM_COUNTER_GROUP = "FileSystemCounters";
-
-  protected static final String HADOOP_METRICS_COUNTER_GROUP = "HadoopMetrics";
-
-  protected static enum HadoopMetrics {
-    MAP_WALL_CLOCK_SECONDS,
-    SHUFFLE_WALL_CLOCK_SECONDS,
-    SORT_WALL_CLOCK_SECONDS,
-    REDUCE_WALL_CLOCK_SECONDS
-  }
-
 
   ///////////////////////////////////////////////////////////
   // Helper methods to construct task-output paths
@@ -172,7 +161,6 @@ abstract public class Task implements Writable, Configurable {
   private int numSlotsRequired;
   protected SecretKey tokenSecret;
   protected JvmContext jvmContext;
-  private long startTimestamp;
 
   ////////////////////////////////////////////
   // Constructors
@@ -648,7 +636,6 @@ abstract public class Task implements Writable, Configurable {
       final int MAX_RETRIES = 3;
       int remainingRetries = MAX_RETRIES;
       // get current flag value and reset it as well
-      startTimestamp = new Date().getTime();
       boolean sendProgress = resetProgressFlag();
       while (!taskDone.get()) {
         try {
@@ -815,29 +802,6 @@ abstract public class Task implements Writable, Configurable {
     }
     // TODO Should CPU related counters be update only once i.e in the end
     updateResourceCounters();
-    updateHadoopMetricsCounters();
-  }
-
-  private void updateHadoopMetricsCounters() {
-    HadoopMetrics metric = null;
-
-    switch (getPhase()) {
-      case MAP:
-        metric = HadoopMetrics.MAP_WALL_CLOCK_SECONDS;
-        break;
-      case SHUFFLE:
-        metric = HadoopMetrics.SHUFFLE_WALL_CLOCK_SECONDS;
-        break;
-      case SORT:
-        metric = HadoopMetrics.SORT_WALL_CLOCK_SECONDS;
-        break;
-      case REDUCE:
-        metric = HadoopMetrics.REDUCE_WALL_CLOCK_SECONDS;
-    }
-    if (metric != null) {
-      long secondsPassed = new Date().getTime() - startTimestamp;
-      counters.findCounter(metric).setValue(secondsPassed / 1000);
-    }
   }
 
   /**
