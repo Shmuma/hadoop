@@ -77,6 +77,7 @@ import org.apache.hadoop.mapred.IFile.*;
 import org.apache.hadoop.mapred.Merger.Segment;
 import org.apache.hadoop.mapred.SortedRanges.SkipRangeIterator;
 import org.apache.hadoop.mapred.TaskTracker.TaskInProgress;
+import org.apache.hadoop.mapreduce.RunningJobContext;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.metrics.MetricsContext;
 import org.apache.hadoop.metrics.MetricsRecord;
@@ -569,6 +570,7 @@ class ReduceTask extends Task {
                                                trackedRW, committer,
                                                reporter, comparator, keyClass,
                                                valueClass);
+    RunningJobContext.setContext(reducerContext);
     reducer.run(reducerContext);
     output.close(reducerContext);
   }

@@ -60,6 +60,7 @@ import org.apache.hadoop.io.serializer.Serializer;
 import org.apache.hadoop.mapred.IFile.Writer;
 import org.apache.hadoop.mapred.Merger.Segment;
 import org.apache.hadoop.mapred.SortedRanges.SkipRangeIterator;
+import org.apache.hadoop.mapreduce.RunningJobContext;
 import org.apache.hadoop.mapreduce.split.JobSplit;
 import org.apache.hadoop.mapreduce.split.JobSplit.SplitMetaInfo;
 import org.apache.hadoop.mapreduce.split.JobSplit.TaskSplitIndex;
@@ -643,6 +644,7 @@ class MapTask extends Task {
                                                      input, output, committer,
                                                      reporter, split);
 
+      RunningJobContext.setContext(mapperContext);
       input.initialize(split, mapperContext);
       mapper.run(mapperContext);
       input.close();
