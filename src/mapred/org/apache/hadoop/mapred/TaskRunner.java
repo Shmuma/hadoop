@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Vector;
 import java.util.Map.Entry;
+import java.util.Arrays;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -74,6 +75,8 @@ abstract class TaskRunner extends Thread {
   static final String MAPREDUCE_USER_CLASSPATH_FIRST =
         "mapreduce.user.classpath.first"; //a semi-hidden config
 
+  static final String JOB_ADD_CLASSPATH =
+        "mapreduce.user.classpath.add";
   
   private TaskTracker tracker;
   private final TaskDistributedCacheManager taskDistributedCacheManager;
@@ -526,6 +529,11 @@ abstract class TaskRunner extends Thread {
     // Accumulates class paths for child.
     List<String> classPaths = new ArrayList<String>();
     
+    String jobUserClasses = conf.get(JOB_ADD_CLASSPATH, null);
+    if (jobUserClasses != null) {
+      classPaths.addAll(Arrays.asList(jobUserClasses.split(":")));
+    }
+
     boolean userClassesTakesPrecedence = conf.userClassesTakesPrecedence();
     
     if (!userClassesTakesPrecedence) {
