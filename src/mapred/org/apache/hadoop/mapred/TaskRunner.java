@@ -529,11 +529,6 @@ abstract class TaskRunner extends Thread {
     // Accumulates class paths for child.
     List<String> classPaths = new ArrayList<String>();
     
-    String jobUserClasses = conf.get(JOB_ADD_CLASSPATH, null);
-    if (jobUserClasses != null) {
-      classPaths.addAll(Arrays.asList(jobUserClasses.split(":")));
-    }
-
     boolean userClassesTakesPrecedence = conf.userClassesTakesPrecedence();
     
     if (!userClassesTakesPrecedence) {
@@ -555,7 +550,12 @@ abstract class TaskRunner extends Thread {
       // parent process's classpath is added last
       appendSystemClasspaths(classPaths);
     }
-    
+
+    String jobUserClasses = conf.get(JOB_ADD_CLASSPATH, null);
+    if (jobUserClasses != null) {
+      classPaths.addAll(Arrays.asList(jobUserClasses.split(":")));
+    }
+
     return classPaths;
   }
 
