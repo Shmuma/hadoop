@@ -19,7 +19,6 @@ package org.apache.hadoop.mapred;
 
 import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
-import java.sql.Date;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -281,10 +280,10 @@ public class JobInProgress {
   private MetricsRecord jobMetrics;
 
   protected static enum HadoopMetrics {
-    MAP_WALL_CLOCK_SECONDS,
-    SHUFFLE_WALL_CLOCK_SECONDS,
-    SORT_WALL_CLOCK_SECONDS,
-    REDUCE_WALL_CLOCK_SECONDS
+    MAP_WALL_CLOCK_MS,
+    SHUFFLE_WALL_CLOCK_MS,
+    SORT_WALL_CLOCK_MS,
+    REDUCE_WALL_CLOCK_MS
   };
 
   // Maximum no. of fetch-failure notifications after which
@@ -1266,20 +1265,20 @@ public class JobInProgress {
     switch (status.getPhase())
     {
       case MAP:
-        metrics = HadoopMetrics.MAP_WALL_CLOCK_SECONDS;
+        metrics = HadoopMetrics.MAP_WALL_CLOCK_MS;
         break;
       case SHUFFLE:
-        metrics = HadoopMetrics.SHUFFLE_WALL_CLOCK_SECONDS;
+        metrics = HadoopMetrics.SHUFFLE_WALL_CLOCK_MS;
         break;
       case SORT:
-        metrics = HadoopMetrics.SORT_WALL_CLOCK_SECONDS;
+        metrics = HadoopMetrics.SORT_WALL_CLOCK_MS;
         break;
       case REDUCE:
-        metrics = HadoopMetrics.REDUCE_WALL_CLOCK_SECONDS;
+        metrics = HadoopMetrics.REDUCE_WALL_CLOCK_MS;
     }
 
     if (metrics != null) {
-      tip.getCounters().findCounter(metrics).setValue(passed_ms / 1000);
+      tip.getCounters().findCounter(metrics).setValue(passed_ms);
     }
   }
 
