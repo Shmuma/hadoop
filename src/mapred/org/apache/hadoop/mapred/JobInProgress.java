@@ -281,8 +281,6 @@ public class JobInProgress {
 
   protected static enum HadoopMetrics {
     MAP_WALL_CLOCK_MS,
-    SHUFFLE_WALL_CLOCK_MS,
-    SORT_WALL_CLOCK_MS,
     REDUCE_WALL_CLOCK_MS
   };
 
@@ -1268,11 +1266,7 @@ public class JobInProgress {
         metrics = HadoopMetrics.MAP_WALL_CLOCK_MS;
         break;
       case SHUFFLE:
-        metrics = HadoopMetrics.SHUFFLE_WALL_CLOCK_MS;
-        break;
       case SORT:
-        metrics = HadoopMetrics.SORT_WALL_CLOCK_MS;
-        break;
       case REDUCE:
         metrics = HadoopMetrics.REDUCE_WALL_CLOCK_MS;
     }
