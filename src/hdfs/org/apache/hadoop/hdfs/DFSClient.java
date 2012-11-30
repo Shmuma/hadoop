@@ -3338,6 +3338,7 @@ public class DFSClient implements FSConstants, java.io.Closeable {
 
       computePacketChunkSize(writePacketSize, bytesPerChecksum);
 
+      boolean result = false;
       try {
         if (!createParent && serverSupportsNonRecursiveCreateApi) {
           // Compatibility case: createParent is false and we think we support 
@@ -3610,7 +3611,7 @@ public class DFSClient implements FSConstants, java.io.Closeable {
         }
 
         blockStream = out;
-        return true;     // success
+        result = true;     // success
 
       } catch (IOException ie) {
 
@@ -3630,8 +3631,14 @@ public class DFSClient implements FSConstants, java.io.Closeable {
         hasError = true;
         setLastException(ie);
         blockReplyStream = null;
-        return false;  // error
+        result = false;
+      } finally {
+        if (!result) {
+          IOUtils.closeSocket(s);
+          s = null;
+        }
       }
+      return result;
     }
   
     private LocatedBlock locateFollowingBlock(long start,
