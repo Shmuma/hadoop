@@ -42,7 +42,7 @@ class SchedulingAlgorithms {
       if (res == 0) {
         res = (int) Math.signum(s1.getStartTime() - s2.getStartTime());
       }
-      if (res == 0) {
+      if (res == 0 && s1.getName() != null && s2.getName() != null) {
         // In the rare case where jobs were submitted at the exact same time,
         // compare them by name (which will be the JobID) to get a deterministic
         // ordering, so we don't alternately launch tasks from different jobs.
@@ -91,7 +91,7 @@ class SchedulingAlgorithms {
         // Jobs are tied in fairness ratio. Break the tie by submit time and job 
         // name to get a deterministic ordering, which is useful for unit tests.
         res = (int) Math.signum(s1.getStartTime() - s2.getStartTime());
-        if (res == 0)
+        if (res == 0 && s1.getName() != null && s2.getName() != null)
           res = s1.getName().compareTo(s2.getName());
       }
       return res;
