@@ -247,16 +247,6 @@ public class Lz4Decompressor implements Decompressor {
     return n;
   }
 
-  /**
-   * Returns <code>0</code>.
-   *
-   * @return <code>0</code>.
-   */
-  @Override
-  public synchronized int getRemaining() {
-    // Never use this function in BlockDecompressorStream.
-    return 0;
-  }
 
   public synchronized void reset() {
     finished = false;
