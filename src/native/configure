@@ -11875,7 +11875,7 @@ $as_echo "#define STRERROR_R_CHAR_P 1" >>confdefs.h
 fi
 
 
-ac_config_files="$ac_config_files Makefile src/org/apache/hadoop/io/compress/zlib/Makefile src/org/apache/hadoop/io/compress/snappy/Makefile src/org/apache/hadoop/io/nativeio/Makefile src/org/apache/hadoop/security/Makefile lib/Makefile"
+ac_config_files="$ac_config_files Makefile src/org/apache/hadoop/io/compress/zlib/Makefile src/org/apache/hadoop/io/compress/snappy/Makefile src/org/apache/hadoop/io/compress/lz4/Makefile src/org/apache/hadoop/io/nativeio/Makefile src/org/apache/hadoop/security/Makefile lib/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -12852,6 +12852,7 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "src/org/apache/hadoop/io/compress/zlib/Makefile") CONFIG_FILES="$CONFIG_FILES src/org/apache/hadoop/io/compress/zlib/Makefile" ;;
     "src/org/apache/hadoop/io/compress/snappy/Makefile") CONFIG_FILES="$CONFIG_FILES src/org/apache/hadoop/io/compress/snappy/Makefile" ;;
+    "src/org/apache/hadoop/io/compress/lz4/Makefile") CONFIG_FILES="$CONFIG_FILES src/org/apache/hadoop/io/compress/lz4/Makefile" ;;
     "src/org/apache/hadoop/io/nativeio/Makefile") CONFIG_FILES="$CONFIG_FILES src/org/apache/hadoop/io/nativeio/Makefile" ;;
     "src/org/apache/hadoop/security/Makefile") CONFIG_FILES="$CONFIG_FILES src/org/apache/hadoop/security/Makefile" ;;
     "lib/Makefile") CONFIG_FILES="$CONFIG_FILES lib/Makefile" ;;
