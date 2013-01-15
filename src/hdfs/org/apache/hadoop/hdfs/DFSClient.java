@@ -3338,7 +3338,6 @@ public class DFSClient implements FSConstants, java.io.Closeable {
 
       computePacketChunkSize(writePacketSize, bytesPerChecksum);
 
-      boolean result = false;
       try {
         if (!createParent && serverSupportsNonRecursiveCreateApi) {
           // Compatibility case: createParent is false and we think we support 
@@ -3557,6 +3556,7 @@ public class DFSClient implements FSConstants, java.io.Closeable {
 
       // persist blocks on namenode on next flush
       persistBlocks = true;
+      boolean result = false;
 
       try {
         final String dnName = nodes[0].getName(connectToDnViaHostname);
