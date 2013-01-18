@@ -41,6 +41,8 @@ import java.util.Formatter;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -91,11 +93,13 @@ import org.apache.hadoop.util.ToolRunner;
  * <p>SYNOPSIS
  * <pre>
  * To start:
- *      bin/start-balancer.sh [-threshold <threshold>]
+ *      bin/start-balancer.sh [-threshold <threshold>] [-exclude /path]
  *      Example: bin/ start-balancer.sh 
  *                     start the balancer with a default threshold of 10%
  *               bin/ start-balancer.sh -threshold 5
  *                     start the balancer with a threshold of 5%
+ *               bin/ start-balancer.sh -exclude /hbase
+ *                     start the balancer without touching /hbase blocks
  * To stop:
  *      bin/ stop-balancer.sh
  * </pre>
@@ -192,6 +196,8 @@ public class Balancer implements Tool {
   private Configuration conf;
 
   private double threshold = 10D;
+  private String excludePath = null;
+  private Set<Block> excludeBlocks = null;
   private NamenodeProtocol namenode;
   private ClientProtocol client;
   private FileSystem fs;
@@ -820,43 +826,55 @@ public class Balancer implements Tool {
     System.out.println("Usage: java Balancer");
     System.out.println("          [-threshold <threshold>]\t" 
         +"percentage of disk capacity");
+    System.out.println("          [-exclude </path>]\t"
+            +"don't touch blocks under the given path");
   }
 
   /* parse argument to get the threshold */
-  private double parseArgs(String[] args) {
-    double threshold=0;
+  private void parseArgs(String[] args) {
     int argsLen = (args == null) ? 0 : args.length;
     if (argsLen==0) {
       threshold = 10;
+      excludePath = null;
     } else {
-      if (argsLen != 2 || !"-threshold".equalsIgnoreCase(args[0])) {
+      if (argsLen != 2 && argsLen != 4) {
         printUsage();
         throw new IllegalArgumentException(Arrays.toString(args));
-      } else {
-        try {
-          threshold = Double.parseDouble(args[1]);
-          if (threshold < 0 || threshold >100) {
-            throw new NumberFormatException();
+      }
+      for (int i = 0; i < argsLen; i++) {
+        if ("-threshold".equalsIgnoreCase(args[i])) {
+          i++;
+          try {
+            threshold = Double.parseDouble(args[i]);
+            if (threshold < 0 || threshold >100) {
+              throw new NumberFormatException();
+            }
+            LOG.info( "Using a threshold of " + threshold );
+          } catch(NumberFormatException e) {
+            System.err.println(
+                    "Expect a double parameter in the range of [0, 100]: "+ args[i]);
+            printUsage();
+            throw e;
           }
-          LOG.info( "Using a threshold of " + threshold );
-        } catch(NumberFormatException e) {
-          System.err.println(
-              "Expect a double parameter in the range of [0, 100]: "+ args[1]);
-          printUsage();
-          throw e;
         }
+        else
+          if ("-exclude".equalsIgnoreCase(args[i])) {
+            i++;
+            if (args[i].charAt(0) != '/') {
+              throw new IllegalArgumentException("exclude path must be absolute");
+            }
+            excludePath = new String(args[i]);
+            LOG.info("Blocks in " + excludePath + " will be excluded from move");
+          }
       }
     }
-    return threshold;
   }
   
-  /* Initialize balancer. It sets the value of the threshold, and 
-   * builds the communication proxies to
+  /* Initialize balancer. It builds the communication proxies to
    * namenode as a client and a secondary namenode and retry proxies
    * when connection fails.
    */
-  private void init(double threshold) throws IOException {
-    this.threshold = threshold;
+  private void init() throws IOException {
     this.namenode = createNamenode(conf);
     this.client = DFSClient.createNamenode(conf);
     this.fs = FileSystem.get(conf);
@@ -1365,6 +1383,7 @@ public class Balancer implements Tool {
    * 1. the block is not in the process of being moved/has not been moved;
    * 2. the block does not have a replica on the target;
    * 3. doing the move does not reduce the number of racks that the block has
+   * 4. the block is not in our excludeBlocks list
    */
   private boolean isGoodBlockCandidate(Source source, 
       BalancerDatanode target, BalancerBlock block) {
@@ -1373,6 +1392,9 @@ public class Balancer implements Tool {
         return false;
     }
     if (block.isLocatedOnDatanode(target)) {
+      return false;
+    }
+    if (excludeBlocks != null && excludeBlocks.contains(block.getBlock())) {
       return false;
     }
 
@@ -1421,7 +1443,47 @@ public class Balancer implements Tool {
     cleanGlobalBlockList();
     this.movedBlocks.cleanup();
   }
-  
+
+  private void refreshExcludeBlocks() throws IOException{
+    LOG.info("Build exclude blocks set");
+
+    excludeBlocks = new HashSet<Block>();
+    Queue<String> parents = new LinkedList<String>();
+
+    parents.add(excludePath);
+
+    while (!parents.isEmpty()) {
+      String dir = parents.poll();
+      byte[] start = HdfsFileStatus.EMPTY_NAME;
+
+      do {
+        DirectoryListing listing = client.getListing(dir, start);
+        HdfsFileStatus[] status = listing.getPartialListing();
+        LOG.debug("Enumerated " + status.length + " entries in " + dir);
+        for (int i = 0; i < status.length; i++) {
+          String fullName = status[i].getFullName(dir);
+          if (status[i].isDir()) {
+            // enqueue for process
+            parents.add(fullName);
+          }
+          else {
+            // remember block list
+            LocatedBlocks blocks = client.getBlockLocations (fullName, 0, status[i].getLen());
+            for (LocatedBlock lb : blocks.getLocatedBlocks()) {
+              excludeBlocks.add(lb.getBlock());
+            }
+          }
+        }
+        if (!listing.hasMore())
+          break;
+        start = status[status.length-1].getLocalNameInBytes();
+      }
+      while (true);
+    }
+
+    LOG.info("Enumerated " + excludeBlocks.size() + " blocks");
+  }
+
   /* Remove all blocks from the global block list except for the ones in the
    * moved list.
    */
@@ -1475,8 +1537,9 @@ public class Balancer implements Tool {
     OutputStream out = null;
     try {
       // initialize a balancer
-      init(parseArgs(args));
-      
+      parseArgs(args);
+      init();
+
       /* Check if there is another balancer running.
        * Exit if there is another one running.
        */
@@ -1501,12 +1564,17 @@ public class Balancer implements Tool {
           LOG.info( "Need to move "+ StringUtils.byteDesc(bytesLeftToMove)
               +" bytes to make the cluster balanced." );
         }
-        
+
+        // obtain blocks from exclude path (if any)
+        if (excludePath != null) {
+          refreshExcludeBlocks ();
+        }
+
         /* Decide all the nodes that will participate in the block move and
-         * the number of bytes that need to be moved from one node to another
-         * in this iteration. Maximum bytes to be moved per node is
-         * Min(1 Band worth of bytes,  MAX_SIZE_TO_MOVE).
-         */
+        * the number of bytes that need to be moved from one node to another
+        * in this iteration. Maximum bytes to be moved per node is
+        * Min(1 Band worth of bytes,  MAX_SIZE_TO_MOVE).
+        */
         long bytesToMove = chooseNodes();
         if (bytesToMove == 0) {
           System.out.println("No block can be moved. Exiting...");
