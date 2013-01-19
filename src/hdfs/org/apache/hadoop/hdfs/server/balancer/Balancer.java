@@ -1469,8 +1469,10 @@ public class Balancer implements Tool {
           else {
             // remember block list
             LocatedBlocks blocks = client.getBlockLocations (fullName, 0, status[i].getLen());
-            for (LocatedBlock lb : blocks.getLocatedBlocks()) {
-              excludeBlocks.add(lb.getBlock());
+            if (blocks != null) {
+              for (LocatedBlock lb : blocks.getLocatedBlocks()) {
+                excludeBlocks.add(lb.getBlock());
+              }
             }
           }
         }
