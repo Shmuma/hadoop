@@ -1458,6 +1458,8 @@ public class Balancer implements Tool {
 
       do {
         DirectoryListing listing = client.getListing(dir, start);
+        if (listing == null)
+          break;
         HdfsFileStatus[] status = listing.getPartialListing();
         LOG.debug("Enumerated " + status.length + " entries in " + dir);
         for (int i = 0; i < status.length; i++) {
@@ -1476,8 +1478,9 @@ public class Balancer implements Tool {
             }
           }
         }
-        if (!listing.hasMore())
+        if (!listing.hasMore()) {
           break;
+        }
         start = status[status.length-1].getLocalNameInBytes();
       }
       while (true);
