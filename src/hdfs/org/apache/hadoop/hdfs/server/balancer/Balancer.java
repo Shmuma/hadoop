@@ -646,6 +646,9 @@ public class Balancer implements Tool {
         (long)Math.min(MAX_BLOCKS_SIZE_TO_FETCH, blocksToReceive)).getBlocks();
       long bytesReceived = 0;
       for (BlockWithLocations blk : newBlocks) {
+        if (excludeBlocks != null && excludeBlocks.contains(blk.getBlock())) {
+          continue;
+        }
         bytesReceived += blk.getBlock().getNumBytes();
         BalancerBlock block;
         synchronized(globalBlockList) {
@@ -1392,9 +1395,6 @@ public class Balancer implements Tool {
         return false;
     }
     if (block.isLocatedOnDatanode(target)) {
-      return false;
-    }
-    if (excludeBlocks != null && excludeBlocks.contains(block.getBlock())) {
       return false;
     }
 
