@@ -1639,7 +1639,7 @@ public class JobInProgress {
   }
   
   public synchronized boolean scheduleReduces() {
-    return finishedMapTasks >= completedMapsForReduceSlowstart;
+    return finishedMapTasks + failedMapTIPs >= completedMapsForReduceSlowstart;
   }
   
   /**
