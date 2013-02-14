@@ -839,7 +839,12 @@ public class FairScheduler extends TaskScheduler {
         runningTasks.addAll(getRunningTasks(js.getJob(), taskType));
       }
     }
-    
+
+    // remove duplicates in preempt candidate list
+    Set<TaskStatus> runningSet = new HashSet<TaskStatus>(runningTasks);
+    runningTasks.clear();
+    runningTasks.addAll(runningSet);
+
     // Sort tasks into reverse order of start time
     Collections.sort(runningTasks, new Comparator<TaskStatus>() {
       public int compare(TaskStatus t1, TaskStatus t2) {
