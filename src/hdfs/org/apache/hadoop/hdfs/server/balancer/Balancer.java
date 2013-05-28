@@ -198,6 +198,7 @@ public class Balancer implements Tool {
   private double threshold = 10D;
   private String excludePath = null;
   private Set<Block> excludeBlocks = null;
+  private long excludeBlocksLastRefreshTime = 0;
   private NamenodeProtocol namenode;
   private ClientProtocol client;
   private FileSystem fs;
@@ -1445,10 +1446,20 @@ public class Balancer implements Tool {
   }
 
   private void refreshExcludeBlocks() throws IOException{
-    LOG.info("Build exclude blocks set");
+    String msg = "";
 
-    excludeBlocks = new HashSet<Block>();
+    if (excludeBlocksLastRefreshTime > 0) {
+      msg = ", modified since " + new Date(excludeBlocksLastRefreshTime).toString();
+    }
+    LOG.info("Build exclude blocks set" + msg);
+
+    if (excludeBlocks == null)
+      excludeBlocks = new HashSet<Block>();
+
+    long enumerate_starts = Util.now();
+    Set<Block> newBlocks = new HashSet<Block>();
     Queue<String> parents = new LinkedList<String>();
+    long enumerate_time = 0, locate_time = 0, now;
 
     parents.add(excludePath);
 
@@ -1457,10 +1468,12 @@ public class Balancer implements Tool {
       byte[] start = HdfsFileStatus.EMPTY_NAME;
 
       do {
+        now = Util.now();
         DirectoryListing listing = client.getListing(dir, start);
         if (listing == null)
           break;
         HdfsFileStatus[] status = listing.getPartialListing();
+        enumerate_time += Util.now() - now;
         LOG.debug("Enumerated " + status.length + " entries in " + dir);
         for (int i = 0; i < status.length; i++) {
           String fullName = status[i].getFullName(dir);
@@ -1468,12 +1481,14 @@ public class Balancer implements Tool {
             // enqueue for process
             parents.add(fullName);
           }
-          else {
+          else if (status[i].getModificationTime() > excludeBlocksLastRefreshTime) {
             // remember block list
+            now = Util.now();
             LocatedBlocks blocks = client.getBlockLocations (fullName, 0, status[i].getLen());
+            locate_time += Util.now() - now;
             if (blocks != null) {
               for (LocatedBlock lb : blocks.getLocatedBlocks()) {
-                excludeBlocks.add(lb.getBlock());
+                newBlocks.add(lb.getBlock());
               }
             }
           }
@@ -1486,7 +1501,10 @@ public class Balancer implements Tool {
       while (true);
     }
 
-    LOG.info("Enumerated " + excludeBlocks.size() + " blocks");
+    LOG.info("Enumerated " + newBlocks.size() + " blocks in " + enumerate_time + " ms, located in " + locate_time + " ms");
+    excludeBlocks.addAll(newBlocks);
+    LOG.info("Now we have " + excludeBlocks.size() + " blocks in exclude set");
+    excludeBlocksLastRefreshTime = enumerate_starts;
   }
 
   /* Remove all blocks from the global block list except for the ones in the
