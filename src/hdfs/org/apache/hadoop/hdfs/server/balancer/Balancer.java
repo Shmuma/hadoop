@@ -233,14 +233,15 @@ public class Balancer implements Tool {
   private NetworkTopology cluster = new NetworkTopology();
   
   private double avgUtilization = 0.0D;
-  
-  final static private int MOVER_THREAD_POOL_SIZE = 1000;
-  final private ExecutorService moverExecutor = 
-    Executors.newFixedThreadPool(MOVER_THREAD_POOL_SIZE);
-  final static private int DISPATCHER_THREAD_POOL_SIZE = 200;
-  final private ExecutorService dispatcherExecutor =
-    Executors.newFixedThreadPool(DISPATCHER_THREAD_POOL_SIZE);
-  
+
+  // dfs.balancer.moverThreads
+  private int moverThreadPoolSize = 1000;
+  private ExecutorService moverExecutor = null;
+
+  // dfs.balancer.dispatcherThreads
+  private int dispatcherThreadPoolSize = 200;
+  private ExecutorService dispatcherExecutor = null;
+
   /* This class keeps track of a scheduled block move */
   private class PendingBlockMove {
     private BalancerBlock block;
@@ -804,7 +805,7 @@ public class Balancer implements Tool {
   /** Construct a balancer from the given configuration */
   Balancer(Configuration conf) {
     setConf(conf);
-  } 
+  }
 
   /** Construct a balancer from the given configuration and threshold */
   Balancer(Configuration conf, double threshold) {
@@ -812,11 +813,25 @@ public class Balancer implements Tool {
     this.threshold = threshold;
   }
 
+  void initExecutors(Configuration conf) {
+    if (conf != null) {
+      moverThreadPoolSize = conf.getInt("dfs.balancer.moverThreads", moverThreadPoolSize);
+      dispatcherThreadPoolSize = conf.getInt("dfs.balancer.dispatcherThreads", dispatcherThreadPoolSize);
+    }
+
+    moverExecutor = Executors.newFixedThreadPool(moverThreadPoolSize);
+    dispatcherExecutor = Executors.newFixedThreadPool(dispatcherThreadPoolSize);
+    LOG.info("Created " + moverThreadPoolSize + " mover threads");
+    LOG.info("Created " + dispatcherThreadPoolSize + " dispatcher threads");
+  }
+
+
   /**
    * Run a balancer
    * @param args
    */
   public static void main(String[] args) {
+    Configuration.addDefaultResource("hdfs-site.xml");
     try {
       System.exit( ToolRunner.run(null, new Balancer(), args) );
     } catch (Throwable e) {
@@ -1731,6 +1746,7 @@ public class Balancer implements Tool {
   public void setConf(Configuration conf) {
     this.conf = conf;
     movedBlocks.setWinWidth(conf);
+    initExecutors(conf);
   }
 
 }
