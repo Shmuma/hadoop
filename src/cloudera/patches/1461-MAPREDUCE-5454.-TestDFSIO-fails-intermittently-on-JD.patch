@@ -1,0 +1,83 @@
+From 49f871f765040efbfb29087af69b78a6a4000be8 Mon Sep 17 00:00:00 2001
+From: Sanford Ryza <sandy@apache.org>
+Date: Tue, 13 Aug 2013 07:03:43 +0000
+Subject: [PATCH 1461/1475] MAPREDUCE-5454. TestDFSIO fails intermittently on JDK7 (Karthik Kambatla via Sandy Ryza)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1513368 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 3786958896218f69f729749ed39fe8ef3be9b647)
+---
+ .../test/java/org/apache/hadoop/fs/TestDFSIO.java  |   16 +++++++++-------
+ 1 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/fs/TestDFSIO.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/fs/TestDFSIO.java
+index e903c8d..6c8122b 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/fs/TestDFSIO.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/src/test/java/org/apache/hadoop/fs/TestDFSIO.java
+@@ -208,6 +208,9 @@ public class TestDFSIO implements Tool {
+                                 .build();
+     FileSystem fs = cluster.getFileSystem();
+     bench.createControlFile(fs, DEFAULT_NR_BYTES, DEFAULT_NR_FILES);
++
++    /** Check write here, as it is required for other tests */
++    testWrite();
+   }
+ 
+   @AfterClass
+@@ -219,8 +222,7 @@ public class TestDFSIO implements Tool {
+     cluster.shutdown();
+   }
+ 
+-  @Test
+-  public void testWrite() throws Exception {
++  public static void testWrite() throws Exception {
+     FileSystem fs = cluster.getFileSystem();
+     long tStart = System.currentTimeMillis();
+     bench.writeTest(fs);
+@@ -228,7 +230,7 @@ public class TestDFSIO implements Tool {
+     bench.analyzeResult(fs, TestType.TEST_TYPE_WRITE, execTime);
+   }
+ 
+-  @Test
++  @Test (timeout = 3000)
+   public void testRead() throws Exception {
+     FileSystem fs = cluster.getFileSystem();
+     long tStart = System.currentTimeMillis();
+@@ -237,7 +239,7 @@ public class TestDFSIO implements Tool {
+     bench.analyzeResult(fs, TestType.TEST_TYPE_READ, execTime);
+   }
+ 
+-  @Test
++  @Test (timeout = 3000)
+   public void testReadRandom() throws Exception {
+     FileSystem fs = cluster.getFileSystem();
+     long tStart = System.currentTimeMillis();
+@@ -247,7 +249,7 @@ public class TestDFSIO implements Tool {
+     bench.analyzeResult(fs, TestType.TEST_TYPE_READ_RANDOM, execTime);
+   }
+ 
+-  @Test
++  @Test (timeout = 3000)
+   public void testReadBackward() throws Exception {
+     FileSystem fs = cluster.getFileSystem();
+     long tStart = System.currentTimeMillis();
+@@ -257,7 +259,7 @@ public class TestDFSIO implements Tool {
+     bench.analyzeResult(fs, TestType.TEST_TYPE_READ_BACKWARD, execTime);
+   }
+ 
+-  @Test
++  @Test (timeout = 3000)
+   public void testReadSkip() throws Exception {
+     FileSystem fs = cluster.getFileSystem();
+     long tStart = System.currentTimeMillis();
+@@ -267,7 +269,7 @@ public class TestDFSIO implements Tool {
+     bench.analyzeResult(fs, TestType.TEST_TYPE_READ_SKIP, execTime);
+   }
+ 
+-  @Test
++  @Test (timeout = 3000)
+   public void testAppend() throws Exception {
+     FileSystem fs = cluster.getFileSystem();
+     long tStart = System.currentTimeMillis();
+-- 
+1.7.0.4
+

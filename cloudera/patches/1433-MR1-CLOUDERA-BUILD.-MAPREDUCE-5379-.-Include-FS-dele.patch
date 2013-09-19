@@ -1,0 +1,66 @@
+From 1081758b564e02334d4438b7a4c6420f22fcd87e Mon Sep 17 00:00:00 2001
+From: Sandy Ryza <sandy@cloudera.com>
+Date: Thu, 18 Jul 2013 22:12:00 -0700
+Subject: [PATCH 1433/1475] MR1: CLOUDERA-BUILD. (*MAPREDUCE-5379). Include FS delegation token ID in job conf
+
+*At the time of pushing, this change has not yet gone in upstream.
+---
+ .../mapred/org/apache/hadoop/mapred/JobClient.java |   21 ++++++++++++++++++++
+ 1 files changed, 21 insertions(+), 0 deletions(-)
+
+diff --git a/hadoop-mapreduce1-project/src/mapred/org/apache/hadoop/mapred/JobClient.java b/hadoop-mapreduce1-project/src/mapred/org/apache/hadoop/mapred/JobClient.java
+index 06fd369..ea7692a 100644
+--- a/hadoop-mapreduce1-project/src/mapred/org/apache/hadoop/mapred/JobClient.java
++++ b/hadoop-mapreduce1-project/src/mapred/org/apache/hadoop/mapred/JobClient.java
+@@ -37,6 +37,7 @@ import java.net.URL;
+ import java.net.URLConnection;
+ import java.net.UnknownHostException;
+ import java.util.Arrays;
++import java.util.ArrayList;
+ import java.util.Collection;
+ import java.util.Comparator;
+ import java.util.List;
+@@ -78,6 +79,8 @@ import org.apache.hadoop.security.Credentials;
+ import org.apache.hadoop.security.UserGroupInformation;
+ import org.apache.hadoop.security.authorize.AccessControlList;
+ import org.apache.hadoop.security.token.Token;
++import org.apache.hadoop.security.token.TokenIdentifier;
++import org.apache.hadoop.security.token.delegation.AbstractDelegationTokenIdentifier;
+ import org.apache.hadoop.security.token.SecretManager.InvalidToken;
+ import org.apache.hadoop.security.token.TokenRenewer;
+ import org.apache.hadoop.util.ReflectionUtils;
+@@ -88,6 +91,8 @@ import org.codehaus.jackson.JsonParseException;
+ import org.codehaus.jackson.map.JsonMappingException;
+ import org.codehaus.jackson.map.ObjectMapper;
+ 
++import com.google.common.base.Joiner;
++
+ /**
+  * <code>JobClient</code> is the primary interface for the user-job to interact
+  * with the {@link JobTracker}.
+@@ -1009,6 +1014,22 @@ public class JobClient extends Configured implements MRConstants, Tool  {
+           // because of it if present as the referral will point to a
+           // different job.
+           TokenCache.cleanUpTokenReferral(jobCopy);
++      
++          // Include delegation tokens in the job conf so that it can be associated
++          // with FS operations
++          List<String> idStrs = new ArrayList<String>();
++          for (Token<? extends TokenIdentifier> token : job.getCredentials().getAllTokens()) {
++            TokenIdentifier identifier = token.decodeIdentifier();
++            // Only delegation tokens have sequence numbers
++            if (identifier instanceof AbstractDelegationTokenIdentifier) {
++              AbstractDelegationTokenIdentifier dtIdentifier =
++                  (AbstractDelegationTokenIdentifier)identifier;
++              idStrs.add(token.getKind() + "|" + token.getService() + "|"
++                  + dtIdentifier.getSequenceNumber());
++            }
++          }
++          jobCopy.setStrings("delegation.token.ids",
++              idStrs.toArray(new String[idStrs.size()]));
+ 
+           try {
+             jobCopy.writeXml(out);
+-- 
+1.7.0.4
+

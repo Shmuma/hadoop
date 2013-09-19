@@ -1,0 +1,53 @@
+From afea1e4135f4c9a17afeacd9f64efcdf9a981e6f Mon Sep 17 00:00:00 2001
+From: Alejandro Abdelnur <tucu@apache.org>
+Date: Mon, 18 Mar 2013 19:44:01 +0000
+Subject: [PATCH 1402/1475] YARN-485. TestProcfsProcessTree#testProcessTree() doesn't wait long enough for the process to die. (kkambatl via tucu)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1457936 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit e46e7f2c121d5053af3519d3a23386e6d80fda39)
+---
+ .../yarn/util/TestProcfsBasedProcessTree.java      |   21 +++++++++++++++----
+ 1 files changed, 16 insertions(+), 5 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/test/java/org/apache/hadoop/yarn/util/TestProcfsBasedProcessTree.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/test/java/org/apache/hadoop/yarn/util/TestProcfsBasedProcessTree.java
+index 528e03e..13cf868 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/test/java/org/apache/hadoop/yarn/util/TestProcfsBasedProcessTree.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/test/java/org/apache/hadoop/yarn/util/TestProcfsBasedProcessTree.java
+@@ -18,6 +18,8 @@
+ 
+ package org.apache.hadoop.yarn.util;
+ 
++import static org.junit.Assert.fail;
++
+ import java.io.BufferedReader;
+ import java.io.BufferedWriter;
+ import java.io.File;
+@@ -183,11 +185,20 @@ public class TestProcfsBasedProcessTree {
+     // destroy the process and all its subprocesses
+     destroyProcessTree(pid);
+ 
+-    if (isSetsidAvailable()) { // whole processtree should be gone
+-      Assert.assertFalse("Proceesses in process group live",
+-          isAnyProcessInTreeAlive(p));
+-    } else {// process should be gone
+-      Assert.assertFalse("ProcessTree must have been gone", isAlive(pid));
++    boolean isAlive = true;
++    for (int tries = 100; tries > 0; tries--) {
++      if (isSetsidAvailable()) {// whole processtree
++        isAlive = isAnyProcessInTreeAlive(p);
++      } else {// process
++        isAlive = isAlive(pid);
++      }
++      if (!isAlive) {
++        break;
++      }
++      Thread.sleep(100);
++    }
++    if (isAlive) {
++      fail("ProcessTree shouldn't be alive");
+     }
+ 
+     LOG.info("Process-tree dump follows: \n" + processTreeDump);
+-- 
+1.7.0.4
+

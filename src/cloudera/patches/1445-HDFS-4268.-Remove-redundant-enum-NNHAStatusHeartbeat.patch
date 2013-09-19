@@ -1,0 +1,323 @@
+From 877163545097b48518a15c016e024e3af48f9336 Mon Sep 17 00:00:00 2001
+From: Konstantin Shvachko <shv@apache.org>
+Date: Thu, 6 Dec 2012 07:23:41 +0000
+Subject: [PATCH 1445/1475] HDFS-4268. Remove redundant enum NNHAStatusHeartbeat.State. Contributed by Konstantin Shvachko.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-2@1417753 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 38c226aa6a1232832c6bcd92491b97e13fc730d1)
+---
+ .../apache/hadoop/hdfs/protocolPB/PBHelper.java    |    5 ++-
+ .../hdfs/server/datanode/BPOfferService.java       |    3 +-
+ .../hadoop/hdfs/server/namenode/BackupState.java   |    8 +++--
+ .../hadoop/hdfs/server/namenode/FSNamesystem.java  |   30 +++++++++----------
+ .../hdfs/server/protocol/NNHAStatusHeartbeat.java  |   13 ++------
+ .../hdfs/server/datanode/TestBPOfferService.java   |   12 ++++----
+ .../hdfs/server/datanode/TestBlockRecovery.java    |    4 +-
+ 7 files changed, 36 insertions(+), 39 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/protocolPB/PBHelper.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/protocolPB/PBHelper.java
+index 3129a25..89ac6a1 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/protocolPB/PBHelper.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/protocolPB/PBHelper.java
+@@ -26,6 +26,7 @@ import org.apache.hadoop.fs.ContentSummary;
+ import org.apache.hadoop.fs.CreateFlag;
+ import org.apache.hadoop.fs.FsServerDefaults;
+ import org.apache.hadoop.fs.permission.FsPermission;
++import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
+ import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+ import org.apache.hadoop.hdfs.protocol.Block;
+ import org.apache.hadoop.hdfs.protocol.ClientProtocol;
+@@ -1324,9 +1325,9 @@ public class PBHelper {
+     if (s == null) return null;
+     switch (s.getState()) {
+     case ACTIVE:
+-      return new NNHAStatusHeartbeat(NNHAStatusHeartbeat.State.ACTIVE, s.getTxid());
++      return new NNHAStatusHeartbeat(HAServiceState.ACTIVE, s.getTxid());
+     case STANDBY:
+-      return new NNHAStatusHeartbeat(NNHAStatusHeartbeat.State.STANDBY, s.getTxid());
++      return new NNHAStatusHeartbeat(HAServiceState.STANDBY, s.getTxid());
+     default:
+       throw new IllegalArgumentException("Unexpected NNHAStatusHeartbeat.State:" + s.getState());
+     }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BPOfferService.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BPOfferService.java
+index 7f4d48b..f59e848 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BPOfferService.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/BPOfferService.java
+@@ -26,6 +26,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
+ 
+ import org.apache.commons.logging.Log;
+ import org.apache.hadoop.classification.InterfaceAudience;
++import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
+ import org.apache.hadoop.hdfs.protocol.Block;
+ import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
+ import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
+@@ -444,7 +445,7 @@ class BPOfferService {
+     final long txid = nnHaState.getTxId();
+     
+     final boolean nnClaimsActive =
+-      nnHaState.getState() == NNHAStatusHeartbeat.State.ACTIVE;
++      nnHaState.getState() == HAServiceState.ACTIVE;
+     final boolean bposThinksActive = bpServiceToActive == actor;
+     final boolean isMoreRecentClaim = txid > lastActiveClaimTxId; 
+     
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/BackupState.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/BackupState.java
+index f8c7928..ce11fc9 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/BackupState.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/BackupState.java
+@@ -2,6 +2,7 @@ package org.apache.hadoop.hdfs.server.namenode;
+ 
+ import java.io.IOException;
+ 
++import org.apache.hadoop.classification.InterfaceAudience;
+ import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
+ import org.apache.hadoop.ha.ServiceFailedException;
+ import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
+@@ -9,6 +10,7 @@ import org.apache.hadoop.hdfs.server.namenode.ha.HAContext;
+ import org.apache.hadoop.hdfs.server.namenode.ha.HAState;
+ import org.apache.hadoop.ipc.StandbyException;
+ 
++@InterfaceAudience.Private
+ public class BackupState extends HAState {
+ 
+   public BackupState() {
+@@ -26,7 +28,7 @@ public class BackupState extends HAState {
+     return false;
+   }
+ 
+-  @Override
++  @Override // HAState
+   public void enterState(HAContext context) throws ServiceFailedException {
+     try {
+       context.startActiveServices();
+@@ -35,7 +37,7 @@ public class BackupState extends HAState {
+     }
+   }
+ 
+-  @Override
++  @Override // HAState
+   public void exitState(HAContext context) throws ServiceFailedException {
+     try {
+       context.stopActiveServices();
+@@ -44,7 +46,7 @@ public class BackupState extends HAState {
+     }
+   }
+ 
+-  @Override
++  @Override // HAState
+   public void prepareToExitState(HAContext context) throws ServiceFailedException {
+     context.prepareToStopStandbyServices();
+   }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java
+index b707696..3a408c0 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java
+@@ -175,7 +175,6 @@ import org.apache.hadoop.hdfs.server.namenode.ha.EditLogTailer;
+ import org.apache.hadoop.hdfs.server.namenode.ha.HAContext;
+ import org.apache.hadoop.hdfs.server.namenode.ha.HAState;
+ import org.apache.hadoop.hdfs.server.namenode.ha.StandbyCheckpointer;
+-import org.apache.hadoop.hdfs.server.namenode.ha.StandbyState;
+ import org.apache.hadoop.hdfs.server.namenode.metrics.FSNamesystemMBean;
+ import org.apache.hadoop.hdfs.server.namenode.metrics.NameNodeMetrics;
+ import org.apache.hadoop.hdfs.server.namenode.web.resources.NamenodeWebHdfsMethods;
+@@ -1084,8 +1083,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
+       // start in active.
+       return haEnabled;
+     }
+-  
+-    return haContext.getState() instanceof StandbyState;
++
++    return HAServiceState.STANDBY == haContext.getState().getServiceState();
+   }
+ 
+   /**
+@@ -3547,15 +3546,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
+ 
+   private NNHAStatusHeartbeat createHaStatusHeartbeat() {
+     HAState state = haContext.getState();
+-    NNHAStatusHeartbeat.State hbState;
+-    if (state.getServiceState() == HAServiceState.ACTIVE) {
+-      hbState = NNHAStatusHeartbeat.State.ACTIVE;
+-    } else if (state.getServiceState() == HAServiceState.STANDBY) {
+-      hbState = NNHAStatusHeartbeat.State.STANDBY;      
+-    } else {
+-      throw new AssertionError("Invalid state: " + state.getClass());
+-    }
+-    return new NNHAStatusHeartbeat(hbState,
++    return new NNHAStatusHeartbeat(state.getServiceState(),
+         getFSImage().getLastAppliedOrWrittenTxId());
+   }
+ 
+@@ -4007,7 +3998,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
+       }
+       // if not done yet, initialize replication queues.
+       // In the standby, do not populate repl queues
+-      if (!isPopulatingReplQueues() && !isInStandbyState()) {
++      if (!isPopulatingReplQueues() && shouldPopulateReplQueues()) {
+         initializeReplQueues();
+       }
+       long timeInSafemode = now() - startTime;
+@@ -4050,7 +4041,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
+      * initializing replication queues.
+      */
+     private synchronized boolean canInitializeReplQueues() {
+-      return !isInStandbyState() && blockSafe >= blockReplQueueThreshold;
++      return shouldPopulateReplQueues()
++          && blockSafe >= blockReplQueueThreshold;
+     }
+       
+     /** 
+@@ -4399,7 +4391,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
+ 
+   @Override
+   public boolean isPopulatingReplQueues() {
+-    if (isInStandbyState()) {
++    if (!shouldPopulateReplQueues()) {
+       return false;
+     }
+     // safeMode is volatile, and may be set to null at any time
+@@ -4408,7 +4400,13 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
+       return true;
+     return safeMode.isPopulatingReplQueues();
+   }
+-    
++
++  private boolean shouldPopulateReplQueues() {
++    if(haContext == null || haContext.getState() == null)
++      return false;
++    return haContext.getState().shouldPopulateReplQueues();
++  }
++
+   @Override
+   public void incrementSafeBlockCount(int replication) {
+     // safeMode is volatile, and may be set to null at any time
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/protocol/NNHAStatusHeartbeat.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/protocol/NNHAStatusHeartbeat.java
+index 337a83c..66ccb3b 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/protocol/NNHAStatusHeartbeat.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/protocol/NNHAStatusHeartbeat.java
+@@ -19,31 +19,26 @@ package org.apache.hadoop.hdfs.server.protocol;
+ 
+ import org.apache.hadoop.classification.InterfaceAudience;
+ import org.apache.hadoop.classification.InterfaceStability;
++import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
+ import org.apache.hadoop.hdfs.protocol.HdfsConstants;
+ 
+ @InterfaceAudience.Private
+ @InterfaceStability.Evolving
+ public class NNHAStatusHeartbeat {
+ 
+-  private State state;
++  private HAServiceState state;
+   private long txid = HdfsConstants.INVALID_TXID;
+   
+-  public NNHAStatusHeartbeat(State state, long txid) {
++  public NNHAStatusHeartbeat(HAServiceState state, long txid) {
+     this.state = state;
+     this.txid = txid;
+   }
+ 
+-  public State getState() {
++  public HAServiceState getState() {
+     return state;
+   }
+   
+   public long getTxId() {
+     return txid;
+   }
+-  
+-  @InterfaceAudience.Private
+-  public enum State {
+-    ACTIVE,
+-    STANDBY;
+-  }
+ }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestBPOfferService.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestBPOfferService.java
+index b37e4d7..9245cc7 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestBPOfferService.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestBPOfferService.java
+@@ -29,6 +29,7 @@ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
+ import org.apache.commons.logging.impl.Log4JLogger;
+ import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
+ import org.apache.hadoop.hdfs.DFSTestUtil;
+ import org.apache.hadoop.hdfs.protocol.Block;
+ import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
+@@ -42,7 +43,6 @@ import org.apache.hadoop.hdfs.server.protocol.DatanodeProtocol;
+ import org.apache.hadoop.hdfs.server.protocol.DatanodeRegistration;
+ import org.apache.hadoop.hdfs.server.protocol.HeartbeatResponse;
+ import org.apache.hadoop.hdfs.server.protocol.NNHAStatusHeartbeat;
+-import org.apache.hadoop.hdfs.server.protocol.NNHAStatusHeartbeat.State;
+ import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
+ import org.apache.hadoop.hdfs.server.protocol.ReceivedDeletedBlockInfo;
+ import org.apache.hadoop.hdfs.server.protocol.StorageBlockReport;
+@@ -126,7 +126,7 @@ public class TestBPOfferService {
+           Mockito.anyInt(),
+           Mockito.anyInt(),
+           Mockito.anyInt());
+-    mockHaStatuses[nnIdx] = new NNHAStatusHeartbeat(State.STANDBY, 0);
++    mockHaStatuses[nnIdx] = new NNHAStatusHeartbeat(HAServiceState.STANDBY, 0);
+     return mock;
+   }
+   
+@@ -259,12 +259,12 @@ public class TestBPOfferService {
+       assertNull(bpos.getActiveNN());
+ 
+       // Have NN1 claim active at txid 1
+-      mockHaStatuses[0] = new NNHAStatusHeartbeat(State.ACTIVE, 1);
++      mockHaStatuses[0] = new NNHAStatusHeartbeat(HAServiceState.ACTIVE, 1);
+       bpos.triggerHeartbeatForTests();
+       assertSame(mockNN1, bpos.getActiveNN());
+ 
+       // NN2 claims active at a higher txid
+-      mockHaStatuses[1] = new NNHAStatusHeartbeat(State.ACTIVE, 2);
++      mockHaStatuses[1] = new NNHAStatusHeartbeat(HAServiceState.ACTIVE, 2);
+       bpos.triggerHeartbeatForTests();
+       assertSame(mockNN2, bpos.getActiveNN());
+       
+@@ -276,12 +276,12 @@ public class TestBPOfferService {
+       // Even if NN2 goes to standby, DN shouldn't reset to talking to NN1,
+       // because NN1's txid is lower than the last active txid. Instead,
+       // it should consider neither active.
+-      mockHaStatuses[1] = new NNHAStatusHeartbeat(State.STANDBY, 2);
++      mockHaStatuses[1] = new NNHAStatusHeartbeat(HAServiceState.STANDBY, 2);
+       bpos.triggerHeartbeatForTests();
+       assertNull(bpos.getActiveNN());
+       
+       // Now if NN1 goes back to a higher txid, it should be considered active
+-      mockHaStatuses[0] = new NNHAStatusHeartbeat(State.ACTIVE, 3);
++      mockHaStatuses[0] = new NNHAStatusHeartbeat(HAServiceState.ACTIVE, 3);
+       bpos.triggerHeartbeatForTests();
+       assertSame(mockNN1, bpos.getActiveNN());
+ 
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestBlockRecovery.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestBlockRecovery.java
+index 1a6c9ec..439db15 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestBlockRecovery.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/datanode/TestBlockRecovery.java
+@@ -49,6 +49,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
+ import org.apache.hadoop.fs.FileSystem;
+ import org.apache.hadoop.fs.FileUtil;
+ import org.apache.hadoop.fs.Path;
++import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
+ import org.apache.hadoop.hdfs.DFSConfigKeys;
+ import org.apache.hadoop.hdfs.DFSTestUtil;
+ import org.apache.hadoop.hdfs.DistributedFileSystem;
+@@ -72,7 +73,6 @@ import org.apache.hadoop.hdfs.server.protocol.DatanodeRegistration;
+ import org.apache.hadoop.hdfs.server.protocol.HeartbeatResponse;
+ import org.apache.hadoop.hdfs.server.protocol.InterDatanodeProtocol;
+ import org.apache.hadoop.hdfs.server.protocol.NNHAStatusHeartbeat;
+-import org.apache.hadoop.hdfs.server.protocol.NNHAStatusHeartbeat.State;
+ import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
+ import org.apache.hadoop.hdfs.server.protocol.ReplicaRecoveryInfo;
+ import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+@@ -157,7 +157,7 @@ public class TestBlockRecovery {
+             Mockito.anyInt()))
+         .thenReturn(new HeartbeatResponse(
+             new DatanodeCommand[0],
+-            new NNHAStatusHeartbeat(State.ACTIVE, 1)));
++            new NNHAStatusHeartbeat(HAServiceState.ACTIVE, 1)));
+ 
+     dn = new DataNode(conf, dirs, null) {
+       @Override
+-- 
+1.7.0.4
+

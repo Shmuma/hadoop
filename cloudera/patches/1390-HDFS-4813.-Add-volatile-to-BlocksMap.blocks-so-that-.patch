@@ -1,0 +1,30 @@
+From c451d1d926771cd839a37e3b7bfc95135eb22e90 Mon Sep 17 00:00:00 2001
+From: Tsz-wo Sze <szetszwo@apache.org>
+Date: Wed, 15 May 2013 02:18:27 +0000
+Subject: [PATCH 1390/1475] HDFS-4813. Add volatile to BlocksMap.blocks so that the replication thread can see the updated value.  Contributed by Jing Zhao
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1482658 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit df0f2c62b86326bb11f89382071d65e1fbf570e7)
+
+Conflicts:
+	hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java
+---
+ .../hdfs/server/blockmanagement/BlocksMap.java     |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlocksMap.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlocksMap.java
+index ef21dc3..32342ba 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlocksMap.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlocksMap.java
+@@ -57,7 +57,7 @@ class BlocksMap {
+   /** Constant {@link LightWeightGSet} capacity. */
+   private final int capacity;
+   
+-  private GSet<Block, BlockInfo> blocks;
++  private volatile GSet<Block, BlockInfo> blocks;
+ 
+   BlocksMap(final float loadFactor) {
+     this.capacity = computeCapacity();
+-- 
+1.7.0.4
+

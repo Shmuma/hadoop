@@ -1,0 +1,136 @@
+From d0437a5bbde38beda9d3a6aeffaa95f384f913ae Mon Sep 17 00:00:00 2001
+From: Thomas White <tomwhite@apache.org>
+Date: Wed, 27 Mar 2013 14:42:41 +0000
+Subject: [PATCH 1416/1475] YARN-496. Fair scheduler configs are refreshed inconsistently in reinitialize. Contributed by Sandy Ryza
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1461614 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 25bed9ebdc7160f2cc7bc4921966a13c78ffd8fa)
+
+Conflicts:
+
+	hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
+---
+ .../scheduler/fair/FairScheduler.java              |   36 ++++++++-----------
+ .../scheduler/fair/FairSchedulerConfiguration.java |    5 ---
+ .../scheduler/fair/TestFairScheduler.java          |   20 +++++++++++
+ 3 files changed, 35 insertions(+), 26 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
+index 09901a1..a5e0877 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
+@@ -918,27 +918,27 @@ public class FairScheduler implements ResourceScheduler {
+   }
+ 
+   @Override
+-  public synchronized void
+-      reinitialize(Configuration conf, RMContext rmContext) throws IOException {
+-    if (!this.initialized) {
+-      this.conf = new FairSchedulerConfiguration(conf);
+-      this.rootMetrics = QueueMetrics.forQueue("root", null, true, conf);
++  public synchronized void reinitialize(Configuration conf, RMContext rmContext)
++      throws IOException {
++    this.conf = new FairSchedulerConfiguration(conf);
++    minimumAllocation = this.conf.getMinimumMemoryAllocation();
++    maximumAllocation = this.conf.getMaximumMemoryAllocation();
++    userAsDefaultQueue = this.conf.getUserAsDefaultQueue();
++    nodeLocalityThreshold = this.conf.getLocalityThresholdNode();
++    rackLocalityThreshold = this.conf.getLocalityThresholdRack();
++    preemptionEnabled = this.conf.getPreemptionEnabled();
++    assignMultiple = this.conf.getAssignMultiple();
++    maxAssign = this.conf.getMaxAssign();
++    sizeBasedWeight = this.conf.getSizeBasedWeight();
++    
++    if (!initialized) {
++      rootMetrics = QueueMetrics.forQueue("root", null, true, conf);
+       this.rmContext = rmContext;
+       this.eventLog = new FairSchedulerEventLog();
+       eventLog.init(this.conf);
+-      minimumAllocation = this.conf.getMinimumMemoryAllocation();
+-      maximumAllocation = this.conf.getMaximumMemoryAllocation();
+-      userAsDefaultQueue = this.conf.getUserAsDefaultQueue();
+-      nodeLocalityThreshold = this.conf.getLocalityThresholdNode();
+-      rackLocalityThreshold = this.conf.getLocalityThresholdRack();
+-      preemptionEnabled = this.conf.getPreemptionEnabled();
+-      assignMultiple = this.conf.getAssignMultiple();
+-      maxAssign = this.conf.getMaxAssign();
+ 
+       initialized = true;
+ 
+-      sizeBasedWeight = this.conf.getSizeBasedWeight();
+-
+       try {
+         queueMgr.initialize();
+       } catch (Exception e) {
+@@ -950,14 +950,8 @@ public class FairScheduler implements ResourceScheduler {
+       updateThread.setDaemon(true);
+       updateThread.start();
+     } else {
+-      this.conf = new FairSchedulerConfiguration(conf);
+-      userAsDefaultQueue = this.conf.getUserAsDefaultQueue();
+-      nodeLocalityThreshold = this.conf.getLocalityThresholdNode();
+-      rackLocalityThreshold = this.conf.getLocalityThresholdRack();
+-      preemptionEnabled = this.conf.getPreemptionEnabled();
+       try {
+         queueMgr.reloadAllocs();
+-
+       } catch (Exception e) {
+         throw new IOException("Failed to initialize FairScheduler", e);
+       }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairSchedulerConfiguration.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairSchedulerConfiguration.java
+index acae29e..e47e215 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairSchedulerConfiguration.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairSchedulerConfiguration.java
+@@ -20,7 +20,6 @@ public class FairSchedulerConfiguration extends Configuration {
+   protected static final String  USER_AS_DEFAULT_QUEUE = CONF_PREFIX + "user-as-default-queue";
+   protected static final boolean DEFAULT_USER_AS_DEFAULT_QUEUE = true;
+ 
+-  protected static final String LOCALITY_THRESHOLD = CONF_PREFIX + "locality.threshold";
+   protected static final float  DEFAULT_LOCALITY_THRESHOLD = -1.0f;
+ 
+   /** Cluster threshold for node locality. */
+@@ -72,10 +71,6 @@ public class FairSchedulerConfiguration extends Configuration {
+     return getBoolean(USER_AS_DEFAULT_QUEUE, DEFAULT_USER_AS_DEFAULT_QUEUE);
+   }
+ 
+-  public float getLocalityThreshold() {
+-    return getFloat(LOCALITY_THRESHOLD, DEFAULT_LOCALITY_THRESHOLD);
+-  }
+-
+   public float getLocalityThresholdNode() {
+     return getFloat(LOCALITY_THRESHOLD_NODE, DEFAULT_LOCALITY_THRESHOLD_NODE);
+   }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
+index 1e8559a..e691127 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
+@@ -186,6 +186,26 @@ public class TestFairScheduler {
+ 
+   // TESTS
+ 
++  @Test(timeout=2000)
++  public void testLoadConfigurationOnInitialize() throws IOException {
++    Configuration conf = createConfiguration();
++    conf.setBoolean(FairSchedulerConfiguration.ASSIGN_MULTIPLE, true);
++    conf.setInt(FairSchedulerConfiguration.MAX_ASSIGN, 3);
++    conf.setBoolean(FairSchedulerConfiguration.SIZE_BASED_WEIGHT, true);
++    conf.setDouble(FairSchedulerConfiguration.LOCALITY_THRESHOLD_NODE, .5);
++    conf.setDouble(FairSchedulerConfiguration.LOCALITY_THRESHOLD_RACK, .7);
++    conf.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB, 1024);
++    conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 512);
++    scheduler.reinitialize(conf, resourceManager.getRMContext());
++    Assert.assertEquals(true, scheduler.assignMultiple);
++    Assert.assertEquals(3, scheduler.maxAssign);
++    Assert.assertEquals(true, scheduler.sizeBasedWeight);
++    Assert.assertEquals(.5, scheduler.nodeLocalityThreshold, .01);
++    Assert.assertEquals(.7, scheduler.rackLocalityThreshold, .01);
++    Assert.assertEquals(1024, scheduler.getMaximumResourceCapability().getMemory());
++    Assert.assertEquals(512, scheduler.getMinimumResourceCapability().getMemory());
++  }
++  
+   @Test
+   public void testAggregateCapacityTracking() throws Exception {
+     // Add a node
+-- 
+1.7.0.4
+

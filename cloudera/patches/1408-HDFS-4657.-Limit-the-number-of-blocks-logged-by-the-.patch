@@ -1,0 +1,93 @@
+From b10073b01170ff937d9087d7e6b9ebdfe93e7406 Mon Sep 17 00:00:00 2001
+From: Colin McCabe <cmccabe@apache.org>
+Date: Tue, 16 Jul 2013 20:07:42 +0000
+Subject: [PATCH 1408/1475] HDFS-4657.  Limit the number of blocks logged by the NN after a block report to a configurable value.  (Aaron T. Myers via Colin Patrick McCabe)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1503862 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 016b30c4135216aa42146f454f26b30e5870ac8f)
+---
+ .../java/org/apache/hadoop/hdfs/DFSConfigKeys.java |    3 ++
+ .../hdfs/server/blockmanagement/BlockManager.java  |   24 ++++++++++++++++++-
+ 2 files changed, 25 insertions(+), 2 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/DFSConfigKeys.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/DFSConfigKeys.java
+index a448cfc..cccf10b 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/DFSConfigKeys.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/DFSConfigKeys.java
+@@ -474,5 +474,8 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
+   public static final int     DFS_QJOURNAL_GET_JOURNAL_STATE_TIMEOUT_DEFAULT = 120000;
+   public static final int     DFS_QJOURNAL_NEW_EPOCH_TIMEOUT_DEFAULT = 120000;
+   public static final int     DFS_QJOURNAL_WRITE_TXNS_TIMEOUT_DEFAULT = 20000;
++  
++  public static final String DFS_MAX_NUM_BLOCKS_TO_LOG_KEY = "dfs.namenode.max-num-blocks-to-log";
++  public static final long   DFS_MAX_NUM_BLOCKS_TO_LOG_DEFAULT = 1000l;
+ }
+ 
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java
+index 7e3a31e..959c0e6 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/BlockManager.java
+@@ -212,6 +212,9 @@ public class BlockManager {
+   
+   // whether or not to issue block encryption keys.
+   final boolean encryptDataTransfer;
++  
++  // Max number of blocks to log info about during a block report.
++  private final long maxNumBlocksToLog;
+ 
+   /**
+    * When running inside a Standby node, the node may receive block reports
+@@ -282,6 +285,10 @@ public class BlockManager {
+         conf.getBoolean(DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_KEY,
+             DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_DEFAULT);
+     
++    this.maxNumBlocksToLog =
++        conf.getLong(DFSConfigKeys.DFS_MAX_NUM_BLOCKS_TO_LOG_KEY,
++            DFSConfigKeys.DFS_MAX_NUM_BLOCKS_TO_LOG_DEFAULT);
++    
+     LOG.info("defaultReplication         = " + defaultReplication);
+     LOG.info("maxReplication             = " + maxReplication);
+     LOG.info("minReplication             = " + minReplication);
+@@ -289,6 +296,7 @@ public class BlockManager {
+     LOG.info("shouldCheckForEnoughRacks  = " + shouldCheckForEnoughRacks);
+     LOG.info("replicationRecheckInterval = " + replicationRecheckInterval);
+     LOG.info("encryptDataTransfer        = " + encryptDataTransfer);
++    LOG.info("maxNumBlocksToLog          = " + maxNumBlocksToLog);
+   }
+ 
+   private static BlockTokenSecretManager createBlockTokenSecretManager(
+@@ -1601,8 +1609,14 @@ public class BlockManager {
+     for (Block b : toRemove) {
+       removeStoredBlock(b, node);
+     }
++    int numBlocksLogged = 0;
+     for (BlockInfo b : toAdd) {
+-      addStoredBlock(b, node, null, true);
++      addStoredBlock(b, node, null, numBlocksLogged < maxNumBlocksToLog);
++      numBlocksLogged++;
++    }
++    if (numBlocksLogged > maxNumBlocksToLog) {
++      blockLog.info("BLOCK* processReport: logged info for " + maxNumBlocksToLog
++          + " of " + numBlocksLogged + " reported.");
+     }
+     for (Block b : toInvalidate) {
+       blockLog.info("BLOCK* processReport: "
+@@ -2540,8 +2554,14 @@ assert storedBlock.findDatanode(dn) < 0 : "Block " + block
+     for (StatefulBlockInfo b : toUC) { 
+       addStoredBlockUnderConstruction(b.storedBlock, node, b.reportedState);
+     }
++    long numBlocksLogged = 0;
+     for (BlockInfo b : toAdd) {
+-      addStoredBlock(b, node, delHintNode, true);
++      addStoredBlock(b, node, delHintNode, numBlocksLogged < maxNumBlocksToLog);
++      numBlocksLogged++;
++    }
++    if (numBlocksLogged > maxNumBlocksToLog) {
++      blockLog.info("BLOCK* addBlock: logged info for " + maxNumBlocksToLog
++          + " of " + numBlocksLogged + " reported.");
+     }
+     for (Block b : toInvalidate) {
+       blockLog.info("BLOCK* addBlock: block "
+-- 
+1.7.0.4
+

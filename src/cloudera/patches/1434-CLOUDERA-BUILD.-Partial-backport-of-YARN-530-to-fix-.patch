@@ -1,0 +1,30 @@
+From e9268bea5db040bc475f7abb5941b570a97d6e2e Mon Sep 17 00:00:00 2001
+From: Karthik Kambatla <kasha@cloudera.com>
+Date: Wed, 24 Jul 2013 15:12:58 -0700
+Subject: [PATCH 1434/1475] CLOUDERA-BUILD. Partial backport of YARN-530 to fix TestDistributedShell#testDSShell() failure on JDK7
+
+---
+ .../distributedshell/TestDistributedShell.java     |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-applications/hadoop-yarn-applications-distributedshell/src/test/java/org/apache/hadoop/yarn/applications/distributedshell/TestDistributedShell.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-applications/hadoop-yarn-applications-distributedshell/src/test/java/org/apache/hadoop/yarn/applications/distributedshell/TestDistributedShell.java
+index e6d8ae9..5b105de 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-applications/hadoop-yarn-applications-distributedshell/src/test/java/org/apache/hadoop/yarn/applications/distributedshell/TestDistributedShell.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-applications/hadoop-yarn-applications-distributedshell/src/test/java/org/apache/hadoop/yarn/applications/distributedshell/TestDistributedShell.java
+@@ -77,8 +77,11 @@ public class TestDistributedShell {
+   @AfterClass
+   public static void tearDown() throws IOException {
+     if (yarnCluster != null) {
+-      yarnCluster.stop();
+-      yarnCluster = null;
++      try {
++        yarnCluster.stop();
++      } finally {
++        yarnCluster = null;
++      }
+     }
+   }
+ 
+-- 
+1.7.0.4
+

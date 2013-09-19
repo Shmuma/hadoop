@@ -1,0 +1,549 @@
+From e00ce96bb54a8bbd50d021d6fe31c81087132cbd Mon Sep 17 00:00:00 2001
+From: Hitesh Shah <hitesh@apache.org>
+Date: Fri, 22 Mar 2013 21:28:31 +0000
+Subject: [PATCH 1466/1475] YARN-470. Support a way to disable resource monitoring on the NodeManager. Contributed by Siddharth Seth.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1460001 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 22859b2115f440c83c0b640cf76a9a56661bbc8e)
+---
+ .../apache/hadoop/yarn/conf/YarnConfiguration.java |   10 ++
+ .../src/main/resources/yarn-default.xml            |   14 ++
+ .../yarn/server/nodemanager/ResourceView.java      |    4 +
+ .../monitor/ContainersMonitorImpl.java             |  127 +++++++++++---------
+ .../yarn/server/nodemanager/webapp/NodePage.java   |    4 +
+ .../server/nodemanager/webapp/dao/NodeInfo.java    |   12 ++
+ .../monitor/TestContainersMonitor.java             |   55 +++++++++
+ .../server/nodemanager/webapp/TestNMWebServer.java |   16 +++
+ .../nodemanager/webapp/TestNMWebServices.java      |   17 +++-
+ .../nodemanager/webapp/TestNMWebServicesApps.java  |   10 ++
+ .../webapp/TestNMWebServicesContainers.java        |   10 ++
+ 11 files changed, 220 insertions(+), 59 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
+index ce7af27..f46b0ca 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
+@@ -405,6 +405,16 @@ public class YarnConfiguration extends Configuration {
+   public static final String NM_PMEM_MB = NM_PREFIX + "resource.memory-mb";
+   public static final int DEFAULT_NM_PMEM_MB = 8 * 1024;
+ 
++  /** Specifies whether physical memory check is enabled. */
++  public static final String NM_PMEM_CHECK_ENABLED = NM_PREFIX
++      + "pmem-check-enabled";
++  public static final boolean DEFAULT_NM_PMEM_CHECK_ENABLED = true;
++
++  /** Specifies whether physical memory check is enabled. */
++  public static final String NM_VMEM_CHECK_ENABLED = NM_PREFIX
++      + "vmem-check-enabled";
++  public static final boolean DEFAULT_NM_VMEM_CHECK_ENABLED = true;
++
+   /** Conversion ratio for physical memory to virtual memory. */
+   public static final String NM_VMEM_PMEM_RATIO =
+     NM_PREFIX + "vmem-pmem-ratio";
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/yarn-default.xml b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/yarn-default.xml
+index fc2e437..58f4eb6 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/yarn-default.xml
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/yarn-default.xml
+@@ -428,6 +428,20 @@
+   </property>
+ 
+   <property>
++    <description>Whether physical memory limits will be enforced for
++    containers.</description>
++    <name>yarn.nodemanager.pmem-check-enabled</name>
++    <value>true</value>
++  </property>
++
++  <property>
++    <description>Whether virtual memory limits will be enforced for
++    containers.</description>
++    <name>yarn.nodemanager.vmem-check-enabled</name>
++    <value>true</value>
++  </property>
++
++  <property>
+     <description>Ratio between virtual memory to physical memory when
+     setting memory limits for containers. Container allocations are
+     expressed in terms of physical memory, and virtual memory usage
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/ResourceView.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/ResourceView.java
+index ab47fdd..a41db43 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/ResourceView.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/ResourceView.java
+@@ -22,5 +22,9 @@ public interface ResourceView {
+ 
+   long getVmemAllocatedForContainers();
+ 
++  boolean isVmemCheckEnabled();
++
+   long getPmemAllocatedForContainers();
++
++  boolean isPmemCheckEnabled();
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/monitor/ContainersMonitorImpl.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/monitor/ContainersMonitorImpl.java
+index d73f52c..3486d87 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/monitor/ContainersMonitorImpl.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/monitor/ContainersMonitorImpl.java
+@@ -63,14 +63,13 @@ public class ContainersMonitorImpl extends AbstractService implements
+   private Configuration conf;
+   private Class<? extends ResourceCalculatorProcessTree> processTreeClass;
+ 
+-  private long maxVmemAllottedForContainers = DISABLED_MEMORY_LIMIT;
+-  private long maxPmemAllottedForContainers = DISABLED_MEMORY_LIMIT;
++  private long maxVmemAllottedForContainers = UNKNOWN_MEMORY_LIMIT;
++  private long maxPmemAllottedForContainers = UNKNOWN_MEMORY_LIMIT;
+ 
+-  /**
+-   * A value which if set for memory related configuration options, indicates
+-   * that the options are turned off.
+-   */
+-  public static final long DISABLED_MEMORY_LIMIT = -1L;
++  private boolean pmemCheckEnabled;
++  private boolean vmemCheckEnabled;
++
++  private static final long UNKNOWN_MEMORY_LIMIT = -1L;
+ 
+   public ContainersMonitorImpl(ContainerExecutor exec,
+       AsyncDispatcher dispatcher, Context context) {
+@@ -104,65 +103,57 @@ public class ContainersMonitorImpl extends AbstractService implements
+     LOG.info(" Using ResourceCalculatorProcessTree : "
+         + this.processTreeClass);
+ 
+-    long totalPhysicalMemoryOnNM = DISABLED_MEMORY_LIMIT;
+-    if (this.resourceCalculatorPlugin != null) {
+-      totalPhysicalMemoryOnNM =
+-          this.resourceCalculatorPlugin.getPhysicalMemorySize();
+-      if (totalPhysicalMemoryOnNM <= 0) {
+-        LOG.warn("NodeManager's totalPmem could not be calculated. "
+-            + "Setting it to " + DISABLED_MEMORY_LIMIT);
+-        totalPhysicalMemoryOnNM = DISABLED_MEMORY_LIMIT;
+-      }
+-    }
++    long configuredPMemForContainers = conf.getLong(
++        YarnConfiguration.NM_PMEM_MB,
++        YarnConfiguration.DEFAULT_NM_PMEM_MB) * 1024 * 1024l;
+ 
++    // Setting these irrespective of whether checks are enabled. Required in
++    // the UI.
+     // ///////// Physical memory configuration //////
+-    this.maxPmemAllottedForContainers =
+-        conf.getLong(YarnConfiguration.NM_PMEM_MB, YarnConfiguration.DEFAULT_NM_PMEM_MB);
+-    this.maxPmemAllottedForContainers =
+-        this.maxPmemAllottedForContainers * 1024 * 1024L; //Normalize to bytes
+-
+-    if (totalPhysicalMemoryOnNM != DISABLED_MEMORY_LIMIT &&
+-        this.maxPmemAllottedForContainers >
+-        totalPhysicalMemoryOnNM * 0.80f) {
+-      LOG.warn("NodeManager configured with " +
+-          TraditionalBinaryPrefix.long2String(maxPmemAllottedForContainers, "", 1) +
+-          " physical memory allocated to containers, which is more than " +
+-          "80% of the total physical memory available (" +
+-          TraditionalBinaryPrefix.long2String(totalPhysicalMemoryOnNM, "", 1) +
+-          "). Thrashing might happen.");
+-    }
++    this.maxPmemAllottedForContainers = configuredPMemForContainers;
+ 
+     // ///////// Virtual memory configuration //////
+-    float vmemRatio = conf.getFloat(
+-        YarnConfiguration.NM_VMEM_PMEM_RATIO,
++    float vmemRatio = conf.getFloat(YarnConfiguration.NM_VMEM_PMEM_RATIO,
+         YarnConfiguration.DEFAULT_NM_VMEM_PMEM_RATIO);
+     Preconditions.checkArgument(vmemRatio > 0.99f,
+-        YarnConfiguration.NM_VMEM_PMEM_RATIO +
+-        " should be at least 1.0");
++        YarnConfiguration.NM_VMEM_PMEM_RATIO + " should be at least 1.0");
+     this.maxVmemAllottedForContainers =
+-      (long)(vmemRatio * maxPmemAllottedForContainers);
++        (long) (vmemRatio * configuredPMemForContainers);
++
++    pmemCheckEnabled = conf.getBoolean(YarnConfiguration.NM_PMEM_CHECK_ENABLED,
++        YarnConfiguration.DEFAULT_NM_PMEM_CHECK_ENABLED);
++    vmemCheckEnabled = conf.getBoolean(YarnConfiguration.NM_VMEM_CHECK_ENABLED,
++        YarnConfiguration.DEFAULT_NM_VMEM_CHECK_ENABLED);
++    LOG.info("Physical memory check enabled: " + pmemCheckEnabled);
++    LOG.info("Virtual memory check enabled: " + vmemCheckEnabled);
++
++    if (pmemCheckEnabled) {
++      // Logging if actual pmem cannot be determined.
++      long totalPhysicalMemoryOnNM = UNKNOWN_MEMORY_LIMIT;
++      if (this.resourceCalculatorPlugin != null) {
++        totalPhysicalMemoryOnNM = this.resourceCalculatorPlugin
++            .getPhysicalMemorySize();
++        if (totalPhysicalMemoryOnNM <= 0) {
++          LOG.warn("NodeManager's totalPmem could not be calculated. "
++              + "Setting it to " + UNKNOWN_MEMORY_LIMIT);
++          totalPhysicalMemoryOnNM = UNKNOWN_MEMORY_LIMIT;
++        }
++      }
+ 
++      if (totalPhysicalMemoryOnNM != UNKNOWN_MEMORY_LIMIT &&
++          this.maxPmemAllottedForContainers > totalPhysicalMemoryOnNM * 0.80f) {
++        LOG.warn("NodeManager configured with "
++            + TraditionalBinaryPrefix.long2String(maxPmemAllottedForContainers,
++                "", 1)
++            + " physical memory allocated to containers, which is more than "
++            + "80% of the total physical memory available ("
++            + TraditionalBinaryPrefix.long2String(totalPhysicalMemoryOnNM, "",
++                1) + "). Thrashing might happen.");
++      }
++    }
+     super.init(conf);
+   }
+ 
+-  /**
+-   * Is the total physical memory check enabled?
+-   *
+-   * @return true if total physical memory check is enabled.
+-   */
+-  boolean isPhysicalMemoryCheckEnabled() {
+-    return !(this.maxPmemAllottedForContainers == DISABLED_MEMORY_LIMIT);
+-  }
+-
+-  /**
+-   * Is the total virtual memory check enabled?
+-   *
+-   * @return true if total virtual memory check is enabled.
+-   */
+-  boolean isVirtualMemoryCheckEnabled() {
+-    return !(this.maxVmemAllottedForContainers == DISABLED_MEMORY_LIMIT);
+-  }
+-
+   private boolean isEnabled() {
+     if (resourceCalculatorPlugin == null) {
+             LOG.info("ResourceCalculatorPlugin is unavailable on this system. "
+@@ -174,7 +165,7 @@ public class ContainersMonitorImpl extends AbstractService implements
+                 + this.getClass().getName() + " is disabled.");
+             return false;
+     }
+-    if (!(isPhysicalMemoryCheckEnabled() || isVirtualMemoryCheckEnabled())) {
++    if (!(isPmemCheckEnabled() || isVmemCheckEnabled())) {
+       LOG.info("Neither virutal-memory nor physical-memory monitoring is " +
+           "needed. Not running the monitor-thread");
+       return false;
+@@ -412,7 +403,7 @@ public class ContainersMonitorImpl extends AbstractService implements
+ 
+             boolean isMemoryOverLimit = false;
+             String msg = "";
+-            if (isVirtualMemoryCheckEnabled()
++            if (isVmemCheckEnabled()
+                 && isProcessTreeOverLimit(containerId.toString(),
+                     currentVmemUsage, curMemUsageOfAgedProcesses, vmemLimit)) {
+               // Container (the root process) is still alive and overflowing
+@@ -423,7 +414,7 @@ public class ContainersMonitorImpl extends AbstractService implements
+                   currentPmemUsage, pmemLimit,
+                   pId, containerId, pTree);
+               isMemoryOverLimit = true;
+-            } else if (isPhysicalMemoryCheckEnabled()
++            } else if (isPmemCheckEnabled()
+                 && isProcessTreeOverLimit(containerId.toString(),
+                     currentPmemUsage, curRssMemUsageOfAgedProcesses,
+                     pmemLimit)) {
+@@ -507,11 +498,31 @@ public class ContainersMonitorImpl extends AbstractService implements
+     return this.maxVmemAllottedForContainers;
+   }
+ 
++  /**
++   * Is the total physical memory check enabled?
++   *
++   * @return true if total physical memory check is enabled.
++   */
++  @Override
++  public boolean isPmemCheckEnabled() {
++    return this.pmemCheckEnabled;
++  }
++
+   @Override
+   public long getPmemAllocatedForContainers() {
+     return this.maxPmemAllottedForContainers;
+   }
+ 
++  /**
++   * Is the total virtual memory check enabled?
++   *
++   * @return true if total virtual memory check is enabled.
++   */
++  @Override
++  public boolean isVmemCheckEnabled() {
++    return this.vmemCheckEnabled;
++  }
++
+   @Override
+   public void handle(ContainersMonitorEvent monitoringEvent) {
+ 
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/webapp/NodePage.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/webapp/NodePage.java
+index 9eb3599..2ffcfda 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/webapp/NodePage.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/webapp/NodePage.java
+@@ -67,8 +67,12 @@ public class NodePage extends NMView {
+       info("NodeManager information")
+           ._("Total Vmem allocated for Containers",
+               StringUtils.byteDesc(info.getTotalVmemAllocated() * BYTES_IN_MB))
++          ._("Vmem enforcement enabled",
++              info.isVmemCheckEnabled())
+           ._("Total Pmem allocated for Container",
+               StringUtils.byteDesc(info.getTotalPmemAllocated() * BYTES_IN_MB))
++          ._("Pmem enforcement enabled",
++              info.isVmemCheckEnabled())
+           ._("NodeHealthyStatus",
+               info.getHealthStatus())
+           ._("LastNodeHealthTime", new Date(
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/webapp/dao/NodeInfo.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/webapp/dao/NodeInfo.java
+index 0eb1bef..9b1e8e5 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/webapp/dao/NodeInfo.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/webapp/dao/NodeInfo.java
+@@ -36,6 +36,8 @@ public class NodeInfo {
+   protected String healthReport;
+   protected long totalVmemAllocatedContainersMB;
+   protected long totalPmemAllocatedContainersMB;
++  protected boolean vmemCheckEnabled;
++  protected boolean pmemCheckEnabled;
+   protected long lastNodeUpdateTime;
+   protected boolean nodeHealthy;
+   protected String nodeManagerVersion;
+@@ -56,8 +58,10 @@ public class NodeInfo {
+     this.nodeHostName = context.getNodeId().getHost();
+     this.totalVmemAllocatedContainersMB = resourceView
+         .getVmemAllocatedForContainers() / BYTES_IN_MB;
++    this.vmemCheckEnabled = resourceView.isVmemCheckEnabled();
+     this.totalPmemAllocatedContainersMB = resourceView
+         .getPmemAllocatedForContainers() / BYTES_IN_MB;
++    this.pmemCheckEnabled = resourceView.isPmemCheckEnabled();
+     this.nodeHealthy = context.getNodeHealthStatus().getIsNodeHealthy();
+     this.lastNodeUpdateTime = context.getNodeHealthStatus()
+         .getLastHealthReportTime();
+@@ -120,8 +124,16 @@ public class NodeInfo {
+     return this.totalVmemAllocatedContainersMB;
+   }
+ 
++  public boolean isVmemCheckEnabled() {
++    return this.vmemCheckEnabled;
++  }
++
+   public long getTotalPmemAllocated() {
+     return this.totalPmemAllocatedContainersMB;
+   }
+ 
++  public boolean isPmemCheckEnabled() {
++    return this.pmemCheckEnabled;
++  }
++
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/monitor/TestContainersMonitor.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/monitor/TestContainersMonitor.java
+index 41456fd..99d7d4d 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/monitor/TestContainersMonitor.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/monitor/TestContainersMonitor.java
+@@ -18,8 +18,10 @@
+ 
+ package org.apache.hadoop.yarn.server.nodemanager.containermanager.monitor;
+ 
++import static org.junit.Assert.assertEquals;
+ import static org.junit.Assert.assertFalse;
+ import static org.junit.Assert.assertTrue;
++import static org.mockito.Mockito.mock;
+ 
+ import java.io.BufferedReader;
+ import java.io.File;
+@@ -52,8 +54,11 @@ import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.api.records.URL;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
++import org.apache.hadoop.yarn.event.AsyncDispatcher;
++import org.apache.hadoop.yarn.server.nodemanager.ContainerExecutor;
+ import org.apache.hadoop.yarn.server.nodemanager.ContainerExecutor.ExitCode;
+ import org.apache.hadoop.yarn.server.nodemanager.ContainerExecutor.Signal;
++import org.apache.hadoop.yarn.server.nodemanager.Context;
+ import org.apache.hadoop.yarn.server.nodemanager.containermanager.BaseContainerManagerTest;
+ import org.apache.hadoop.yarn.util.ConverterUtils;
+ import org.apache.hadoop.yarn.util.LinuxResourceCalculatorPlugin;
+@@ -281,4 +286,54 @@ public class TestContainersMonitor extends BaseContainerManagerTest {
+         exec.signalContainer(user,
+             pid, Signal.NULL));
+   }
++
++  @Test(timeout = 20000)
++  public void testContainerMonitorMemFlags() {
++    ContainersMonitor cm = null;
++
++    long expPmem = 8192 * 1024 * 1024l;
++    long expVmem = (long) (expPmem * 2.1f);
++
++    cm = new ContainersMonitorImpl(mock(ContainerExecutor.class),
++        mock(AsyncDispatcher.class), mock(Context.class));
++    cm.init(getConfForCM(false, false, 8192, 2.1f));
++    assertEquals(expPmem, cm.getPmemAllocatedForContainers());
++    assertEquals(expVmem, cm.getVmemAllocatedForContainers());
++    assertEquals(false, cm.isPmemCheckEnabled());
++    assertEquals(false, cm.isVmemCheckEnabled());
++
++    cm = new ContainersMonitorImpl(mock(ContainerExecutor.class),
++        mock(AsyncDispatcher.class), mock(Context.class));
++    cm.init(getConfForCM(true, false, 8192, 2.1f));
++    assertEquals(expPmem, cm.getPmemAllocatedForContainers());
++    assertEquals(expVmem, cm.getVmemAllocatedForContainers());
++    assertEquals(true, cm.isPmemCheckEnabled());
++    assertEquals(false, cm.isVmemCheckEnabled());
++
++    cm = new ContainersMonitorImpl(mock(ContainerExecutor.class),
++        mock(AsyncDispatcher.class), mock(Context.class));
++    cm.init(getConfForCM(true, true, 8192, 2.1f));
++    assertEquals(expPmem, cm.getPmemAllocatedForContainers());
++    assertEquals(expVmem, cm.getVmemAllocatedForContainers());
++    assertEquals(true, cm.isPmemCheckEnabled());
++    assertEquals(true, cm.isVmemCheckEnabled());
++
++    cm = new ContainersMonitorImpl(mock(ContainerExecutor.class),
++        mock(AsyncDispatcher.class), mock(Context.class));
++    cm.init(getConfForCM(false, true, 8192, 2.1f));
++    assertEquals(expPmem, cm.getPmemAllocatedForContainers());
++    assertEquals(expVmem, cm.getVmemAllocatedForContainers());
++    assertEquals(false, cm.isPmemCheckEnabled());
++    assertEquals(true, cm.isVmemCheckEnabled());
++  }
++
++  private YarnConfiguration getConfForCM(boolean pMemEnabled,
++      boolean vMemEnabled, int nmPmem, float vMemToPMemRatio) {
++    YarnConfiguration conf = new YarnConfiguration();
++    conf.setInt(YarnConfiguration.NM_PMEM_MB, nmPmem);
++    conf.setBoolean(YarnConfiguration.NM_PMEM_CHECK_ENABLED, pMemEnabled);
++    conf.setBoolean(YarnConfiguration.NM_VMEM_CHECK_ENABLED, vMemEnabled);
++    conf.setFloat(YarnConfiguration.NM_VMEM_PMEM_RATIO, vMemToPMemRatio);
++    return conf;
++  }
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServer.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServer.java
+index 76ace14..d29e73e 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServer.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServer.java
+@@ -86,6 +86,14 @@ public class TestNMWebServer {
+       public long getPmemAllocatedForContainers() {
+         return 0;
+       }
++      @Override
++      public boolean isVmemCheckEnabled() {
++        return true;
++      }
++      @Override
++      public boolean isPmemCheckEnabled() {
++        return true;
++      }
+     };
+     Configuration conf = new Configuration();
+     conf.set(YarnConfiguration.NM_LOCAL_DIRS, testRootDir.getAbsolutePath());
+@@ -126,6 +134,14 @@ public class TestNMWebServer {
+       public long getPmemAllocatedForContainers() {
+         return 0;
+       }
++      @Override
++      public boolean isVmemCheckEnabled() {
++        return true;
++      }
++      @Override
++      public boolean isPmemCheckEnabled() {
++        return true;
++      }
+     };
+     Configuration conf = new Configuration();
+     conf.set(YarnConfiguration.NM_LOCAL_DIRS, testRootDir.getAbsolutePath());
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServices.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServices.java
+index 1a48db1..89441d7 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServices.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServices.java
+@@ -100,6 +100,14 @@ public class TestNMWebServices extends JerseyTest {
+           // 16G in bytes
+           return new Long("17179869184");
+         }
++        @Override
++        public boolean isVmemCheckEnabled() {
++          return true;
++        }
++        @Override
++        public boolean isPmemCheckEnabled() {
++          return true;
++        }
+       };
+       Configuration conf = new Configuration();
+       conf.set(YarnConfiguration.NM_LOCAL_DIRS, testRootDir.getAbsolutePath());
+@@ -294,6 +302,8 @@ public class TestNMWebServices extends JerseyTest {
+               "totalVmemAllocatedContainersMB"),
+           WebServicesTestUtils.getXmlLong(element,
+               "totalPmemAllocatedContainersMB"),
++          WebServicesTestUtils.getXmlBoolean(element, "vmemCheckEnabled"),
++          WebServicesTestUtils.getXmlBoolean(element, "pmemCheckEnabled"),
+           WebServicesTestUtils.getXmlLong(element, "lastNodeUpdateTime"),
+           WebServicesTestUtils.getXmlBoolean(element, "nodeHealthy"),
+           WebServicesTestUtils.getXmlString(element, "nodeHostName"),
+@@ -310,10 +320,12 @@ public class TestNMWebServices extends JerseyTest {
+   public void verifyNodeInfo(JSONObject json) throws JSONException, Exception {
+     assertEquals("incorrect number of elements", 1, json.length());
+     JSONObject info = json.getJSONObject("nodeInfo");
+-    assertEquals("incorrect number of elements", 13, info.length());
++    assertEquals("incorrect number of elements", 15, info.length());
+     verifyNodeInfoGeneric(info.getString("id"), info.getString("healthReport"),
+         info.getLong("totalVmemAllocatedContainersMB"),
+         info.getLong("totalPmemAllocatedContainersMB"),
++        info.getBoolean("vmemCheckEnabled"),
++        info.getBoolean("pmemCheckEnabled"),
+         info.getLong("lastNodeUpdateTime"), info.getBoolean("nodeHealthy"),
+         info.getString("nodeHostName"), info.getString("hadoopVersionBuiltOn"),
+         info.getString("hadoopBuildVersion"), info.getString("hadoopVersion"),
+@@ -325,6 +337,7 @@ public class TestNMWebServices extends JerseyTest {
+ 
+   public void verifyNodeInfoGeneric(String id, String healthReport,
+       long totalVmemAllocatedContainersMB, long totalPmemAllocatedContainersMB,
++      boolean vmemCheckEnabled, boolean pmemCheckEnabled,
+       long lastNodeUpdateTime, Boolean nodeHealthy, String nodeHostName,
+       String hadoopVersionBuiltOn, String hadoopBuildVersion,
+       String hadoopVersion, String resourceManagerVersionBuiltOn,
+@@ -337,6 +350,8 @@ public class TestNMWebServices extends JerseyTest {
+         totalVmemAllocatedContainersMB);
+     assertEquals("totalPmemAllocatedContainersMB incorrect", 16384,
+         totalPmemAllocatedContainersMB);
++    assertEquals("vmemCheckEnabled incorrect",  true, vmemCheckEnabled);
++    assertEquals("pmemCheckEnabled incorrect",  true, pmemCheckEnabled);
+     assertTrue("lastNodeUpdateTime incorrect", lastNodeUpdateTime == nmContext
+         .getNodeHealthStatus().getLastHealthReportTime());
+     assertTrue("nodeHealthy isn't true", nodeHealthy);
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServicesApps.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServicesApps.java
+index f0c5272..39764e6 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServicesApps.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServicesApps.java
+@@ -106,6 +106,16 @@ public class TestNMWebServicesApps extends JerseyTest {
+           // 16G in bytes
+           return new Long("17179869184");
+         }
++
++        @Override
++        public boolean isVmemCheckEnabled() {
++          return true;
++        }
++
++        @Override
++        public boolean isPmemCheckEnabled() {
++          return true;
++        }
+       };
+       conf.set(YarnConfiguration.NM_LOCAL_DIRS, testRootDir.getAbsolutePath());
+       conf.set(YarnConfiguration.NM_LOG_DIRS, testLogDir.getAbsolutePath());
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServicesContainers.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServicesContainers.java
+index 8abf160..1f678d4 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServicesContainers.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/webapp/TestNMWebServicesContainers.java
+@@ -106,6 +106,16 @@ public class TestNMWebServicesContainers extends JerseyTest {
+           // 16G in bytes
+           return new Long("17179869184");
+         }
++
++        @Override
++        public boolean isVmemCheckEnabled() {
++          return true;
++        }
++
++        @Override
++        public boolean isPmemCheckEnabled() {
++          return true;
++        }
+       };
+       conf.set(YarnConfiguration.NM_LOCAL_DIRS, testRootDir.getAbsolutePath());
+       conf.set(YarnConfiguration.NM_LOG_DIRS, testLogDir.getAbsolutePath());
+-- 
+1.7.0.4
+

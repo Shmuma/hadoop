@@ -1,0 +1,36 @@
+From 63095c848e581b3d2673f0489c0c2e0e68655768 Mon Sep 17 00:00:00 2001
+From: Aaron Twining Myers <atm@apache.org>
+Date: Wed, 8 May 2013 17:17:43 +0000
+Subject: [PATCH 1430/1475] YARN-646. Fix two typos in Fair Scheduler user guide. Contributed by Dapeng Sun.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1480360 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 38bf77c7e741a40a95381d23cf8759a5511c0371)
+---
+ .../src/site/apt/FairScheduler.apt.vm              |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/FairScheduler.apt.vm b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/FairScheduler.apt.vm
+index c7a8229..3d6af13 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/FairScheduler.apt.vm
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/FairScheduler.apt.vm
+@@ -124,7 +124,7 @@ Hadoop MapReduce Next Generation - Fair Scheduler
+ 
+     * The smallest container size the scheduler can allocate, in MB of memory.
+ 
+- * <<<yarn.scheduler.fair.minimum-allocation-mb>>>
++ * <<<yarn.scheduler.fair.maximum-allocation-mb>>>
+ 
+     * The largest container the scheduler can allocate, in MB of memory.
+ 
+@@ -177,7 +177,7 @@ Hadoop MapReduce Next Generation - Fair Scheduler
+ 
+ Allocation file format
+ 
+-  The allocation file must be in XML format. The format contains three types of
++  The allocation file must be in XML format. The format contains four types of
+   elements:
+ 
+  * <<Queue elements>>, which represent queues. Each may contain the following
+-- 
+1.7.0.4
+

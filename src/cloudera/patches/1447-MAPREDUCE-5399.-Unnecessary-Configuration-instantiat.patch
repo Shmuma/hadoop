@@ -1,0 +1,87 @@
+From ac966e04c7413dd02669c53560b52b501a211809 Mon Sep 17 00:00:00 2001
+From: Sanford Ryza <sandy@apache.org>
+Date: Mon, 5 Aug 2013 23:32:33 +0000
+Subject: [PATCH 1447/1475] MAPREDUCE-5399. Unnecessary Configuration instantiation in IFileInputStream slows down merge. (Stanislav Barton via Sandy Ryza)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1510811 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 5de785bc337229efa5d16d6574a906d02ad05e40)
+---
+ .../java/org/apache/hadoop/mapred/BackupStore.java |    6 +++++-
+ .../mapreduce/task/reduce/InMemoryReader.java      |    7 ++++---
+ .../mapreduce/task/reduce/MergeManagerImpl.java    |    2 +-
+ 3 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/BackupStore.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/BackupStore.java
+index f409d22..cfcf0f2 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/BackupStore.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/BackupStore.java
+@@ -81,6 +81,8 @@ public class BackupStore<K,V> {
+   private boolean inReset = false;
+   private boolean clearMarkFlag = false;
+   private boolean lastSegmentEOF = false;
++  
++  private Configuration conf;
+ 
+   public BackupStore(Configuration conf, TaskAttemptID taskid)
+   throws IOException {
+@@ -106,6 +108,8 @@ public class BackupStore<K,V> {
+     fileCache = new FileCache(conf);
+     tid = taskid;
+     
++    this.conf = conf;
++    
+     LOG.info("Created a new BackupStore with a memory of " + maxSize);
+ 
+   }
+@@ -500,7 +504,7 @@ public class BackupStore<K,V> {
+       Reader<K, V> reader = 
+         new org.apache.hadoop.mapreduce.task.reduce.InMemoryReader<K, V>(null, 
+             (org.apache.hadoop.mapred.TaskAttemptID) tid, 
+-            dataOut.getData(), 0, usedSize);
++            dataOut.getData(), 0, usedSize, conf);
+       Segment<K, V> segment = new Segment<K, V>(reader, false);
+       segmentList.add(segment);
+       LOG.debug("Added Memory Segment to List. List Size is " + 
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/task/reduce/InMemoryReader.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/task/reduce/InMemoryReader.java
+index 543ff3f..7b8f63a 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/task/reduce/InMemoryReader.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/task/reduce/InMemoryReader.java
+@@ -24,6 +24,7 @@ import java.io.IOException;
+ 
+ import org.apache.hadoop.classification.InterfaceAudience;
+ import org.apache.hadoop.classification.InterfaceStability;
++import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.io.DataInputBuffer;
+ import org.apache.hadoop.mapred.IFile.Reader;
+ import org.apache.hadoop.mapreduce.TaskAttemptID;
+@@ -39,11 +40,11 @@ public class InMemoryReader<K, V> extends Reader<K, V> {
+   DataInputBuffer memDataIn = new DataInputBuffer();
+   private int start;
+   private int length;
+-
++  
+   public InMemoryReader(MergeManagerImpl<K,V> merger, TaskAttemptID taskAttemptId,
+-                        byte[] data, int start, int length)
++                        byte[] data, int start, int length, Configuration conf)
+   throws IOException {
+-    super(null, null, length - start, null, null);
++    super(conf, null, length - start, null, null);
+     this.merger = merger;
+     this.taskAttemptId = taskAttemptId;
+ 
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl.java
+index 138ea43..85d49d3 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/task/reduce/MergeManagerImpl.java
+@@ -613,7 +613,7 @@ public class MergeManagerImpl<K, V> implements MergeManager<K, V> {
+       fullSize -= size;
+       Reader<K,V> reader = new InMemoryReader<K,V>(MergeManagerImpl.this, 
+                                                    mo.getMapId(),
+-                                                   data, 0, (int)size);
++                                                   data, 0, (int)size, jobConf);
+       inMemorySegments.add(new Segment<K,V>(reader, true, 
+                                             (mo.isPrimaryMapOutput() ? 
+                                             mergedMapOutputsCounter : null)));
+-- 
+1.7.0.4
+

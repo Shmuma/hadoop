@@ -1,0 +1,35 @@
+From c7ddcddac12577d43f8d17f4a3e33509e9502f56 Mon Sep 17 00:00:00 2001
+From: Jason Darrell Lowe <jlowe@apache.org>
+Date: Tue, 15 Jan 2013 14:45:08 +0000
+Subject: [PATCH 1365/1475] MAPREDUCE-4936. JobImpl uber checks for cpu are wrong. Contributed by Arun C Murthy
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1433445 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 912e5acf3176deb5e60b0fa8557971a49f21ad30)
+---
+ .../hadoop/mapreduce/v2/app/job/impl/JobImpl.java  |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/JobImpl.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/JobImpl.java
+index a31d07f..a42879b 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/JobImpl.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/JobImpl.java
+@@ -1058,9 +1058,13 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
+     boolean smallCpu =
+         (
+             Math.max(
+-                conf.getInt(MRJobConfig.MAP_CPU_VCORES, 1), 
+-                conf.getInt(MRJobConfig.REDUCE_CPU_VCORES, 1)) < 
+-             sysCPUSizeForUberSlot
++                conf.getInt(
++                    MRJobConfig.MAP_CPU_VCORES, 
++                    MRJobConfig.DEFAULT_MAP_CPU_VCORES), 
++                conf.getInt(
++                    MRJobConfig.REDUCE_CPU_VCORES, 
++                    MRJobConfig.DEFAULT_REDUCE_CPU_VCORES)) 
++             <= sysCPUSizeForUberSlot
+         );
+     boolean notChainJob = !isChainJob(conf);
+ 
+-- 
+1.7.0.4
+

@@ -1,0 +1,38 @@
+From 3bd8476daa89910f4d484c3e2a86ca264dd6948b Mon Sep 17 00:00:00 2001
+From: Uma Maheswara Rao G <umamahesh@apache.org>
+Date: Thu, 15 Nov 2012 18:28:29 +0000
+Subject: [PATCH 1370/1475] Merge HDFS-3623. BKJM: zkLatchWaitTimeout hard coded to 6000. Make use of ZKSessionTimeout instead. Contributed by Uma Maheswara Rao G.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-2@1409907 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 5675efcb078310666937c81d0379a0a16e3094cf)
+---
+ .../bkjournal/BookKeeperJournalManager.java        |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/main/java/org/apache/hadoop/contrib/bkjournal/BookKeeperJournalManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/main/java/org/apache/hadoop/contrib/bkjournal/BookKeeperJournalManager.java
+index 67f0b4b..6d9a65d 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/main/java/org/apache/hadoop/contrib/bkjournal/BookKeeperJournalManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/main/java/org/apache/hadoop/contrib/bkjournal/BookKeeperJournalManager.java
+@@ -180,9 +180,16 @@ public class BookKeeperJournalManager implements JournalManager {
+ 
+     try {
+       zkConnectLatch = new CountDownLatch(1);
+-      zkc = new ZooKeeper(zkConnect, conf.getInt(BKJM_ZK_SESSION_TIMEOUT,
+-          BKJM_ZK_SESSION_TIMEOUT_DEFAULT), new ZkConnectionWatcher());
+-      if (!zkConnectLatch.await(6000, TimeUnit.MILLISECONDS)) {
++      int bkjmZKSessionTimeout = conf.getInt(BKJM_ZK_SESSION_TIMEOUT,
++          BKJM_ZK_SESSION_TIMEOUT_DEFAULT);
++      zkc = new ZooKeeper(zkConnect, bkjmZKSessionTimeout,
++          new ZkConnectionWatcher());
++      // Configured zk session timeout + some extra grace period (here
++      // BKJM_ZK_SESSION_TIMEOUT_DEFAULT used as grace period)
++      int zkConnectionLatchTimeout = bkjmZKSessionTimeout
++          + BKJM_ZK_SESSION_TIMEOUT_DEFAULT;
++      if (!zkConnectLatch
++          .await(zkConnectionLatchTimeout, TimeUnit.MILLISECONDS)) {
+         throw new IOException("Error connecting to zookeeper");
+       }
+ 
+-- 
+1.7.0.4
+

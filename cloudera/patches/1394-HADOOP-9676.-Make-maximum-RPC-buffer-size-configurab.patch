@@ -1,0 +1,142 @@
+From 8384199383f039eb9412df1184584757b35cdbb3 Mon Sep 17 00:00:00 2001
+From: Colin McCabe <cmccabe@apache.org>
+Date: Mon, 1 Jul 2013 23:17:13 +0000
+Subject: [PATCH 1394/1475] HADOOP-9676.  Make maximum RPC buffer size configurable (Colin Patrick McCabe)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1498737 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit c8ad111a6cde77693343a95cfe7c6c80fecf2495)
+
+Conflicts:
+	hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestProtoBufRpc.java
+---
+ .../apache/hadoop/fs/CommonConfigurationKeys.java  |    5 ++++
+ .../main/java/org/apache/hadoop/ipc/Server.java    |   26 +++++++++++++++----
+ .../org/apache/hadoop/ipc/TestProtoBufRpc.java     |   25 ++++++++++++++++++-
+ 3 files changed, 49 insertions(+), 7 deletions(-)
+
+diff --git a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeys.java b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeys.java
+index 117c60a..ab21603 100644
+--- a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeys.java
++++ b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeys.java
+@@ -69,6 +69,11 @@ public class CommonConfigurationKeys extends CommonConfigurationKeysPublic {
+     "ipc.server.read.threadpool.size";
+   /** Default value for IPC_SERVER_RPC_READ_THREADS_KEY */
+   public static final int     IPC_SERVER_RPC_READ_THREADS_DEFAULT = 1;
++  
++  public static final String IPC_MAXIMUM_DATA_LENGTH =
++      "ipc.maximum.data.length";
++  
++  public static final int IPC_MAXIMUM_DATA_LENGTH_DEFAULT = 64 * 1024 * 1024;
+ 
+   /** How many calls per handler are allowed in the queue. */
+   public static final String  IPC_SERVER_HANDLER_QUEUE_SIZE_KEY =
+diff --git a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Server.java b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Server.java
+index bb9e2c3..48eb5f7 100644
+--- a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Server.java
++++ b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Server.java
+@@ -345,6 +345,7 @@ public abstract class Server {
+   private int maxQueueSize;
+   private final int maxRespSize;
+   private int socketSendBufferSize;
++  private final int maxDataLength;
+   private final boolean tcpNoDelay; // if T then disable Nagle's Algorithm
+ 
+   volatile private boolean running = true;         // true while server runs
+@@ -1325,7 +1326,22 @@ public abstract class Server {
+         }
+       }
+     }
+-    
++
++    private void checkDataLength(int dataLength) throws IOException {
++      if (dataLength < 0) {
++        String error = "Unexpected data length " + dataLength +
++                       "!! from " + getHostAddress();
++        LOG.warn(error);
++        throw new IOException(error);
++      } else if (dataLength > maxDataLength) {
++        String error = "Requested data length " + dataLength +
++              " is longer than maximum configured RPC length " + 
++            maxDataLength + ".  RPC came from " + getHostAddress();
++        LOG.warn(error);
++        throw new IOException(error);
++      }
++    }
++
+     public int readAndProcess() throws IOException, InterruptedException {
+       while (true) {
+         /* Read at most one RPC. If the header is not read completely yet
+@@ -1420,11 +1436,7 @@ public abstract class Server {
+             dataLengthBuffer.clear();
+             return 0; // ping message
+           }
+-          
+-          if (dataLength < 0) {
+-            LOG.warn("Unexpected data length " + dataLength + "!! from " + 
+-                getHostAddress());
+-          }
++          checkDataLength(dataLength);
+           data = ByteBuffer.allocate(dataLength);
+         }
+         
+@@ -1842,6 +1854,8 @@ public abstract class Server {
+     this.rpcRequestClass = rpcRequestClass; 
+     this.handlerCount = handlerCount;
+     this.socketSendBufferSize = 0;
++    this.maxDataLength = conf.getInt(CommonConfigurationKeys.IPC_MAXIMUM_DATA_LENGTH,
++        CommonConfigurationKeys.IPC_MAXIMUM_DATA_LENGTH_DEFAULT);
+     if (queueSizePerHandler != -1) {
+       this.maxQueueSize = queueSizePerHandler;
+     } else {
+diff --git a/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestProtoBufRpc.java b/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestProtoBufRpc.java
+index 54e227a..0edb3e3 100644
+--- a/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestProtoBufRpc.java
++++ b/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestProtoBufRpc.java
+@@ -23,7 +23,9 @@ import static org.apache.hadoop.test.MetricsAsserts.assertCounterGt;
+ import java.io.IOException;
+ import java.net.InetSocketAddress;
+ 
++import org.apache.commons.lang.StringUtils;
+ import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.fs.CommonConfigurationKeys;
+ import org.apache.hadoop.ipc.protobuf.TestProtos.EchoRequestProto;
+ import org.apache.hadoop.ipc.protobuf.TestProtos.EchoResponseProto;
+ import org.apache.hadoop.ipc.protobuf.TestProtos.EmptyRequestProto;
+@@ -104,6 +106,7 @@ public class TestProtoBufRpc {
+   @Before
+   public  void setUp() throws IOException { // Setup server for both protocols
+     conf = new Configuration();
++    conf.setInt(CommonConfigurationKeys.IPC_MAXIMUM_DATA_LENGTH, 1024);
+     // Set RPC engine to protobuf RPC engine
+     RPC.setProtocolEngine(conf, TestRpcService.class, ProtobufRpcEngine.class);
+ 
+@@ -201,4 +204,24 @@ public class TestProtoBufRpc {
+         getMetrics(server.getRpcDetailedMetrics().name());
+     assertCounterGt("Echo2NumOps", 0L, rpcDetailedMetrics);
+   }
+-}
+\ No newline at end of file
++
++  @Test(timeout=6000)
++  public void testExtraLongRpc() throws Exception {
++    TestRpcService2 client = getClient2();
++    final String shortString = StringUtils.repeat("X", 4);
++    EchoRequestProto echoRequest = EchoRequestProto.newBuilder()
++        .setMessage(shortString).build();
++    // short message goes through
++    EchoResponseProto echoResponse = client.echo2(null, echoRequest);
++    
++    final String longString = StringUtils.repeat("X", 4096);
++    echoRequest = EchoRequestProto.newBuilder()
++        .setMessage(longString).build();
++    try {
++      echoResponse = client.echo2(null, echoRequest);
++      Assert.fail("expected extra-long RPC to fail");
++    } catch (ServiceException se) {
++      // expected
++    }
++  }
++}
+-- 
+1.7.0.4
+

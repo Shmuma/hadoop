@@ -1,0 +1,168 @@
+From bca4fb12acdaa01f4950a6acaadb812c05a1f3e0 Mon Sep 17 00:00:00 2001
+From: Bikas Saha <bikas@apache.org>
+Date: Tue, 2 Apr 2013 18:07:07 +0000
+Subject: [PATCH 1367/1475] YARN-382. SchedulerUtils improve way normalizeRequest sets the resource capabilities (Zhijie Shen via bikas)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1463653 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 4ee6f03f2068537ee33ecc2f2cb7e43d226c2659)
+---
+ .../rmapp/attempt/RMAppAttemptImpl.java            |    5 ++++
+ .../resourcemanager/scheduler/SchedulerUtils.java  |    3 +-
+ .../rmapp/attempt/TestRMAppAttemptTransitions.java |   12 ++++++++--
+ .../scheduler/TestSchedulerUtils.java              |   22 --------------------
+ 4 files changed, 15 insertions(+), 27 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java
+index 16fa5c3..bc0dbea 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java
+@@ -745,6 +745,11 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
+       // Set the masterContainer
+       appAttempt.setMasterContainer(amContainerAllocation.getContainers().get(
+                                                                            0));
++      // Updating CLC's resource is no longer necessary once YARN-486 is
++      // completed, because nothing from Container to CLC will be copied into
++      // CLC then.
++      appAttempt.getSubmissionContext().getAMContainerSpec().setResource(
++          appAttempt.getMasterContainer().getResource());
+ 
+       RMStateStore store = appAttempt.rmContext.getStateStore();
+       appAttempt.storeAttempt(store);
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/SchedulerUtils.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/SchedulerUtils.java
+index f651566..e1bb437 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/SchedulerUtils.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/SchedulerUtils.java
+@@ -108,8 +108,7 @@ public class SchedulerUtils {
+     Resource normalized = 
+         Resources.normalize(
+             resourceCalculator, ask.getCapability(), minimumResource);
+-    ask.getCapability().setMemory(normalized.getMemory());
+-    ask.getCapability().setVirtualCores(normalized.getVirtualCores());
++    ask.setCapability(normalized);
+   }
+ 
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/TestRMAppAttemptTransitions.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/TestRMAppAttemptTransitions.java
+index f88deb7..21b2468 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/TestRMAppAttemptTransitions.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/TestRMAppAttemptTransitions.java
+@@ -201,9 +201,10 @@ public class TestRMAppAttemptTransitions {
+     submissionContext = mock(ApplicationSubmissionContext.class);
+     when(submissionContext.getUser()).thenReturn(user);
+     when(submissionContext.getQueue()).thenReturn(queue);
+-    ContainerLaunchContext amContainerSpec = mock(ContainerLaunchContext.class);
+-    Resource resource = mock(Resource.class);
+-    when(amContainerSpec.getResource()).thenReturn(resource);
++    Resource resource = BuilderUtils.newResource(1536, 1);
++    ContainerLaunchContext amContainerSpec =
++        BuilderUtils.newContainerLaunchContext(null, user, resource, null, null,
++            null, null, null, null);
+     when(submissionContext.getAMContainerSpec()).thenReturn(amContainerSpec);
+     
+     unmanagedAM = false;
+@@ -468,8 +469,10 @@ public class TestRMAppAttemptTransitions {
+     
+     // Mock the allocation of AM container 
+     Container container = mock(Container.class);
++    Resource resource = BuilderUtils.newResource(2048, 1);
+     when(container.getId()).thenReturn(
+         BuilderUtils.newContainerId(applicationAttempt.getAppAttemptId(), 1));
++    when(container.getResource()).thenReturn(resource);
+     Allocation allocation = mock(Allocation.class);
+     when(allocation.getContainers()).
+         thenReturn(Collections.singletonList(container));
+@@ -490,6 +493,9 @@ public class TestRMAppAttemptTransitions {
+     applicationAttempt.handle(
+         new RMAppAttemptStoredEvent(
+             applicationAttempt.getAppAttemptId(), null));
++    assertEquals(resource,
++        applicationAttempt.getSubmissionContext()
++        .getAMContainerSpec().getResource());
+     
+     testAppAttemptAllocatedState(container);
+     
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestSchedulerUtils.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestSchedulerUtils.java
+index bc806f6..681e8d0 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestSchedulerUtils.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestSchedulerUtils.java
+@@ -19,7 +19,6 @@
+ package org.apache.hadoop.yarn.server.resourcemanager.scheduler;
+ 
+ import static org.junit.Assert.assertEquals;
+-import static org.junit.Assert.assertTrue;
+ 
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.api.records.ResourceRequest;
+@@ -43,35 +42,23 @@ public class TestSchedulerUtils {
+ 
+     // case negative memory
+     ask.setCapability(Resources.createResource(-1024));
+-    Resource before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(ask, resourceCalculator, null, minResource);
+-    Resource after = ask.getCapability();
+     assertEquals(minMemory, ask.getCapability().getMemory());
+-    assertTrue(before == after);
+ 
+     // case zero memory
+     ask.setCapability(Resources.createResource(0));
+-    before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(ask, resourceCalculator, null, minResource);
+-    after = ask.getCapability();
+     assertEquals(minMemory, ask.getCapability().getMemory());
+-    assertTrue(before == after);
+ 
+     // case memory is a multiple of minMemory
+     ask.setCapability(Resources.createResource(2 * minMemory));
+-    before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(ask, resourceCalculator, null, minResource);
+-    after = ask.getCapability();
+     assertEquals(2 * minMemory, ask.getCapability().getMemory());
+-    assertTrue(before == after);
+ 
+     // case memory is not a multiple of minMemory
+     ask.setCapability(Resources.createResource(minMemory + 10));
+-    before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(ask, resourceCalculator, null, minResource);
+-    after = ask.getCapability();
+     assertEquals(2 * minMemory, ask.getCapability().getMemory());
+-    assertTrue(before == after);
+ 
+   }
+   
+@@ -86,33 +73,24 @@ public class TestSchedulerUtils {
+ 
+     // case negative memory/vcores
+     ask.setCapability(Resources.createResource(-1024, -1));
+-    Resource before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(
+         ask, resourceCalculator, clusterResource, minResource);
+-    Resource after = ask.getCapability();
+     assertEquals(minResource, ask.getCapability());
+-    assertTrue(before == after);
+ 
+     // case zero memory/vcores
+     ask.setCapability(Resources.createResource(0, 0));
+-    before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(
+         ask, resourceCalculator, clusterResource, minResource);
+-    after = ask.getCapability();
+     assertEquals(minResource, ask.getCapability());
+     assertEquals(1, ask.getCapability().getVirtualCores());
+     assertEquals(1024, ask.getCapability().getMemory());
+-    assertTrue(before == after);
+ 
+     // case non-zero memory & zero cores
+     ask.setCapability(Resources.createResource(1536, 0));
+-    before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(
+         ask, resourceCalculator, clusterResource, minResource);
+-    after = ask.getCapability();
+     assertEquals(Resources.createResource(2048, 1), ask.getCapability());
+     assertEquals(1, ask.getCapability().getVirtualCores());
+     assertEquals(2048, ask.getCapability().getMemory());
+-    assertTrue(before == after);
+   }
+ }
+-- 
+1.7.0.4
+

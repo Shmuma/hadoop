@@ -1,0 +1,27 @@
+From e6760e265c713bb929c3ba3eaf6cdf8fc57bd711 Mon Sep 17 00:00:00 2001
+From: Suresh Srinivas <suresh@apache.org>
+Date: Wed, 1 May 2013 16:07:45 +0000
+Subject: [PATCH 1395/1475] HADOOP-9455. HADOOP_CLIENT_OPTS appended twice causes JVM failures. Contributed by Chris Nauroth.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1478067 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit f90c7989d9287f04934e9f67b67ece82cd26effb)
+---
+ .../hadoop-common/src/main/conf/hadoop-env.sh      |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/hadoop-common-project/hadoop-common/src/main/conf/hadoop-env.sh b/hadoop-common-project/hadoop-common/src/main/conf/hadoop-env.sh
+index 665d93a..e63c8fb 100644
+--- a/hadoop-common-project/hadoop-common/src/main/conf/hadoop-env.sh
++++ b/hadoop-common-project/hadoop-common/src/main/conf/hadoop-env.sh
+@@ -45,7 +45,7 @@ done
+ #export HADOOP_NAMENODE_INIT_HEAPSIZE=""
+ 
+ # Extra Java runtime options.  Empty by default.
+-export HADOOP_OPTS="-Djava.net.preferIPv4Stack=true $HADOOP_CLIENT_OPTS"
++export HADOOP_OPTS="-Djava.net.preferIPv4Stack=true"
+ 
+ # Command specific options appended to HADOOP_OPTS when specified
+ export HADOOP_NAMENODE_OPTS="-Dhadoop.security.logger=${HADOOP_SECURITY_LOGGER:-INFO,RFAS} -Dhdfs.audit.logger=${HDFS_AUDIT_LOGGER:-INFO,NullAppender} $HADOOP_NAMENODE_OPTS"
+-- 
+1.7.0.4
+

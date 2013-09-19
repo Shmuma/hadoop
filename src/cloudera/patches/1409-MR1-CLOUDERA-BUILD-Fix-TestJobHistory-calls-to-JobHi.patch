@@ -1,0 +1,35 @@
+From 0121ad24cb96d10000164a8b0ae88ee0ff293023 Mon Sep 17 00:00:00 2001
+From: Karthik Kambatla <kasha@cloudera.com>
+Date: Tue, 16 Jul 2013 17:52:56 -0700
+Subject: [PATCH 1409/1475] MR1: CLOUDERA-BUILD: Fix TestJobHistory calls to JobHistory.parseHistoryFromFS
+
+Reason: Build fix
+---
+ .../org/apache/hadoop/mapred/TestJobHistory.java   |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hadoop-mapreduce1-project/src/test/org/apache/hadoop/mapred/TestJobHistory.java b/hadoop-mapreduce1-project/src/test/org/apache/hadoop/mapred/TestJobHistory.java
+index 7b95502..6a4e7f3 100644
+--- a/hadoop-mapreduce1-project/src/test/org/apache/hadoop/mapred/TestJobHistory.java
++++ b/hadoop-mapreduce1-project/src/test/org/apache/hadoop/mapred/TestJobHistory.java
+@@ -488,7 +488,7 @@ public class TestJobHistory extends TestCase {
+     JobHistory.JobInfo jobInfo = new JobHistory.JobInfo(jobId);
+ 
+     TestListener l = new TestListener(jobInfo);
+-    JobHistory.parseHistoryFromFS(logFile.toString().substring(5), l, fileSys);
++    JobHistory.parseHistoryFromFS(logFile.toString(), l, fileSys);
+ 
+ 
+     // validate format of job level key, values
+@@ -795,7 +795,7 @@ public class TestJobHistory extends TestCase {
+ 
+     DefaultJobHistoryParser.JobTasksParseListener l =
+                    new DefaultJobHistoryParser.JobTasksParseListener(jobInfo);
+-    JobHistory.parseHistoryFromFS(logFile.toString().substring(5), l, fileSys);
++    JobHistory.parseHistoryFromFS(logFile.toString(), l, fileSys);
+ 
+     // Now the history file contents are available in jobInfo. Let us compare
+     // them with the actual values from JT.
+-- 
+1.7.0.4
+

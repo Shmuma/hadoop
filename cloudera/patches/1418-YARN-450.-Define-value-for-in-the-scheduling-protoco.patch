@@ -1,0 +1,1048 @@
+From b7a75eb44ed04c5d3f0b7d76624fc080e1d5840a Mon Sep 17 00:00:00 2001
+From: Bikas Saha <bikas@apache.org>
+Date: Thu, 28 Mar 2013 19:44:28 +0000
+Subject: [PATCH 1418/1475] YARN-450. Define value for * in the scheduling protocol (Zhijie Shen via bikas)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1462271 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 8abb6542e1cd3a6e8f2fe761e3e935bf6abd4c8f)
+
+Conflicts:
+
+	hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java
+	hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/TestFifoScheduler.java
+---
+ .../mapreduce/v2/app/rm/RMContainerRequestor.java  |    5 +-
+ .../hadoop/mapreduce/v2/app/MRAppBenchmark.java    |    2 +-
+ .../hadoop/yarn/api/records/ResourceRequest.java   |   20 +++++++
+ .../org/apache/hadoop/yarn/client/AMRMClient.java  |    5 --
+ .../apache/hadoop/yarn/client/AMRMClientImpl.java  |    6 ++-
+ .../apache/hadoop/yarn/client/TestAMRMClient.java  |   18 ++++---
+ .../rmapp/attempt/RMAppAttemptImpl.java            |    4 +-
+ .../yarn/server/resourcemanager/rmnode/RMNode.java |    2 -
+ .../scheduler/AppSchedulingInfo.java               |   14 ++---
+ .../scheduler/capacity/LeafQueue.java              |    8 ++--
+ .../scheduler/common/fica/FiCaSchedulerApp.java    |    3 +-
+ .../scheduler/common/fica/FiCaSchedulerNode.java   |    2 -
+ .../scheduler/fair/AppSchedulable.java             |    3 +-
+ .../scheduler/fair/FSSchedulerApp.java             |    5 +-
+ .../scheduler/fair/FSSchedulerNode.java            |    2 -
+ .../scheduler/fifo/FifoScheduler.java              |    8 ++--
+ .../yarn/server/resourcemanager/Application.java   |   11 +---
+ .../hadoop/yarn/server/resourcemanager/MockAM.java |    4 +-
+ .../hadoop/yarn/server/resourcemanager/Task.java   |    4 +-
+ .../server/resourcemanager/TestFifoScheduler.java  |    8 ++--
+ .../resourcemanager/TestResourceManager.java       |    3 +-
+ .../scheduler/capacity/TestApplicationLimits.java  |    9 ++--
+ .../scheduler/capacity/TestCapacityScheduler.java  |    3 +-
+ .../scheduler/capacity/TestLeafQueue.java          |   55 ++++++++++----------
+ .../scheduler/fair/TestFairScheduler.java          |   29 +++++++----
+ .../scheduler/fifo/TestFifoScheduler.java          |   10 ++--
+ .../yarn/server/TestContainerManagerSecurity.java  |    4 +-
+ 27 files changed, 128 insertions(+), 119 deletions(-)
+
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/rm/RMContainerRequestor.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/rm/RMContainerRequestor.java
+index 59c9795..5babd47 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/rm/RMContainerRequestor.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/rm/RMContainerRequestor.java
+@@ -55,7 +55,6 @@ import org.apache.hadoop.yarn.util.BuilderUtils;
+ public abstract class RMContainerRequestor extends RMCommunicator {
+   
+   private static final Log LOG = LogFactory.getLog(RMContainerRequestor.class);
+-  static final String ANY = "*";
+ 
+   private int lastResponseID;
+   private Resource availableResources;
+@@ -276,7 +275,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
+     }
+ 
+     // Off-switch
+-    addResourceRequest(req.priority, ANY, req.capability); 
++    addResourceRequest(req.priority, ResourceRequest.ANY, req.capability);
+   }
+ 
+   protected void decContainerReq(ContainerRequest req) {
+@@ -289,7 +288,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
+       decResourceRequest(req.priority, rack, req.capability);
+     }
+    
+-    decResourceRequest(req.priority, ANY, req.capability);
++    decResourceRequest(req.priority, ResourceRequest.ANY, req.capability);
+   }
+ 
+   private void addResourceRequest(Priority priority, String resourceName,
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MRAppBenchmark.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MRAppBenchmark.java
+index 6cc7729..24ef6b9 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MRAppBenchmark.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MRAppBenchmark.java
+@@ -231,7 +231,7 @@ public class MRAppBenchmark {
+                 List<ResourceRequest> askList = request.getAskList();
+                 List<Container> containers = new ArrayList<Container>();
+                 for (ResourceRequest req : askList) {
+-                  if (req.getHostName() != "*") {
++                  if (!ResourceRequest.isAnyLocation(req.getHostName())) {
+                     continue;
+                   }
+                   int numContainers = req.getNumContainers();
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/ResourceRequest.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/ResourceRequest.java
+index 72d703e..6cd36e7 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/ResourceRequest.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/ResourceRequest.java
+@@ -49,6 +49,26 @@ import org.apache.hadoop.yarn.api.AMRMProtocol;
+ @Public
+ @Stable
+ public abstract class ResourceRequest implements Comparable<ResourceRequest> {
++
++  /**
++   * The constant string representing no locality.
++   * It should be used by all references that want to pass an arbitrary host
++   * name in.
++   */
++  public static final String ANY = "*";
++
++  /**
++   * Check whether the given <em>host/rack</em> string represents an arbitrary
++   * host name.
++   *
++   * @param hostName <em>host/rack</em> on which the allocation is desired
++   * @return whether the given <em>host/rack</em> string represents an arbitrary
++   * host name
++   */
++  public static boolean isAnyLocation(String hostName) {
++    return ANY.equals(hostName);
++  }
++
+   /**
+    * Get the <code>Priority</code> of the request.
+    * @return <code>Priority</code> of the request
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-client/src/main/java/org/apache/hadoop/yarn/client/AMRMClient.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-client/src/main/java/org/apache/hadoop/yarn/client/AMRMClient.java
+index 1fa86d2..996d466 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-client/src/main/java/org/apache/hadoop/yarn/client/AMRMClient.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-client/src/main/java/org/apache/hadoop/yarn/client/AMRMClient.java
+@@ -35,11 +35,6 @@ import org.apache.hadoop.yarn.service.Service;
+ public interface AMRMClient extends Service {
+ 
+   /**
+-   * Value used to define no locality
+-   */
+-  static final String ANY = "*";
+-
+-  /**
+    * Object to represent container request for resources.
+    * Resources may be localized to nodes and racks.
+    * Resources may be assigned priorities.
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-client/src/main/java/org/apache/hadoop/yarn/client/AMRMClientImpl.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-client/src/main/java/org/apache/hadoop/yarn/client/AMRMClientImpl.java
+index 15c250e..437ebff 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-client/src/main/java/org/apache/hadoop/yarn/client/AMRMClientImpl.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-client/src/main/java/org/apache/hadoop/yarn/client/AMRMClientImpl.java
+@@ -258,7 +258,8 @@ public class AMRMClientImpl extends AbstractService implements AMRMClient {
+     }
+ 
+     // Off-switch
+-    addResourceRequest(req.priority, ANY, req.capability, req.containerCount); 
++    addResourceRequest(req.priority, ResourceRequest.ANY, req.capability,
++        req.containerCount);
+   }
+ 
+   @Override
+@@ -276,7 +277,8 @@ public class AMRMClientImpl extends AbstractService implements AMRMClient {
+       }
+     }
+    
+-    decResourceRequest(req.priority, ANY, req.capability, req.containerCount);
++    decResourceRequest(req.priority, ResourceRequest.ANY, req.capability,
++        req.containerCount);
+   }
+ 
+   @Override
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-client/src/test/java/org/apache/hadoop/yarn/client/TestAMRMClient.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-client/src/test/java/org/apache/hadoop/yarn/client/TestAMRMClient.java
+index 95fae13..9f1ec97 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-client/src/test/java/org/apache/hadoop/yarn/client/TestAMRMClient.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-client/src/test/java/org/apache/hadoop/yarn/client/TestAMRMClient.java
+@@ -18,18 +18,15 @@
+ 
+ package org.apache.hadoop.yarn.client;
+ 
+-import static org.junit.Assert.*;
+-import static org.mockito.Mockito.*;
++import static org.junit.Assert.assertTrue;
++import static org.mockito.Matchers.any;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.when;
+ 
+ import java.util.List;
+ import java.util.Set;
+ import java.util.TreeSet;
+ 
+-import org.junit.After;
+-import org.junit.Before;
+-import org.junit.Test;
+-import org.mockito.invocation.InvocationOnMock;
+-import org.mockito.stubbing.Answer;
+ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.yarn.api.AMRMProtocol;
+ import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
+@@ -58,6 +55,11 @@ import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+ import org.apache.hadoop.yarn.server.MiniYARNCluster;
+ import org.apache.hadoop.yarn.service.Service.STATE;
+ import org.apache.hadoop.yarn.util.Records;
++import org.junit.After;
++import org.junit.Before;
++import org.junit.Test;
++import org.mockito.invocation.InvocationOnMock;
++import org.mockito.stubbing.Answer;
+ 
+ public class TestAMRMClient {
+   Configuration conf = null;
+@@ -183,7 +185,7 @@ public class TestAMRMClient {
+     int containersRequestedRack = amClient.remoteRequestsTable.get(priority)
+         .get(rack).get(capability).getNumContainers();
+     int containersRequestedAny = amClient.remoteRequestsTable.get(priority)
+-        .get(AMRMClient.ANY).get(capability).getNumContainers();
++        .get(ResourceRequest.ANY).get(capability).getNumContainers();
+ 
+     assertTrue(containersRequestedNode == 2);
+     assertTrue(containersRequestedRack == 2);
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java
+index bc0dbea..03c532d 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java
+@@ -58,10 +58,10 @@ import org.apache.hadoop.yarn.server.resourcemanager.ApplicationMasterService;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
+ import org.apache.hadoop.yarn.server.resourcemanager.amlauncher.AMLauncherEvent;
+ import org.apache.hadoop.yarn.server.resourcemanager.amlauncher.AMLauncherEventType;
++import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore;
+ import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.ApplicationAttemptState;
+ import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.ApplicationState;
+ import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.RMState;
+-import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore;
+ import org.apache.hadoop.yarn.server.resourcemanager.recovery.Recoverable;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMAppEvent;
+@@ -711,7 +711,7 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
+ 
+         // Request a container for the AM.
+         ResourceRequest request = BuilderUtils.newResourceRequest(
+-            AM_CONTAINER_PRIORITY, "*", appAttempt.submissionContext
++            AM_CONTAINER_PRIORITY, ResourceRequest.ANY, appAttempt.submissionContext
+                 .getAMContainerSpec().getResource(), 1);
+ 
+         Allocation amContainerAllocation = appAttempt.scheduler.allocate(
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmnode/RMNode.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmnode/RMNode.java
+index aafa3db..6e9bc06 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmnode/RMNode.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmnode/RMNode.java
+@@ -36,8 +36,6 @@ import org.apache.hadoop.yarn.server.api.records.HeartbeatResponse;
+  */
+ public interface RMNode {
+ 
+-  public static final String ANY = "*";
+-
+   /**
+    * the node id of of this node.
+    * @return the node id of this node.
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/AppSchedulingInfo.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/AppSchedulingInfo.java
+index 452cb9b..645d34b 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/AppSchedulingInfo.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/AppSchedulingInfo.java
+@@ -38,8 +38,6 @@ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.api.records.ResourceRequest;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptState;
+-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
+-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeImpl;
+ 
+ /**
+  * This class keeps track of all the consumption of an application. This also
+@@ -129,7 +127,7 @@ public class AppSchedulingInfo {
+       boolean updatePendingResources = false;
+       ResourceRequest lastRequest = null;
+ 
+-      if (hostName.equals(RMNode.ANY)) {
++      if (hostName.equals(ResourceRequest.ANY)) {
+         if (LOG.isDebugEnabled()) {
+           LOG.debug("update:" + " application=" + applicationId + " request="
+               + request);
+@@ -195,7 +193,7 @@ public class AppSchedulingInfo {
+   }
+ 
+   public synchronized Resource getResource(Priority priority) {
+-    ResourceRequest request = getResourceRequest(priority, RMNode.ANY);
++    ResourceRequest request = getResourceRequest(priority, ResourceRequest.ANY);
+     return request.getCapability();
+   }
+ 
+@@ -261,7 +259,7 @@ public class AppSchedulingInfo {
+       this.requests.get(priority).remove(node.getRackName());
+     }
+ 
+-    decrementOutstanding(requests.get(priority).get(RMNode.ANY));
++    decrementOutstanding(requests.get(priority).get(ResourceRequest.ANY));
+   }
+ 
+   /**
+@@ -284,7 +282,7 @@ public class AppSchedulingInfo {
+       this.requests.get(priority).remove(node.getRackName());
+     }
+ 
+-    decrementOutstanding(requests.get(priority).get(RMNode.ANY));
++    decrementOutstanding(requests.get(priority).get(ResourceRequest.ANY));
+   }
+ 
+   /**
+@@ -322,7 +320,7 @@ public class AppSchedulingInfo {
+   synchronized private void checkForDeactivation() {
+     boolean deactivate = true;
+     for (Priority priority : getPriorities()) {
+-      ResourceRequest request = getResourceRequest(priority, RMNodeImpl.ANY);
++      ResourceRequest request = getResourceRequest(priority, ResourceRequest.ANY);
+       if (request.getNumContainers() > 0) {
+         deactivate = false;
+         break;
+@@ -351,7 +349,7 @@ public class AppSchedulingInfo {
+     // clear pending resources metrics for the application
+     QueueMetrics metrics = queue.getMetrics();
+     for (Map<String, ResourceRequest> asks : requests.values()) {
+-      ResourceRequest request = asks.get(RMNode.ANY);
++      ResourceRequest request = asks.get(ResourceRequest.ANY);
+       if (request != null) {
+         metrics.decrPendingResources(user, request.getNumContainers(),
+             Resources.multiply(request.getCapability(), request
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/LeafQueue.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/LeafQueue.java
+index b02dda1..a7a5886 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/LeafQueue.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/LeafQueue.java
+@@ -58,7 +58,6 @@ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEventType;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerState;
+-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ActiveUsersManager;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.NodeType;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.QueueMetrics;
+@@ -802,7 +801,8 @@ public class LeafQueue implements CSQueue {
+         for (Priority priority : application.getPriorities()) {
+           // Required resource
+           Resource required = 
+-              application.getResourceRequest(priority, RMNode.ANY).getCapability();
++              application.getResourceRequest(
++                  priority, ResourceRequest.ANY).getCapability();
+ 
+           // Do we need containers at this 'priority'?
+           if (!needContainers(application, priority, required)) {
+@@ -1153,7 +1153,7 @@ public class LeafQueue implements CSQueue {
+       FiCaSchedulerApp application, Priority priority, 
+       RMContainer reservedContainer) {
+     ResourceRequest request = 
+-      application.getResourceRequest(priority, RMNode.ANY);
++      application.getResourceRequest(priority, ResourceRequest.ANY);
+     if (request != null) {
+       if (canAssign(application, priority, node, NodeType.OFF_SWITCH, 
+           reservedContainer)) {
+@@ -1175,7 +1175,7 @@ public class LeafQueue implements CSQueue {
+ 
+       // 'Delay' off-switch
+       ResourceRequest offSwitchRequest = 
+-          application.getResourceRequest(priority, RMNode.ANY);
++          application.getResourceRequest(priority, ResourceRequest.ANY);
+       long missedOpportunities = application.getSchedulingOpportunities(priority);
+       long requiredContainers = offSwitchRequest.getNumContainers(); 
+       
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/common/fica/FiCaSchedulerApp.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/common/fica/FiCaSchedulerApp.java
+index 317f2a2..1ff6e02 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/common/fica/FiCaSchedulerApp.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/common/fica/FiCaSchedulerApp.java
+@@ -51,7 +51,6 @@ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEven
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerFinishedEvent;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerImpl;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerReservedEvent;
+-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeCleanContainerEvent;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ActiveUsersManager;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.AppSchedulingInfo;
+@@ -153,7 +152,7 @@ public class FiCaSchedulerApp extends SchedulerApplication {
+   }
+ 
+   public synchronized int getTotalRequiredResources(Priority priority) {
+-    return getResourceRequest(priority, RMNode.ANY).getNumContainers();
++    return getResourceRequest(priority, ResourceRequest.ANY).getNumContainers();
+   }
+   
+   public Resource getResource(Priority priority) {
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/common/fica/FiCaSchedulerNode.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/common/fica/FiCaSchedulerNode.java
+index b846075..f6bac00 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/common/fica/FiCaSchedulerNode.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/common/fica/FiCaSchedulerNode.java
+@@ -60,8 +60,6 @@ public class FiCaSchedulerNode extends SchedulerNode {
+   
+   private final RMNode rmNode;
+ 
+-  public static final String ANY = "*";
+-
+   public FiCaSchedulerNode(RMNode node) {
+     this.rmNode = node;
+     this.availableResource.setMemory(node.getTotalCapability().getMemory());
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/AppSchedulable.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/AppSchedulable.java
+index 529055a..af344f9 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/AppSchedulable.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/AppSchedulable.java
+@@ -37,7 +37,6 @@ import org.apache.hadoop.yarn.factories.RecordFactory;
+ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
+-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.NodeType;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.QueueMetrics;
+ import org.apache.hadoop.yarn.server.resourcemanager.security.RMContainerTokenSecretManager;
+@@ -334,7 +333,7 @@ public class AppSchedulable extends Schedulable {
+         }
+ 
+         ResourceRequest offSwitchRequest = app.getResourceRequest(priority,
+-            RMNode.ANY);
++            ResourceRequest.ANY);
+         if (offSwitchRequest != null && offSwitchRequest.getNumContainers() != 0
+             && allowedLocality.equals(NodeType.OFF_SWITCH)) {
+           return assignContainer(node, app, priority, offSwitchRequest,
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerApp.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerApp.java
+index 49a52bb..0734a4a 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerApp.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerApp.java
+@@ -40,8 +40,8 @@ import org.apache.hadoop.yarn.api.records.ResourceRequest;
+ import org.apache.hadoop.yarn.factories.RecordFactory;
+ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger;
+-import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstants;
++import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptState;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
+@@ -50,7 +50,6 @@ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEven
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerFinishedEvent;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerImpl;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerReservedEvent;
+-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeCleanContainerEvent;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ActiveUsersManager;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.AppSchedulingInfo;
+@@ -153,7 +152,7 @@ public class FSSchedulerApp extends SchedulerApplication {
+   }
+ 
+   public synchronized int getTotalRequiredResources(Priority priority) {
+-    return getResourceRequest(priority, RMNode.ANY).getNumContainers();
++    return getResourceRequest(priority, ResourceRequest.ANY).getNumContainers();
+   }
+   
+   public Resource getResource(Priority priority) {
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerNode.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerNode.java
+index 65b9501..533d5c3 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerNode.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerNode.java
+@@ -60,8 +60,6 @@ public class FSSchedulerNode extends SchedulerNode {
+   
+   private final RMNode rmNode;
+ 
+-  public static final String ANY = "*";
+-
+   public FSSchedulerNode(RMNode node) {
+     this.rmNode = node;
+     this.availableResource = Resources.clone(node.getTotalCapability());
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/FifoScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/FifoScheduler.java
+index 24cf3c4..a50b203 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/FifoScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/FifoScheduler.java
+@@ -57,8 +57,8 @@ import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstants;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
+ import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.RMState;
+-import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEvent;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEventType;
+@@ -392,7 +392,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
+   private int getMaxAllocatableContainers(FiCaSchedulerApp application,
+       Priority priority, FiCaSchedulerNode node, NodeType type) {
+     ResourceRequest offSwitchRequest = 
+-      application.getResourceRequest(priority, FiCaSchedulerNode.ANY);
++      application.getResourceRequest(priority, ResourceRequest.ANY);
+     int maxContainers = offSwitchRequest.getNumContainers();
+ 
+     if (type == NodeType.OFF_SWITCH) {
+@@ -482,7 +482,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
+     if (request != null) {
+       // Don't allocate on this rack if the application doens't need containers
+       ResourceRequest offSwitchRequest =
+-          application.getResourceRequest(priority, FiCaSchedulerNode.ANY);
++          application.getResourceRequest(priority, ResourceRequest.ANY);
+       if (offSwitchRequest.getNumContainers() <= 0) {
+         return 0;
+       }
+@@ -503,7 +503,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
+       FiCaSchedulerApp application, Priority priority) {
+     int assignedContainers = 0;
+     ResourceRequest request = 
+-      application.getResourceRequest(priority, FiCaSchedulerNode.ANY);
++      application.getResourceRequest(priority, ResourceRequest.ANY);
+     if (request != null) {
+       assignedContainers = 
+         assignContainer(node, application, priority, 
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/Application.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/Application.java
+index ee6cc99..20ffeab 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/Application.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/Application.java
+@@ -43,11 +43,9 @@ import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
+ import org.apache.hadoop.yarn.api.records.Container;
+ import org.apache.hadoop.yarn.api.records.ContainerId;
+ import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
+-import org.apache.hadoop.yarn.api.records.ContainerState;
+ import org.apache.hadoop.yarn.api.records.Priority;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.api.records.ResourceRequest;
+-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+ import org.apache.hadoop.yarn.factories.RecordFactory;
+ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+ import org.apache.hadoop.yarn.server.resourcemanager.Task.State;
+@@ -200,9 +198,7 @@ public class Application {
+     }
+       
+     // Off-switch
+-    addResourceRequest(priority, requests, 
+-        org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode.ANY, 
+-        capability);
++    addResourceRequest(priority, requests, ResourceRequest.ANY, capability);
+   }
+   
+   public synchronized void finishTask(Task task) throws IOException {
+@@ -377,10 +373,7 @@ public class Application {
+       }
+     }
+     
+-    updateResourceRequest(
+-        requests.get(
+-            org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode.ANY)
+-            );
++    updateResourceRequest(requests.get(ResourceRequest.ANY));
+     
+     if(LOG.isDebugEnabled()) {
+       LOG.debug("updateResourceRequests:" + " application=" + applicationId
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/MockAM.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/MockAM.java
+index ace5efb..c7f7b17 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/MockAM.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/MockAM.java
+@@ -122,8 +122,8 @@ public class MockAM {
+       reqs.add(rackReq);
+     }
+ 
+-    ResourceRequest offRackReq = createResourceReq("*", memory, priority,
+-        containers);
++    ResourceRequest offRackReq = createResourceReq(ResourceRequest.ANY, memory,
++        priority, containers);
+     reqs.add(offRackReq);
+     return reqs;
+ 
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/Task.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/Task.java
+index 0fac0cd..eebfa1d 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/Task.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/Task.java
+@@ -29,6 +29,7 @@ import org.apache.commons.logging.LogFactory;
+ import org.apache.hadoop.yarn.api.records.ApplicationId;
+ import org.apache.hadoop.yarn.api.records.ContainerId;
+ import org.apache.hadoop.yarn.api.records.Priority;
++import org.apache.hadoop.yarn.api.records.ResourceRequest;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.NodeType;
+ 
+ public class Task {
+@@ -57,8 +58,7 @@ public class Task {
+     
+     // Special case: Don't care about locality
+     if (!(hosts.length == 1 && 
+-        hosts[0].equals(
+-            org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode.ANY))) {
++        hosts[0].equals(ResourceRequest.ANY))) {
+       for (String host : hosts) {
+         this.hosts.add(host);
+         this.racks.add(Application.resolve(host));
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestFifoScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestFifoScheduler.java
+index 2a708ed..6e04faf 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestFifoScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestFifoScheduler.java
+@@ -264,14 +264,14 @@ public class TestFifoScheduler {
+     
+     // Ask for a 1 GB container for app 1
+     List<ResourceRequest> ask1 = new ArrayList<ResourceRequest>();
+-    ask1.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0), "*",
+-        BuilderUtils.newResource(GB, 1), 1));
++    ask1.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0),
++        ResourceRequest.ANY, BuilderUtils.newResource(GB, 1), 1));
+     fs.allocate(appAttemptId1, ask1, emptyId);
+ 
+     // Ask for a 2 GB container for app 2
+     List<ResourceRequest> ask2 = new ArrayList<ResourceRequest>();
+-    ask2.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0), "*",
+-        BuilderUtils.newResource(2 * GB, 1), 1));
++    ask2.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0),
++        ResourceRequest.ANY, BuilderUtils.newResource(2 * GB, 1), 1));
+     fs.allocate(appAttemptId2, ask2, emptyId);
+     
+     // Trigger container assignment
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestResourceManager.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestResourceManager.java
+index c6ee0d5..cee742f 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestResourceManager.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestResourceManager.java
+@@ -30,6 +30,7 @@ import org.apache.hadoop.net.NetworkTopology;
+ import org.apache.hadoop.yarn.api.records.NodeHealthStatus;
+ import org.apache.hadoop.yarn.api.records.Priority;
+ import org.apache.hadoop.yarn.api.records.Resource;
++import org.apache.hadoop.yarn.api.records.ResourceRequest;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
+@@ -122,7 +123,7 @@ public class TestResourceManager {
+     Task t2 = new Task(application, priority1, new String[] {host1, host2});
+     application.addTask(t2);
+ 
+-    Task t3 = new Task(application, priority0, new String[] {RMNode.ANY});
++    Task t3 = new Task(application, priority0, new String[] {ResourceRequest.ANY});
+     application.addTask(t3);
+ 
+     // Send resource requests to the scheduler
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestApplicationLimits.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestApplicationLimits.java
+index 2889435..5953f84 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestApplicationLimits.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestApplicationLimits.java
+@@ -47,10 +47,9 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.factories.RecordFactory;
+ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
+-import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeImpl;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.common.fica.FiCaSchedulerApp;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.common.fica.FiCaSchedulerNode;
+ import org.junit.After;
+@@ -506,7 +505,7 @@ public class TestApplicationLimits {
+ 
+     List<ResourceRequest> app_0_0_requests = new ArrayList<ResourceRequest>();
+     app_0_0_requests.add(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 2, 
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 2,
+             priority_1, recordFactory));
+     app_0_0.updateResourceRequests(app_0_0_requests);
+ 
+@@ -525,7 +524,7 @@ public class TestApplicationLimits {
+     
+     List<ResourceRequest> app_0_1_requests = new ArrayList<ResourceRequest>();
+     app_0_1_requests.add(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 2, 
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 2,
+             priority_1, recordFactory));
+     app_0_1.updateResourceRequests(app_0_1_requests);
+ 
+@@ -544,7 +543,7 @@ public class TestApplicationLimits {
+ 
+     List<ResourceRequest> app_1_0_requests = new ArrayList<ResourceRequest>();
+     app_1_0_requests.add(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 2, 
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 2,
+             priority_1, recordFactory));
+     app_1_0.updateResourceRequests(app_1_0_requests);
+     
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestCapacityScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestCapacityScheduler.java
+index b7ada58..ffdd737 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestCapacityScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestCapacityScheduler.java
+@@ -32,6 +32,7 @@ import org.apache.hadoop.yarn.api.records.Priority;
+ import org.apache.hadoop.yarn.api.records.QueueInfo;
+ import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
+ import org.apache.hadoop.yarn.api.records.Resource;
++import org.apache.hadoop.yarn.api.records.ResourceRequest;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.event.AsyncDispatcher;
+ import org.apache.hadoop.yarn.server.resourcemanager.Application;
+@@ -183,7 +184,7 @@ public class TestCapacityScheduler {
+     LOG.info("Adding new tasks...");
+     
+     Task task_1_1 = new Task(application_1, priority_0, 
+-        new String[] {RMNode.ANY});
++        new String[] {ResourceRequest.ANY});
+     application_1.addTask(task_1_1);
+ 
+     application_1.schedule();
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestLeafQueue.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestLeafQueue.java
+index d0d23af..6b2d012 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestLeafQueue.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestLeafQueue.java
+@@ -24,8 +24,8 @@ import static org.junit.Assert.assertTrue;
+ import static org.mockito.Matchers.any;
+ import static org.mockito.Matchers.eq;
+ import static org.mockito.Mockito.doAnswer;
+-import static org.mockito.Mockito.doReturn;
+ import static org.mockito.Mockito.doNothing;
++import static org.mockito.Mockito.doReturn;
+ import static org.mockito.Mockito.mock;
+ import static org.mockito.Mockito.never;
+ import static org.mockito.Mockito.spy;
+@@ -55,13 +55,12 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.factories.RecordFactory;
+ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
+-import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptState;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEventType;
+-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeImpl;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ActiveUsersManager;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.NodeType;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.QueueMetrics;
+@@ -282,7 +281,7 @@ public class TestLeafQueue {
+     // Setup resource-requests
+     Priority priority = TestUtils.createMockPriority(1);
+     app_0.updateResourceRequests(Collections.singletonList(
+-            TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 3, priority, 
++            TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 3, priority,
+                 recordFactory))); 
+ 
+     // Start testing...
+@@ -404,11 +403,11 @@ public class TestLeafQueue {
+     // Setup resource-requests
+     Priority priority = TestUtils.createMockPriority(1);
+     app_0.updateResourceRequests(Collections.singletonList(
+-            TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 3, priority, 
++            TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 3, priority,
+                 recordFactory))); 
+ 
+     app_1.updateResourceRequests(Collections.singletonList(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 2, priority,
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 2, priority,
+             recordFactory))); 
+ 
+     // Start testing...
+@@ -537,11 +536,11 @@ public class TestLeafQueue {
+     // Setup resource-requests
+     Priority priority = TestUtils.createMockPriority(1);
+     app_0.updateResourceRequests(Collections.singletonList(
+-            TestUtils.createResourceRequest(RMNodeImpl.ANY, 2*GB, 1, priority,
++            TestUtils.createResourceRequest(ResourceRequest.ANY, 2*GB, 1, priority,
+                 recordFactory))); 
+ 
+     app_1.updateResourceRequests(Collections.singletonList(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 2, priority,
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 2, priority,
+             recordFactory))); 
+ 
+     /**
+@@ -630,11 +629,11 @@ public class TestLeafQueue {
+     // Setup resource-requests
+     Priority priority = TestUtils.createMockPriority(1);
+     app_0.updateResourceRequests(Collections.singletonList(
+-            TestUtils.createResourceRequest(RMNodeImpl.ANY, 2*GB, 1, priority,
++            TestUtils.createResourceRequest(ResourceRequest.ANY, 2*GB, 1, priority,
+                 recordFactory))); 
+ 
+     app_1.updateResourceRequests(Collections.singletonList(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 2, priority,
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 2, priority,
+             recordFactory))); 
+ 
+     /**
+@@ -669,7 +668,7 @@ public class TestLeafQueue {
+     // Submit requests for app_1 and set max-cap
+     a.setMaxCapacity(.1f);
+     app_2.updateResourceRequests(Collections.singletonList(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 1, priority,
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 1, priority,
+             recordFactory))); 
+     assertEquals(2, a.getActiveUsersManager().getNumActiveUsers());
+ 
+@@ -686,7 +685,7 @@ public class TestLeafQueue {
+     // Check headroom for app_2 
+     LOG.info("here");
+     app_1.updateResourceRequests(Collections.singletonList(     // unset
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 0, priority,
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 0, priority,
+             recordFactory))); 
+     assertEquals(1, a.getActiveUsersManager().getNumActiveUsers());
+     a.assignContainers(clusterResource, node_1);
+@@ -747,11 +746,11 @@ public class TestLeafQueue {
+     // Setup resource-requests
+     Priority priority = TestUtils.createMockPriority(1);
+     app_0.updateResourceRequests(Collections.singletonList(
+-            TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 10, priority,
++            TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 10, priority,
+                 recordFactory))); 
+ 
+     app_1.updateResourceRequests(Collections.singletonList(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 10, priority,
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 10, priority,
+             recordFactory))); 
+ 
+     /** 
+@@ -781,11 +780,11 @@ public class TestLeafQueue {
+     // Submit resource requests for other apps now to 'activate' them
+     
+     app_2.updateResourceRequests(Collections.singletonList(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 3*GB, 1, priority,
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 3*GB, 1, priority,
+             recordFactory))); 
+ 
+     app_3.updateResourceRequests(Collections.singletonList(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 2, priority,
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 2, priority,
+             recordFactory))); 
+ 
+     // Now allocations should goto app_2 since 
+@@ -909,11 +908,11 @@ public class TestLeafQueue {
+     // Setup resource-requests
+     Priority priority = TestUtils.createMockPriority(1);
+     app_0.updateResourceRequests(Collections.singletonList(
+-            TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 2, priority,
++            TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 2, priority,
+                 recordFactory))); 
+ 
+     app_1.updateResourceRequests(Collections.singletonList(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 4*GB, 1, priority,
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 4*GB, 1, priority,
+             recordFactory))); 
+ 
+     // Start testing...
+@@ -1011,7 +1010,7 @@ public class TestLeafQueue {
+     // Setup resource-requests
+     Priority priority = TestUtils.createMockPriority(1);
+     app_0.updateResourceRequests(Collections.singletonList(
+-            TestUtils.createResourceRequest(RMNodeImpl.ANY, 2*GB, 1, priority,
++            TestUtils.createResourceRequest(ResourceRequest.ANY, 2*GB, 1, priority,
+                 recordFactory)));
+ 
+     // Setup app_1 to request a 4GB container on host_0 and
+@@ -1022,7 +1021,7 @@ public class TestLeafQueue {
+         priority, recordFactory));
+     appRequests_1.add(TestUtils.createResourceRequest(DEFAULT_RACK, 4*GB, 1,
+         priority, recordFactory));
+-    appRequests_1.add(TestUtils.createResourceRequest(RMNodeImpl.ANY, 4*GB, 2,
++    appRequests_1.add(TestUtils.createResourceRequest(ResourceRequest.ANY, 4*GB, 2,
+         priority, recordFactory));
+     app_1.updateResourceRequests(appRequests_1);
+ 
+@@ -1117,11 +1116,11 @@ public class TestLeafQueue {
+     // Setup resource-requests
+     Priority priority = TestUtils.createMockPriority(1);
+     app_0.updateResourceRequests(Collections.singletonList(
+-            TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 2, priority,
++            TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 2, priority,
+                 recordFactory))); 
+ 
+     app_1.updateResourceRequests(Collections.singletonList(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 4*GB, 1, priority,
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 4*GB, 1, priority,
+             recordFactory))); 
+ 
+     // Start testing...
+@@ -1241,7 +1240,7 @@ public class TestLeafQueue {
+         TestUtils.createResourceRequest(rack_1, 1*GB, 1, 
+             priority, recordFactory));
+     app_0_requests_0.add(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 3, // one extra 
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 3, // one extra
+             priority, recordFactory));
+     app_0.updateResourceRequests(app_0_requests_0);
+ 
+@@ -1306,7 +1305,7 @@ public class TestLeafQueue {
+         TestUtils.createResourceRequest(rack_1, 1*GB, 1, 
+             priority, recordFactory));
+     app_0_requests_0.add(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 2, // one extra 
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 2, // one extra
+             priority, recordFactory));
+     app_0.updateResourceRequests(app_0_requests_0);
+     assertEquals(2, app_0.getTotalRequiredResources(priority));
+@@ -1384,7 +1383,7 @@ public class TestLeafQueue {
+         TestUtils.createResourceRequest(rack_1, 1*GB, 1, 
+             priority_1, recordFactory));
+     app_0_requests_0.add(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 2, 
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 2,
+             priority_1, recordFactory));
+     
+     // P2
+@@ -1396,7 +1395,7 @@ public class TestLeafQueue {
+         TestUtils.createResourceRequest(rack_2, 2*GB, 1, 
+             priority_2, recordFactory));
+     app_0_requests_0.add(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 2*GB, 1, 
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 2*GB, 1,
+             priority_2, recordFactory));
+     
+     app_0.updateResourceRequests(app_0_requests_0);
+@@ -1521,7 +1520,7 @@ public class TestLeafQueue {
+     // Add one request
+     app_0_requests_0.clear();
+     app_0_requests_0.add(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 1, // only one 
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 1, // only one
+             priority, recordFactory));
+     app_0.updateResourceRequests(app_0_requests_0);
+     
+@@ -1544,7 +1543,7 @@ public class TestLeafQueue {
+     // Add one request
+     app_0_requests_0.clear();
+     app_0_requests_0.add(
+-        TestUtils.createResourceRequest(RMNodeImpl.ANY, 1*GB, 1, // only one 
++        TestUtils.createResourceRequest(ResourceRequest.ANY, 1*GB, 1, // only one
+             priority, recordFactory));
+     app_0.updateResourceRequests(app_0_requests_0);
+ 
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
+index e691127..fdcd02c 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
+@@ -144,7 +144,8 @@ public class TestFairScheduler {
+   }
+ 
+ 
+-  private ResourceRequest createResourceRequest(int memory, String host, int priority, int numContainers) {
++  private ResourceRequest createResourceRequest(int memory, String host,
++      int priority, int numContainers) {
+     ResourceRequest request = recordFactory.newRecordInstance(ResourceRequest.class);
+     request.setCapability(Resources.createResource(memory));
+     request.setHostName(host);
+@@ -159,27 +160,33 @@ public class TestFairScheduler {
+    * Creates a single container priority-1 request and submits to
+    * scheduler.
+    */
+-  private ApplicationAttemptId createSchedulingRequest(int memory, String queueId, String userId) {
++  private ApplicationAttemptId createSchedulingRequest(int memory, String queueId,
++      String userId) {
+     return createSchedulingRequest(memory, queueId, userId, 1);
+   }
+ 
+-  private ApplicationAttemptId createSchedulingRequest(int memory, String queueId, String userId, int numContainers) {
++  private ApplicationAttemptId createSchedulingRequest(int memory, String queueId,
++      String userId, int numContainers) {
+     return createSchedulingRequest(memory, queueId, userId, numContainers, 1);
+   }
+ 
+-  private ApplicationAttemptId createSchedulingRequest(int memory, String queueId, String userId, int numContainers, int priority) {
++  private ApplicationAttemptId createSchedulingRequest(int memory, String queueId,
++      String userId, int numContainers, int priority) {
+     ApplicationAttemptId id = createAppAttemptId(this.APP_ID++, this.ATTEMPT_ID++);
+     scheduler.addApplication(id, queueId, userId);
+     List<ResourceRequest> ask = new ArrayList<ResourceRequest>();
+-    ResourceRequest request = createResourceRequest(memory, "*", priority, numContainers);
++    ResourceRequest request = createResourceRequest(memory, ResourceRequest.ANY,
++        priority, numContainers);
+     ask.add(request);
+     scheduler.allocate(id, ask,  new ArrayList<ContainerId>());
+     return id;
+   }
+   
+-  private void createSchedulingRequestExistingApplication(int memory, int priority, ApplicationAttemptId attId) {
++  private void createSchedulingRequestExistingApplication(int memory, int priority,
++      ApplicationAttemptId attId) {
+     List<ResourceRequest> ask = new ArrayList<ResourceRequest>();
+-    ResourceRequest request = createResourceRequest(memory, "*", priority, 1);
++    ResourceRequest request = createResourceRequest(memory, ResourceRequest.ANY,
++        priority, 1);
+     ask.add(request);
+     scheduler.allocate(attId, ask,  new ArrayList<ContainerId>());
+   }
+@@ -464,7 +471,8 @@ public class TestFairScheduler {
+     
+     // First ask, queue1 requests 1 large (minReqSize * 2).
+     List<ResourceRequest> ask1 = new ArrayList<ResourceRequest>();
+-    ResourceRequest request1 = createResourceRequest(minReqSize * 2, "*", 1, 1);
++    ResourceRequest request1 =
++        createResourceRequest(minReqSize * 2, ResourceRequest.ANY, 1, 1);
+     ask1.add(request1);
+     scheduler.allocate(id11, ask1, new ArrayList<ContainerId>());
+ 
+@@ -478,7 +486,8 @@ public class TestFairScheduler {
+ 
+     // Third ask, queue2 requests 1 large
+     List<ResourceRequest> ask3 = new ArrayList<ResourceRequest>();
+-    ResourceRequest request4 = createResourceRequest(2 * minReqSize, "*", 1, 1);
++    ResourceRequest request4 =
++        createResourceRequest(2 * minReqSize, ResourceRequest.ANY, 1, 1);
+     ask3.add(request4);
+     scheduler.allocate(id22, ask3, new ArrayList<ContainerId>());
+ 
+@@ -1327,7 +1336,7 @@ public class TestFairScheduler {
+     asks.add(createResourceRequest(1024, node3.getHostName(), 1, 1));
+     asks.add(createResourceRequest(1024, node1.getRackName(), 1, 1));
+     asks.add(createResourceRequest(1024, node3.getRackName(), 1, 1));
+-    asks.add(createResourceRequest(1024, RMNode.ANY, 1, 2));
++    asks.add(createResourceRequest(1024, ResourceRequest.ANY, 1, 2));
+ 
+     scheduler.allocate(appId, asks, new ArrayList<ContainerId>());
+     
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/TestFifoScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/TestFifoScheduler.java
+index 9731009..b87cb42 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/TestFifoScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/TestFifoScheduler.java
+@@ -31,6 +31,7 @@ import org.apache.hadoop.yarn.api.records.ApplicationId;
+ import org.apache.hadoop.yarn.api.records.Priority;
+ import org.apache.hadoop.yarn.api.records.QueueInfo;
+ import org.apache.hadoop.yarn.api.records.Resource;
++import org.apache.hadoop.yarn.api.records.ResourceRequest;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.event.AsyncDispatcher;
+ import org.apache.hadoop.yarn.server.resourcemanager.Application;
+@@ -40,7 +41,6 @@ import org.apache.hadoop.yarn.server.resourcemanager.ResourceManager;
+ import org.apache.hadoop.yarn.server.resourcemanager.Task;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.resourcetracker.InlineDispatcher;
+-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.QueueMetrics;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ResourceScheduler;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.AppAddedSchedulerEvent;
+@@ -200,15 +200,15 @@ public class TestFifoScheduler {
+     LOG.info("Adding new tasks...");
+     
+     Task task_1_1 = new Task(application_1, priority_1, 
+-        new String[] {RMNode.ANY});
++        new String[] {ResourceRequest.ANY});
+     application_1.addTask(task_1_1);
+ 
+     Task task_1_2 = new Task(application_1, priority_1, 
+-        new String[] {RMNode.ANY});
++        new String[] {ResourceRequest.ANY});
+     application_1.addTask(task_1_2);
+ 
+     Task task_1_3 = new Task(application_1, priority_0, 
+-        new String[] {RMNode.ANY});
++        new String[] {ResourceRequest.ANY});
+     application_1.addTask(task_1_3);
+     
+     application_1.schedule();
+@@ -222,7 +222,7 @@ public class TestFifoScheduler {
+     application_0.addTask(task_0_2);
+     
+     Task task_0_3 = new Task(application_0, priority_0, 
+-        new String[] {RMNode.ANY});
++        new String[] {ResourceRequest.ANY});
+     application_0.addTask(task_0_3);
+ 
+     application_0.schedule();
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java
+index 14761d4..3e5a5c4 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java
+@@ -482,8 +482,8 @@ public class TestContainerManagerSecurity {
+ 
+     // Request a container allocation.
+     List<ResourceRequest> ask = new ArrayList<ResourceRequest>();
+-    ask.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0), "*",
+-        BuilderUtils.newResource(1024, 1), 1));
++    ask.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0),
++        ResourceRequest.ANY, BuilderUtils.newResource(1024, 1), 1));
+ 
+     AllocateRequest allocateRequest = BuilderUtils.newAllocateRequest(
+         BuilderUtils.newApplicationAttemptId(appID, 1), 0, 0F, ask,
+-- 
+1.7.0.4
+

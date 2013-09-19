@@ -1,0 +1,1589 @@
+From fef540fb75812f7d3adddea00bebdca8a4a802c9 Mon Sep 17 00:00:00 2001
+From: Thomas Graves <tgraves@apache.org>
+Date: Wed, 13 Feb 2013 15:40:01 +0000
+Subject: [PATCH 1456/1475] YARN-249. Capacity Scheduler web page should show list of active users per queue like it used to (in 1.x) (Ravi Prakash via tgraves)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1445673 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit d8d9c033d79140b7ecebca3f67ace3f36af0fd37)
+---
+ .../apache/hadoop/yarn/webapp/ResponseInfo.java    |   18 +-
+ .../apache/hadoop/yarn/webapp/view/InfoBlock.java  |    6 +-
+ .../scheduler/capacity/LeafQueue.java              |   13 +
+ .../scheduler/capacity/UserInfo.java               |   60 ++
+ .../webapp/CapacitySchedulerPage.java              |   40 ++-
+ .../webapp/JAXBContextResolver.java                |    6 +-
+ .../webapp/dao/CapacitySchedulerLeafQueueInfo.java |    7 +
+ .../webapp/dao/CapacitySchedulerQueueInfo.java     |    6 +
+ .../resourcemanager/webapp/dao/ResourceInfo.java   |   48 ++
+ .../resourcemanager/webapp/dao/UsersInfo.java      |   46 ++
+ .../hadoop/yarn/server/resourcemanager/MockRM.java |   45 ++-
+ .../yarn/server/resourcemanager/TestRMRestart.java |    2 +-
+ .../webapp/TestRMWebServicesCapacitySched.java     |  148 ++++-
+ .../src/site/apt/ResourceManagerRest.apt.vm        |  692 ++++++++++++--------
+ 14 files changed, 851 insertions(+), 286 deletions(-)
+ create mode 100644 hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/UserInfo.java
+ create mode 100644 hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/ResourceInfo.java
+ create mode 100644 hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/UsersInfo.java
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/webapp/ResponseInfo.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/webapp/ResponseInfo.java
+index 84c3b65..d38545f 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/webapp/ResponseInfo.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/webapp/ResponseInfo.java
+@@ -34,19 +34,21 @@ public class ResponseInfo implements Iterable<ResponseInfo.Item> {
+     public final String key;
+     public final String url;
+     public final Object value;
++    public final boolean isRaw;
+ 
+-    Item(String key, String url, Object value) {
++    Item(String key, String url, Object value, boolean isRaw) {
+       this.key = key;
+       this.url = url;
+       this.value = value;
++      this.isRaw = isRaw;
+     }
+ 
+-    public static Item of(String key, Object value) {
+-      return new Item(key, null, value);
++    public static Item of(String key, Object value, boolean isRaw) {
++      return new Item(key, null, value, isRaw);
+     }
+ 
+     public static Item of(String key, String url, Object value) {
+-      return new Item(key, url, value);
++      return new Item(key, url, value, false);
+     }
+   }
+ 
+@@ -71,7 +73,7 @@ public class ResponseInfo implements Iterable<ResponseInfo.Item> {
+   }
+ 
+   public ResponseInfo _(String key, Object value) {
+-    items.add(Item.of(key, value));
++    items.add(Item.of(key, value, false));
+     return this;
+   }
+ 
+@@ -80,6 +82,12 @@ public class ResponseInfo implements Iterable<ResponseInfo.Item> {
+     return this;
+   }
+ 
++  //Value is raw HTML and shouldn't be escaped
++  public ResponseInfo _r(String key, Object value) {
++    items.add(Item.of(key, value, true));
++    return this;
++  }
++
+   public void clear() {
+     items.clear();
+   }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/webapp/view/InfoBlock.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/webapp/view/InfoBlock.java
+index 7cefe1d..88b7297 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/webapp/view/InfoBlock.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/webapp/view/InfoBlock.java
+@@ -46,7 +46,11 @@ public class InfoBlock extends HtmlBlock {
+           th(item.key);
+       String value = String.valueOf(item.value);
+       if (item.url == null) {
+-        tr.td(value);
++        if (!item.isRaw) {
++          tr.td(value);
++        } else {
++          tr.td()._r(value)._();
++        }
+       } else {
+         tr.
+           td().
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/LeafQueue.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/LeafQueue.java
+index a7a5886..7f6a209 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/LeafQueue.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/LeafQueue.java
+@@ -571,6 +571,19 @@ public class LeafQueue implements CSQueue {
+     return user;
+   }
+ 
++  /**
++   * @return an ArrayList of UserInfo objects who are active in this queue
++   */
++  public synchronized ArrayList<UserInfo> getUsers() {
++    ArrayList<UserInfo> usersToReturn = new ArrayList<UserInfo>();
++    for (Map.Entry<String, User> entry: users.entrySet()) {
++      usersToReturn.add(new UserInfo(entry.getKey(), Resources.clone(
++        entry.getValue().consumed), entry.getValue().getActiveApplications(),
++        entry.getValue().getPendingApplications()));
++    }
++    return usersToReturn;
++  }
++
+   @Override
+   public synchronized void reinitialize(
+       CSQueue newlyParsedQueue, Resource clusterResource) 
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/UserInfo.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/UserInfo.java
+new file mode 100644
+index 0000000..65c911b
+--- /dev/null
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/UserInfo.java
+@@ -0,0 +1,60 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity;
++
++import javax.xml.bind.annotation.XmlAccessType;
++import javax.xml.bind.annotation.XmlAccessorType;
++import javax.xml.bind.annotation.XmlRootElement;
++
++import org.apache.hadoop.yarn.api.records.Resource;
++import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.ResourceInfo;
++
++@XmlRootElement
++@XmlAccessorType(XmlAccessType.FIELD)
++public class UserInfo {
++  protected String  username;
++  protected ResourceInfo resourcesUsed;
++  protected int numPendingApplications;
++  protected int numActiveApplications;
++
++  UserInfo() {}
++
++  UserInfo(String username, Resource resUsed, int activeApps, int pendingApps) {
++    this.username = username;
++    this.resourcesUsed = new ResourceInfo(resUsed);
++    this.numActiveApplications = activeApps;
++    this.numPendingApplications = pendingApps;
++  }
++
++  public String getUsername() {
++    return username;
++  }
++
++  public ResourceInfo getResourcesUsed() {
++    return resourcesUsed;
++  }
++
++  public int getNumPendingApplications() {
++    return numPendingApplications;
++  }
++
++  public int getNumActiveApplications() {
++    return numActiveApplications;
++  }
++}
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/CapacitySchedulerPage.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/CapacitySchedulerPage.java
+index 110bf8d..52a1bc7 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/CapacitySchedulerPage.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/CapacitySchedulerPage.java
+@@ -22,12 +22,15 @@ import static org.apache.hadoop.yarn.util.StringHelper.join;
+ 
+ import java.util.ArrayList;
+ 
++import org.apache.hadoop.util.StringUtils;
+ import org.apache.hadoop.yarn.server.resourcemanager.ResourceManager;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CSQueue;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler;
++import org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.UserInfo;
+ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.CapacitySchedulerInfo;
+ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.CapacitySchedulerLeafQueueInfo;
+ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.CapacitySchedulerQueueInfo;
++import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.ResourceInfo;
+ import org.apache.hadoop.yarn.webapp.ResponseInfo;
+ import org.apache.hadoop.yarn.webapp.SubView;
+ import org.apache.hadoop.yarn.webapp.hamlet.Hamlet;
+@@ -63,8 +66,42 @@ class CapacitySchedulerPage extends RmView {
+       lqinfo = (CapacitySchedulerLeafQueueInfo) info.qinfo;
+     }
+ 
++    //Return a string describing one resource as a percentage of another
++    private String getPercentage(ResourceInfo numerator, ResourceInfo denominator) {
++      StringBuilder percentString = new StringBuilder("Memory: ");
++      if (numerator != null) {
++        percentString.append(numerator.getMemory());
++      }
++      if (denominator.getMemory() != 0) {
++        percentString.append(" (<span title='of used resources in this queue'>")
++          .append(StringUtils.format("%.2f", numerator.getMemory() * 100.0 /
++            denominator.getMemory()) + "%</span>)");
++      }
++      percentString.append(", vCores: ");
++      if (numerator != null) {
++        percentString.append(numerator.getvCores());
++      }
++      if (denominator.getvCores() != 0) {
++        percentString.append(" (<span title='of used resources in this queue'>")
++          .append(StringUtils.format("%.2f", numerator.getvCores() * 100.0 /
++          denominator.getvCores()) + "%</span>)");
++      }
++      return percentString.toString();
++    }
++
+     @Override
+     protected void render(Block html) {
++      StringBuilder activeUserList = new StringBuilder("");
++      ResourceInfo usedResources = lqinfo.getResourcesUsed();
++      ArrayList<UserInfo> users = lqinfo.getUsers().getUsersList();
++      for (UserInfo entry: users) {
++        activeUserList.append(entry.getUsername()).append(" &lt;")
++          .append(getPercentage(entry.getResourcesUsed(), usedResources))
++          .append(", Active Apps: " + entry.getNumActiveApplications())
++          .append(", Pending Apps: " + entry.getNumPendingApplications())
++          .append("&gt;<br style='display:block'>"); //Force line break
++      }
++
+       ResponseInfo ri = info("\'" + lqinfo.getQueuePath().substring(5) + "\' Queue Status").
+           _("Queue State:", lqinfo.getQueueState()).
+           _("Used Capacity:", percent(lqinfo.getUsedCapacity() / 100)).
+@@ -81,7 +118,8 @@ class CapacitySchedulerPage extends RmView {
+           _("Configured Capacity:", percent(lqinfo.getCapacity() / 100)).
+           _("Configured Max Capacity:", percent(lqinfo.getMaxCapacity() / 100)).
+           _("Configured Minimum User Limit Percent:", Integer.toString(lqinfo.getUserLimit()) + "%").
+-          _("Configured User Limit Factor:", String.format("%.1f", lqinfo.getUserLimitFactor()));
++          _("Configured User Limit Factor:", String.format("%.1f", lqinfo.getUserLimitFactor())).
++          _r("Active users: ", activeUserList.toString());
+ 
+       html._(InfoBlock.class);
+ 
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/JAXBContextResolver.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/JAXBContextResolver.java
+index 12e77a7..5f50ed1 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/JAXBContextResolver.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/JAXBContextResolver.java
+@@ -30,6 +30,7 @@ import javax.ws.rs.ext.ContextResolver;
+ import javax.ws.rs.ext.Provider;
+ import javax.xml.bind.JAXBContext;
+ 
++import org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.UserInfo;
+ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.AppInfo;
+ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.AppAttemptInfo;
+ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.AppAttemptsInfo;
+@@ -42,9 +43,11 @@ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.ClusterMetricsIn
+ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.FifoSchedulerInfo;
+ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.NodeInfo;
+ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.NodesInfo;
++import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.ResourceInfo;
+ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.SchedulerInfo;
+ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.SchedulerTypeInfo;
+ import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.UserMetricsInfo;
++import org.apache.hadoop.yarn.server.resourcemanager.webapp.dao.UsersInfo;
+ import org.apache.hadoop.yarn.webapp.RemoteExceptionData;
+ 
+ @Singleton
+@@ -61,7 +64,8 @@ public class JAXBContextResolver implements ContextResolver<JAXBContext> {
+       SchedulerTypeInfo.class, NodeInfo.class, UserMetricsInfo.class,
+       CapacitySchedulerInfo.class, ClusterMetricsInfo.class,
+       SchedulerInfo.class, AppsInfo.class, NodesInfo.class,
+-      RemoteExceptionData.class, CapacitySchedulerQueueInfoList.class};
++      RemoteExceptionData.class, CapacitySchedulerQueueInfoList.class,
++      ResourceInfo.class, UsersInfo.class, UserInfo.class};
+ 
+   public JAXBContextResolver() throws Exception {
+     this.types = new HashSet<Class>(Arrays.asList(cTypes));
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/CapacitySchedulerLeafQueueInfo.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/CapacitySchedulerLeafQueueInfo.java
+index 5b2624e..d90e963 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/CapacitySchedulerLeafQueueInfo.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/CapacitySchedulerLeafQueueInfo.java
+@@ -35,6 +35,7 @@ public class CapacitySchedulerLeafQueueInfo extends CapacitySchedulerQueueInfo {
+   protected int maxActiveApplications;
+   protected int maxActiveApplicationsPerUser;
+   protected int userLimit;
++  protected UsersInfo users; // To add another level in the XML
+   protected float userLimitFactor;
+ 
+   CapacitySchedulerLeafQueueInfo() {
+@@ -50,6 +51,7 @@ public class CapacitySchedulerLeafQueueInfo extends CapacitySchedulerQueueInfo {
+     maxActiveApplications = q.getMaximumActiveApplications();
+     maxActiveApplicationsPerUser = q.getMaximumActiveApplicationsPerUser();
+     userLimit = q.getUserLimit();
++    users = new UsersInfo(q.getUsers());
+     userLimitFactor = q.getUserLimitFactor();
+   }
+ 
+@@ -85,6 +87,11 @@ public class CapacitySchedulerLeafQueueInfo extends CapacitySchedulerQueueInfo {
+     return userLimit;
+   }
+ 
++  //Placing here because of JERSEY-1199
++  public UsersInfo getUsers() {
++    return users;
++  }
++
+   public float getUserLimitFactor() {
+     return userLimitFactor;
+   }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/CapacitySchedulerQueueInfo.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/CapacitySchedulerQueueInfo.java
+index 6757227..2cfa660 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/CapacitySchedulerQueueInfo.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/CapacitySchedulerQueueInfo.java
+@@ -48,6 +48,7 @@ public class CapacitySchedulerQueueInfo {
+   protected String queueName;
+   protected QueueState state;
+   protected CapacitySchedulerQueueInfoList queues;
++  protected ResourceInfo resourcesUsed;
+ 
+   CapacitySchedulerQueueInfo() {
+   };
+@@ -69,6 +70,7 @@ public class CapacitySchedulerQueueInfo {
+     usedResources = q.getUsedResources().toString();
+     queueName = q.getQueueName();
+     state = q.getState();
++    resourcesUsed = new ResourceInfo(q.getUsedResources());
+   }
+ 
+   public float getCapacity() {
+@@ -119,6 +121,10 @@ public class CapacitySchedulerQueueInfo {
+     return this.queues;
+   }
+ 
++  public ResourceInfo getResourcesUsed() {
++    return resourcesUsed;
++  }
++
+   /**
+    * Limit a value to a specified range.
+    * @param val the value to be capped
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/ResourceInfo.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/ResourceInfo.java
+new file mode 100644
+index 0000000..84276bf
+--- /dev/null
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/ResourceInfo.java
+@@ -0,0 +1,48 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.yarn.server.resourcemanager.webapp.dao;
++
++import javax.xml.bind.annotation.XmlAccessType;
++import javax.xml.bind.annotation.XmlAccessorType;
++import javax.xml.bind.annotation.XmlRootElement;
++
++import org.apache.hadoop.yarn.api.records.Resource;
++
++@XmlRootElement
++@XmlAccessorType(XmlAccessType.FIELD)
++public class ResourceInfo {
++  int memory;
++  int vCores;
++  
++  public ResourceInfo() { 
++  }
++
++  public ResourceInfo(Resource res) {
++    memory = res.getMemory();
++    vCores = res.getVirtualCores();
++  }
++
++  public int getMemory() {
++    return memory;
++  }
++
++  public int getvCores() {
++    return vCores;
++  }
++}
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/UsersInfo.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/UsersInfo.java
+new file mode 100644
+index 0000000..3ee7edf
+--- /dev/null
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/dao/UsersInfo.java
+@@ -0,0 +1,46 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.yarn.server.resourcemanager.webapp.dao;
++
++import java.util.ArrayList;
++
++import javax.xml.bind.annotation.XmlAccessType;
++import javax.xml.bind.annotation.XmlAccessorType;
++import javax.xml.bind.annotation.XmlElement;
++import javax.xml.bind.annotation.XmlRootElement;
++
++import org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.UserInfo;
++
++@XmlRootElement
++@XmlAccessorType(XmlAccessType.FIELD)
++public class UsersInfo {
++  @XmlElement(name="user")
++  protected ArrayList<UserInfo> usersList = new ArrayList<UserInfo>();
++
++  public UsersInfo() {
++  }
++
++  public UsersInfo(ArrayList<UserInfo> usersList) {
++    this.usersList = usersList;
++  }
++
++  public ArrayList<UserInfo> getUsersList() {
++    return usersList;
++  }
++}
+\ No newline at end of file
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/MockRM.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/MockRM.java
+index 0bc3211..12391c6 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/MockRM.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/MockRM.java
+@@ -18,16 +18,19 @@
+ 
+ package org.apache.hadoop.yarn.server.resourcemanager;
+ 
++import java.security.PrivilegedAction;
+ import java.util.Map;
+ 
+ import junit.framework.Assert;
+ 
+ import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.security.UserGroupInformation;
+ import org.apache.hadoop.yarn.api.ClientRMProtocol;
+ import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationRequest;
+ import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
+ import org.apache.hadoop.yarn.api.protocolrecords.KillApplicationRequest;
+ import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationRequest;
++import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationResponse;
+ import org.apache.hadoop.yarn.api.records.ApplicationAccessType;
+ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
+ import org.apache.hadoop.yarn.api.records.ApplicationId;
+@@ -37,6 +40,7 @@ import org.apache.hadoop.yarn.api.records.NodeId;
+ import org.apache.hadoop.yarn.api.records.NodeState;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
++import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+ import org.apache.hadoop.yarn.server.resourcemanager.amlauncher.AMLauncherEvent;
+ import org.apache.hadoop.yarn.server.resourcemanager.amlauncher.ApplicationMasterLauncher;
+ import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore;
+@@ -118,21 +122,27 @@ public class MockRM extends ResourceManager {
+   }
+ 
+   public RMApp submitApp(int masterMemory) throws Exception {
+-    return submitApp(masterMemory, "", "");
++    return submitApp(masterMemory, "", UserGroupInformation.getCurrentUser()
++      .getShortUserName());
+   }
+ 
+   // client
+   public RMApp submitApp(int masterMemory, String name, String user) throws Exception {
+-    return submitApp(masterMemory, name, user, null, false);
++    return submitApp(masterMemory, name, user, null, false, null);
+   }
+   
+   public RMApp submitApp(int masterMemory, String name, String user,
+       Map<ApplicationAccessType, String> acls) throws Exception {
+-    return submitApp(masterMemory, name, user, acls, false);
++    return submitApp(masterMemory, name, user, acls, false, null);
+   }  
+ 
+   public RMApp submitApp(int masterMemory, String name, String user,
+-      Map<ApplicationAccessType, String> acls, boolean unmanaged) throws Exception {
++      Map<ApplicationAccessType, String> acls, String queue) throws Exception {
++    return submitApp(masterMemory, name, user, acls, false, queue);
++  }  
++
++  public RMApp submitApp(int masterMemory, String name, String user,
++      Map<ApplicationAccessType, String> acls, boolean unmanaged, String queue) throws Exception {
+     ClientRMProtocol client = getClientRMService();
+     GetNewApplicationResponse resp = client.getNewApplication(Records
+         .newRecord(GetNewApplicationRequest.class));
+@@ -148,6 +158,9 @@ public class MockRM extends ResourceManager {
+     if(unmanaged) {
+       sub.setUnmanagedAM(true);
+     }
++    if (queue != null) {
++      sub.setQueue(queue);
++    }
+     ContainerLaunchContext clc = Records
+         .newRecord(ContainerLaunchContext.class);
+     Resource capability = Records.newRecord(Resource.class);
+@@ -157,7 +170,29 @@ public class MockRM extends ResourceManager {
+     sub.setAMContainerSpec(clc);
+     req.setApplicationSubmissionContext(sub);
+ 
+-    client.submitApplication(req);
++    UserGroupInformation fakeUser =
++      UserGroupInformation.createUserForTesting(user, new String[] {"someGroup"});
++    PrivilegedAction<SubmitApplicationResponse> action =
++      new PrivilegedAction<SubmitApplicationResponse>() {
++      ClientRMProtocol client;
++      SubmitApplicationRequest req;
++      @Override
++      public SubmitApplicationResponse run() {
++        try {
++          return client.submitApplication(req);
++        } catch (YarnRemoteException e) {
++          e.printStackTrace();
++        }
++        return null;
++      }
++      PrivilegedAction<SubmitApplicationResponse> setClientReq(
++        ClientRMProtocol client, SubmitApplicationRequest req) {
++        this.client = client;
++        this.req = req;
++        return this;
++      }
++    }.setClientReq(client, req);
++    fakeUser.doAs(action);
+     // make sure app is immediately available after submit
+     waitForState(appId, RMAppState.ACCEPTED);
+     return getRMContext().getRMApps().get(appId);
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestRMRestart.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestRMRestart.java
+index 7e1631c..0659341 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestRMRestart.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestRMRestart.java
+@@ -150,7 +150,7 @@ public class TestRMRestart {
+         .getApplicationId());
+     
+     // create unmanaged app
+-    RMApp appUnmanaged = rm1.submitApp(200, "", "", null, true);
++    RMApp appUnmanaged = rm1.submitApp(200, "someApp", "someUser", null, true, null);
+     ApplicationAttemptId unmanagedAttemptId = 
+                         appUnmanaged.getCurrentAppAttempt().getAppAttemptId();
+     // assert appUnmanaged info is saved
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/TestRMWebServicesCapacitySched.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/TestRMWebServicesCapacitySched.java
+index 00bdafb..3fc0883 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/TestRMWebServicesCapacitySched.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/TestRMWebServicesCapacitySched.java
+@@ -27,10 +27,12 @@ import javax.ws.rs.core.MediaType;
+ import javax.xml.parsers.DocumentBuilder;
+ import javax.xml.parsers.DocumentBuilderFactory;
+ 
++import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.server.resourcemanager.MockRM;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
+ import org.apache.hadoop.yarn.server.resourcemanager.ResourceManager;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ResourceScheduler;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacitySchedulerConfiguration;
+@@ -44,6 +46,7 @@ import org.junit.Before;
+ import org.junit.Test;
+ import org.w3c.dom.Document;
+ import org.w3c.dom.Element;
++import org.w3c.dom.Node;
+ import org.w3c.dom.NodeList;
+ import org.xml.sax.InputSource;
+ 
+@@ -355,10 +358,10 @@ public class TestRMWebServicesCapacitySched extends JerseyTest {
+   private void verifySubQueue(JSONObject info, String q, 
+       float parentAbsCapacity, float parentAbsMaxCapacity)
+       throws JSONException, Exception {
+-    int numExpectedElements = 11;
++    int numExpectedElements = 12;
+     boolean isParentQueue = true;
+     if (!info.has("queues")) {
+-      numExpectedElements = 20;
++      numExpectedElements = 22;
+       isParentQueue = false;
+     }
+     assertEquals("incorrect number of elements", numExpectedElements, info.length());
+@@ -397,6 +400,8 @@ public class TestRMWebServicesCapacitySched extends JerseyTest {
+       lqi.userLimit = info.getInt("userLimit");
+       lqi.userLimitFactor = (float) info.getDouble("userLimitFactor");
+       verifyLeafQueueGeneric(q, lqi);
++      // resourcesUsed and users (per-user resources used) are checked in
++      // testPerUserResource()
+     }
+   }
+ 
+@@ -464,4 +469,143 @@ public class TestRMWebServicesCapacitySched extends JerseyTest {
+     assertEquals("userLimitFactor doesn't match",
+         csConf.getUserLimitFactor(q), info.userLimitFactor, 1e-3f);
+   }
++
++  //Return a child Node of node with the tagname or null if none exists 
++  private Node getChildNodeByName(Node node, String tagname) {
++    NodeList nodeList = node.getChildNodes();
++    for (int i=0; i < nodeList.getLength(); ++i) {
++      if (nodeList.item(i).getNodeName().equals(tagname)) {
++        return nodeList.item(i);
++      }
++    }
++    return null;
++  }
++
++  /**
++   * Test per user resources and resourcesUsed elements in the web services XML
++   * @throws Exception
++   */
++  @Test
++  public void testPerUserResourcesXML() throws Exception {
++    //Start RM so that it accepts app submissions
++    rm.start();
++    try {
++      rm.submitApp(10, "app1", "user1", null, "b1");
++      rm.submitApp(20, "app2", "user2", null, "b1");
++
++      //Get the XML from ws/v1/cluster/scheduler
++      WebResource r = resource();
++      ClientResponse response = r.path("ws/v1/cluster/scheduler")
++        .accept(MediaType.APPLICATION_XML).get(ClientResponse.class);
++      assertEquals(MediaType.APPLICATION_XML_TYPE, response.getType());
++      String xml = response.getEntity(String.class);
++      DocumentBuilder db = DocumentBuilderFactory.newInstance()
++        .newDocumentBuilder();
++      InputSource is = new InputSource();
++      is.setCharacterStream(new StringReader(xml));
++      //Parse the XML we got
++      Document dom = db.parse(is);
++
++      //Get all users elements (1 for each leaf queue)
++      NodeList allUsers = dom.getElementsByTagName("users");
++      for (int i=0; i<allUsers.getLength(); ++i) {
++        Node perUserResources = allUsers.item(i);
++        String queueName = getChildNodeByName(perUserResources
++          .getParentNode(), "queueName").getTextContent();
++        if (queueName.equals("b1")) {
++          //b1 should have two users (user1 and user2) which submitted jobs
++          assertEquals(2, perUserResources.getChildNodes().getLength());
++          NodeList users = perUserResources.getChildNodes();
++          for (int j=0; j<users.getLength(); ++j) {
++            Node user = users.item(j);
++            String username = getChildNodeByName(user, "username")
++              .getTextContent(); 
++            assertTrue(username.equals("user1") || username.equals("user2"));
++            //Should be a parsable integer
++            Integer.parseInt(getChildNodeByName(getChildNodeByName(user,
++              "resourcesUsed"), "memory").getTextContent());
++            Integer.parseInt(getChildNodeByName(user, "numActiveApplications")
++              .getTextContent());
++            Integer.parseInt(getChildNodeByName(user, "numPendingApplications")
++                .getTextContent());
++          }
++        } else {
++        //Queues other than b1 should have 0 users
++          assertEquals(0, perUserResources.getChildNodes().getLength());
++        }
++      }
++      NodeList allResourcesUsed = dom.getElementsByTagName("resourcesUsed");
++      for (int i=0; i<allResourcesUsed.getLength(); ++i) {
++        Node resourcesUsed = allResourcesUsed.item(i);
++        Integer.parseInt(getChildNodeByName(resourcesUsed, "memory")
++            .getTextContent());
++        Integer.parseInt(getChildNodeByName(resourcesUsed, "vCores")
++              .getTextContent());
++      }
++    } finally {
++      rm.stop();
++    }
++  }
++
++  private void checkResourcesUsed(JSONObject queue) throws JSONException {
++    queue.getJSONObject("resourcesUsed").getInt("memory");
++    queue.getJSONObject("resourcesUsed").getInt("vCores");
++  }
++
++  //Also checks resourcesUsed
++  private JSONObject getSubQueue(JSONObject queue, String subQueue)
++    throws JSONException {
++    JSONArray queues = queue.getJSONObject("queues").getJSONArray("queue");
++    for (int i=0; i<queues.length(); ++i) {
++      checkResourcesUsed(queues.getJSONObject(i));
++      if (queues.getJSONObject(i).getString("queueName").equals(subQueue) ) {
++        return queues.getJSONObject(i);
++      }
++    }
++    return null;
++  }
++
++  @Test
++  public void testPerUserResourcesJSON() throws Exception {
++    //Start RM so that it accepts app submissions
++    rm.start();
++    try {
++      rm.submitApp(10, "app1", "user1", null, "b1");
++      rm.submitApp(20, "app2", "user2", null, "b1");
++
++      //Get JSON
++      WebResource r = resource();
++      ClientResponse response = r.path("ws").path("v1").path("cluster")
++          .path("scheduler/").accept(MediaType.APPLICATION_JSON)
++          .get(ClientResponse.class);
++      assertEquals(MediaType.APPLICATION_JSON_TYPE, response.getType());
++      JSONObject json = response.getEntity(JSONObject.class);
++
++      JSONObject schedulerInfo = json.getJSONObject("scheduler").getJSONObject(
++        "schedulerInfo");
++      JSONObject b1 = getSubQueue(getSubQueue(schedulerInfo, "b"), "b1");
++      //Check users user1 and user2 exist in b1
++      JSONArray users = b1.getJSONObject("users").getJSONArray("user");
++      for (int i=0; i<2; ++i) {
++        JSONObject user = users.getJSONObject(i);
++        assertTrue("User isn't user1 or user2",user.getString("username")
++          .equals("user1") || user.getString("username").equals("user2"));
++        user.getInt("numActiveApplications");
++        user.getInt("numPendingApplications");
++        checkResourcesUsed(user);
++      }
++    } finally {
++      rm.stop();
++    }
++  }
++
++
++  @Test
++  public void testResourceInfo() {
++    Resource res = Resources.createResource(10, 1);
++    // If we add a new resource (e.g disks), then
++    // CapacitySchedulerPage and these RM WebServices + docs need to be updated
++    // eg. ResourceInfo
++    assertEquals("<memory:10, vCores:1>", res.toString());
++  }
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/ResourceManagerRest.apt.vm b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/ResourceManagerRest.apt.vm
+index 36600b8..adb96cc 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/ResourceManagerRest.apt.vm
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/ResourceManagerRest.apt.vm
+@@ -351,6 +351,8 @@ ResourceManager REST API's.
+ *---------------+--------------+-------------------------------+
+ | queues | array of queues(JSON)/zero or more queue objects(XML) | A collection of sub-queue information|
+ *---------------+--------------+-------------------------------+
++| resourcesUsed | A single resource object | The total amount of resources used by this queue |
++*---------------+--------------+-------------------------------+
+ 
+ ** Elements of the queues object for a Leaf queue - contains all elements in parent plus the following:
+ 
+@@ -377,6 +379,32 @@ ResourceManager REST API's.
+ *---------------+--------------+-------------------------------+
+ | userLimitFactor | float | The user limit factor set in the configuration |
+ *---------------+--------------+-------------------------------+
++| users | array of users(JSON)/zero or more user objects(XML) | A collection of user objects containing resources used |
++*---------------+--------------+-------------------------------+
++
++** Elements of the user object for users:
++
++*---------------+--------------+-------------------------------+
++|| Item         || Data Type   || Description                   |
++*---------------+--------------+-------------------------------+
++| username | String | The username of the user using the resources |
++*---------------+--------------+-------------------------------+
++| resourcesUsed | A single resource object | The amount of resources used by the user in this queue |
++*---------------+--------------+-------------------------------+
++| numActiveApplications | int | The number of active applications for this user in this queue |
++*---------------+--------------+-------------------------------+
++| numPendingApplications | int | The number of pending applications for this user in this queue |
++*---------------+--------------+-------------------------------+
++
++** Elements of the resource object for resourcesUsed in user and queues:
++
++*---------------+--------------+-------------------------------+
++|| Item         || Data Type   || Description                   |
++*---------------+--------------+-------------------------------+
++| memory | int | The amount of memory used (in MB) |
++*---------------+--------------+-------------------------------+
++| vCores | int | The number of virtual cores |
++*---------------+--------------+-------------------------------+
+ 
+ *** Response Examples
+ 
+@@ -401,199 +429,262 @@ ResourceManager REST API's.
+ 
+ +---+
+ {
+-   "scheduler" : {
+-      "schedulerInfo" : {
+-         "queueName" : "root",
+-         "maxCapacity" : 100,
+-         "type" : "capacityScheduler",
+-         "queues" : {
+-            "queue" : [
+-               {
+-                  "numPendingApplications" : 0,
+-                  "queueName" : "default",
+-                  "userLimitFactor" : 1,
+-                  "maxApplications" : 1,
+-                  "usedCapacity" : 0,
+-                  "numContainers" : 0,
+-                  "state" : "RUNNING",
+-                  "maxCapacity" : 90,
+-                  "numApplications" : 0,
+-                  "usedResources" : "memory: 0",
+-                  "absoluteMaxCapacity" : 90,
+-                  "maxActiveApplications" : 1,
+-                  "numActiveApplications" : 0,
+-                  "absoluteUsedCapacity" : 0,
+-                  "userLimit" : 100,
+-                  "absoluteCapacity" : 70,
+-                  "maxActiveApplicationsPerUser" : 1,
+-                  "capacity" : 70,
+-                  "type" : "capacitySchedulerLeafQueueInfo",
+-                  "maxApplicationsPerUser" : 1
+-               },
+-               {
+-                  "queueName" : "test",
+-                  "absoluteCapacity" : 20,
+-                  "usedCapacity" : 0,
+-                  "capacity" : 20,
+-                  "state" : "RUNNING",
+-                  "maxCapacity" : 100,
+-                  "numApplications" : 0,
+-                  "usedResources" : "memory: 0",
+-                  "absoluteMaxCapacity" : 100,
+-                  "queues" : {
+-                     "queue" : [
+-                        {
+-                           "queueName" : "a1",
+-                           "absoluteCapacity" : 12,
+-                           "usedCapacity" : 0,
+-                           "capacity" : 60.000004,
+-                           "state" : "RUNNING",
+-                           "maxCapacity" : 100,
+-                           "numApplications" : 0,
+-                           "usedResources" : "memory: 0",
+-                           "absoluteMaxCapacity" : 100,
+-                           "queues" : {
+-                              "queue" : [
+-                                 {
+-                                    "numPendingApplications" : 0,
+-                                    "queueName" : "a11",
+-                                    "userLimitFactor" : 1,
+-                                    "maxApplications" : 0,
+-                                    "usedCapacity" : 0,
+-                                    "numContainers" : 0,
+-                                    "state" : "RUNNING",
+-                                    "maxCapacity" : 100,
+-                                    "numApplications" : 0,
+-                                    "usedResources" : "memory: 0",
+-                                    "absoluteMaxCapacity" : 100,
+-                                    "maxActiveApplications" : 1,
+-                                    "numActiveApplications" : 0,
+-                                    "absoluteUsedCapacity" : 0,
+-                                    "userLimit" : 100,
+-                                    "absoluteCapacity" : 10.200001,
+-                                    "maxActiveApplicationsPerUser" : 1,
+-                                    "capacity" : 85,
+-                                    "type" : "capacitySchedulerLeafQueueInfo",
+-                                    "maxApplicationsPerUser" : 0
+-                                 },
+-                                 {
+-                                    "numPendingApplications" : 0,
+-                                    "queueName" : "a12",
+-                                    "userLimitFactor" : 1,
+-                                    "maxApplications" : 0,
+-                                    "usedCapacity" : 0,
+-                                    "numContainers" : 0,
+-                                    "state" : "RUNNING",
+-                                    "maxCapacity" : 100,
+-                                    "numApplications" : 0,
+-                                    "usedResources" : "memory: 0",
+-                                    "absoluteMaxCapacity" : 100,
+-                                    "maxActiveApplications" : 1,
+-                                    "numActiveApplications" : 0,
+-                                    "absoluteUsedCapacity" : 0,
+-                                    "userLimit" : 100,
+-                                    "absoluteCapacity" : 1.8000001,
+-                                    "maxActiveApplicationsPerUser" : 1,
+-                                    "capacity" : 15.000001,
+-                                    "type" : "capacitySchedulerLeafQueueInfo",
+-                                    "maxApplicationsPerUser" : 0
+-                                 }
+-                              ]
+-                           },
+-                           "absoluteUsedCapacity" : 0
+-                        },
+-                        {
+-                           "numPendingApplications" : 0,
+-                           "queueName" : "a2",
+-                           "userLimitFactor" : 1,
+-                           "maxApplications" : 0,
+-                           "usedCapacity" : 0,
+-                           "numContainers" : 0,
+-                           "state" : "RUNNING",
+-                           "maxCapacity" : 100,
+-                           "numApplications" : 0,
+-                           "usedResources" : "memory: 0",
+-                           "absoluteMaxCapacity" : 100,
+-                           "maxActiveApplications" : 1,
+-                           "numActiveApplications" : 0,
+-                           "absoluteUsedCapacity" : 0,
+-                           "userLimit" : 100,
+-                           "absoluteCapacity" : 8.000001,
+-                           "maxActiveApplicationsPerUser" : 1,
+-                           "capacity" : 40,
+-                           "type" : "capacitySchedulerLeafQueueInfo",
+-                           "maxApplicationsPerUser" : 0
+-                        }
+-                     ]
+-                  },
+-                  "absoluteUsedCapacity" : 0
+-               },
+-               {
+-                  "queueName" : "test2",
+-                  "absoluteCapacity" : 10,
+-                  "usedCapacity" : 0,
+-                  "capacity" : 10,
+-                  "state" : "RUNNING",
+-                  "maxCapacity" : 15.000001,
+-                  "numApplications" : 0,
+-                  "usedResources" : "memory: 0",
+-                  "absoluteMaxCapacity" : 15.000001,
+-                  "queues" : {
+-                     "queue" : [
+-                        {
+-                           "numPendingApplications" : 0,
+-                           "queueName" : "a3",
+-                           "userLimitFactor" : 1,
+-                           "maxApplications" : 0,
+-                           "usedCapacity" : 0,
+-                           "numContainers" : 0,
+-                           "state" : "RUNNING",
+-                           "maxCapacity" : 100,
+-                           "numApplications" : 0,
+-                           "usedResources" : "memory: 0",
+-                           "absoluteMaxCapacity" : 15.000001,
+-                           "maxActiveApplications" : 1,
+-                           "numActiveApplications" : 0,
+-                           "absoluteUsedCapacity" : 0,
+-                           "userLimit" : 100,
+-                           "absoluteCapacity" : 9,
+-                           "maxActiveApplicationsPerUser" : 1,
+-                           "capacity" : 90,
+-                           "type" : "capacitySchedulerLeafQueueInfo",
+-                           "maxApplicationsPerUser" : 0
+-                        },
+-                        {
+-                           "numPendingApplications" : 0,
+-                           "queueName" : "a4",
+-                           "userLimitFactor" : 1,
+-                           "maxApplications" : 0,
+-                           "usedCapacity" : 0,
+-                           "numContainers" : 0,
+-                           "state" : "RUNNING",
+-                           "maxCapacity" : 100,
+-                           "numApplications" : 0,
+-                           "usedResources" : "memory: 0",
+-                           "absoluteMaxCapacity" : 15.000001,
+-                           "maxActiveApplications" : 1,
+-                           "numActiveApplications" : 0,
+-                           "absoluteUsedCapacity" : 0,
+-                           "userLimit" : 100,
+-                           "absoluteCapacity" : 1.0000001,
+-                           "maxActiveApplicationsPerUser" : 1,
+-                           "capacity" : 10,
+-                           "type" : "capacitySchedulerLeafQueueInfo",
+-                           "maxApplicationsPerUser" : 0
+-                        }
+-                     ]
+-                  },
+-                  "absoluteUsedCapacity" : 0
+-               }
+-            ]
+-         },
+-         "usedCapacity" : 0,
+-         "capacity" : 100
+-      }
+-   }
++    "scheduler": {
++        "schedulerInfo": {
++            "capacity": 100.0, 
++            "maxCapacity": 100.0, 
++            "queueName": "root", 
++            "queues": {
++                "queue": [
++                    {
++                        "absoluteCapacity": 10.5, 
++                        "absoluteMaxCapacity": 50.0, 
++                        "absoluteUsedCapacity": 0.0, 
++                        "capacity": 10.5, 
++                        "maxCapacity": 50.0, 
++                        "numApplications": 0, 
++                        "queueName": "a", 
++                        "queues": {
++                            "queue": [
++                                {
++                                    "absoluteCapacity": 3.15, 
++                                    "absoluteMaxCapacity": 25.0, 
++                                    "absoluteUsedCapacity": 0.0, 
++                                    "capacity": 30.000002, 
++                                    "maxCapacity": 50.0, 
++                                    "numApplications": 0, 
++                                    "queueName": "a1", 
++                                    "queues": {
++                                        "queue": [
++                                            {
++                                                "absoluteCapacity": 2.6775, 
++                                                "absoluteMaxCapacity": 25.0, 
++                                                "absoluteUsedCapacity": 0.0, 
++                                                "capacity": 85.0, 
++                                                "maxActiveApplications": 1, 
++                                                "maxActiveApplicationsPerUser": 1, 
++                                                "maxApplications": 267, 
++                                                "maxApplicationsPerUser": 267, 
++                                                "maxCapacity": 100.0, 
++                                                "numActiveApplications": 0, 
++                                                "numApplications": 0, 
++                                                "numContainers": 0, 
++                                                "numPendingApplications": 0, 
++                                                "queueName": "a1a", 
++                                                "resourcesUsed": {
++                                                    "memory": 0, 
++                                                    "vCores": 0
++                                                }, 
++                                                "state": "RUNNING", 
++                                                "type": "capacitySchedulerLeafQueueInfo", 
++                                                "usedCapacity": 0.0, 
++                                                "usedResources": "<memory:0, vCores:0>", 
++                                                "userLimit": 100, 
++                                                "userLimitFactor": 1.0, 
++                                                "users": null
++                                            }, 
++                                            {
++                                                "absoluteCapacity": 0.47250003, 
++                                                "absoluteMaxCapacity": 25.0, 
++                                                "absoluteUsedCapacity": 0.0, 
++                                                "capacity": 15.000001, 
++                                                "maxActiveApplications": 1, 
++                                                "maxActiveApplicationsPerUser": 1, 
++                                                "maxApplications": 47, 
++                                                "maxApplicationsPerUser": 47, 
++                                                "maxCapacity": 100.0, 
++                                                "numActiveApplications": 0, 
++                                                "numApplications": 0, 
++                                                "numContainers": 0, 
++                                                "numPendingApplications": 0, 
++                                                "queueName": "a1b", 
++                                                "resourcesUsed": {
++                                                    "memory": 0, 
++                                                    "vCores": 0
++                                                }, 
++                                                "state": "RUNNING", 
++                                                "type": "capacitySchedulerLeafQueueInfo", 
++                                                "usedCapacity": 0.0, 
++                                                "usedResources": "<memory:0, vCores:0>", 
++                                                "userLimit": 100, 
++                                                "userLimitFactor": 1.0, 
++                                                "users": null
++                                            }
++                                        ]
++                                    }, 
++                                    "resourcesUsed": {
++                                        "memory": 0, 
++                                        "vCores": 0
++                                    }, 
++                                    "state": "RUNNING", 
++                                    "usedCapacity": 0.0, 
++                                    "usedResources": "<memory:0, vCores:0>"
++                                }, 
++                                {
++                                    "absoluteCapacity": 7.35, 
++                                    "absoluteMaxCapacity": 50.0, 
++                                    "absoluteUsedCapacity": 0.0, 
++                                    "capacity": 70.0, 
++                                    "maxActiveApplications": 1, 
++                                    "maxActiveApplicationsPerUser": 100, 
++                                    "maxApplications": 735, 
++                                    "maxApplicationsPerUser": 73500, 
++                                    "maxCapacity": 100.0, 
++                                    "numActiveApplications": 0, 
++                                    "numApplications": 0, 
++                                    "numContainers": 0, 
++                                    "numPendingApplications": 0, 
++                                    "queueName": "a2", 
++                                    "resourcesUsed": {
++                                        "memory": 0, 
++                                        "vCores": 0
++                                    }, 
++                                    "state": "RUNNING", 
++                                    "type": "capacitySchedulerLeafQueueInfo", 
++                                    "usedCapacity": 0.0, 
++                                    "usedResources": "<memory:0, vCores:0>", 
++                                    "userLimit": 100, 
++                                    "userLimitFactor": 100.0, 
++                                    "users": null
++                                }
++                            ]
++                        }, 
++                        "resourcesUsed": {
++                            "memory": 0, 
++                            "vCores": 0
++                        }, 
++                        "state": "RUNNING", 
++                        "usedCapacity": 0.0, 
++                        "usedResources": "<memory:0, vCores:0>"
++                    }, 
++                    {
++                        "absoluteCapacity": 89.5, 
++                        "absoluteMaxCapacity": 100.0, 
++                        "absoluteUsedCapacity": 0.0, 
++                        "capacity": 89.5, 
++                        "maxCapacity": 100.0, 
++                        "numApplications": 2, 
++                        "queueName": "b", 
++                        "queues": {
++                            "queue": [
++                                {
++                                    "absoluteCapacity": 53.7, 
++                                    "absoluteMaxCapacity": 100.0, 
++                                    "absoluteUsedCapacity": 0.0, 
++                                    "capacity": 60.000004, 
++                                    "maxActiveApplications": 1, 
++                                    "maxActiveApplicationsPerUser": 100, 
++                                    "maxApplications": 5370, 
++                                    "maxApplicationsPerUser": 537000, 
++                                    "maxCapacity": 100.0, 
++                                    "numActiveApplications": 1, 
++                                    "numApplications": 2, 
++                                    "numContainers": 0, 
++                                    "numPendingApplications": 1, 
++                                    "queueName": "b1", 
++                                    "resourcesUsed": {
++                                        "memory": 0, 
++                                        "vCores": 0
++                                    }, 
++                                    "state": "RUNNING", 
++                                    "type": "capacitySchedulerLeafQueueInfo", 
++                                    "usedCapacity": 0.0, 
++                                    "usedResources": "<memory:0, vCores:0>", 
++                                    "userLimit": 100, 
++                                    "userLimitFactor": 100.0, 
++                                    "users": {
++                                        "user": [
++                                            {
++                                                "numActiveApplications": 0, 
++                                                "numPendingApplications": 1, 
++                                                "resourcesUsed": {
++                                                    "memory": 0, 
++                                                    "vCores": 0
++                                                }, 
++                                                "username": "user2"
++                                            }, 
++                                            {
++                                                "numActiveApplications": 1, 
++                                                "numPendingApplications": 0, 
++                                                "resourcesUsed": {
++                                                    "memory": 0, 
++                                                    "vCores": 0
++                                                }, 
++                                                "username": "user1"
++                                            }
++                                        ]
++                                    }
++                                }, 
++                                {
++                                    "absoluteCapacity": 35.3525, 
++                                    "absoluteMaxCapacity": 100.0, 
++                                    "absoluteUsedCapacity": 0.0, 
++                                    "capacity": 39.5, 
++                                    "maxActiveApplications": 1, 
++                                    "maxActiveApplicationsPerUser": 100, 
++                                    "maxApplications": 3535, 
++                                    "maxApplicationsPerUser": 353500, 
++                                    "maxCapacity": 100.0, 
++                                    "numActiveApplications": 0, 
++                                    "numApplications": 0, 
++                                    "numContainers": 0, 
++                                    "numPendingApplications": 0, 
++                                    "queueName": "b2", 
++                                    "resourcesUsed": {
++                                        "memory": 0, 
++                                        "vCores": 0
++                                    }, 
++                                    "state": "RUNNING", 
++                                    "type": "capacitySchedulerLeafQueueInfo", 
++                                    "usedCapacity": 0.0, 
++                                    "usedResources": "<memory:0, vCores:0>", 
++                                    "userLimit": 100, 
++                                    "userLimitFactor": 100.0, 
++                                    "users": null
++                                }, 
++                                {
++                                    "absoluteCapacity": 0.4475, 
++                                    "absoluteMaxCapacity": 100.0, 
++                                    "absoluteUsedCapacity": 0.0, 
++                                    "capacity": 0.5, 
++                                    "maxActiveApplications": 1, 
++                                    "maxActiveApplicationsPerUser": 100, 
++                                    "maxApplications": 44, 
++                                    "maxApplicationsPerUser": 4400, 
++                                    "maxCapacity": 100.0, 
++                                    "numActiveApplications": 0, 
++                                    "numApplications": 0, 
++                                    "numContainers": 0, 
++                                    "numPendingApplications": 0, 
++                                    "queueName": "b3", 
++                                    "resourcesUsed": {
++                                        "memory": 0, 
++                                        "vCores": 0
++                                    }, 
++                                    "state": "RUNNING", 
++                                    "type": "capacitySchedulerLeafQueueInfo", 
++                                    "usedCapacity": 0.0, 
++                                    "usedResources": "<memory:0, vCores:0>", 
++                                    "userLimit": 100, 
++                                    "userLimitFactor": 100.0, 
++                                    "users": null
++                                }
++                            ]
++                        }, 
++                        "resourcesUsed": {
++                            "memory": 0, 
++                            "vCores": 0
++                        }, 
++                        "state": "RUNNING", 
++                        "usedCapacity": 0.0, 
++                        "usedResources": "<memory:0, vCores:0>"
++                    }
++                ]
++            }, 
++            "type": "capacityScheduler", 
++            "usedCapacity": 0.0
++        }
++    }
+ }
+ +---+
+ 
+@@ -626,48 +717,27 @@ ResourceManager REST API's.
+     <maxCapacity>100.0</maxCapacity>
+     <queueName>root</queueName>
+     <queues>
+-      <queue xsi:type="capacitySchedulerLeafQueueInfo">
+-        <capacity>70.0</capacity>
+-        <usedCapacity>0.0</usedCapacity>
+-        <maxCapacity>90.0</maxCapacity>
+-        <absoluteCapacity>70.0</absoluteCapacity>
+-        <absoluteMaxCapacity>90.0</absoluteMaxCapacity>
+-        <absoluteUsedCapacity>0.0</absoluteUsedCapacity>
+-        <numApplications>0</numApplications>
+-        <usedResources>memory: 0</usedResources>
+-        <queueName>default</queueName>
+-        <state>RUNNING</state>
+-        <numActiveApplications>0</numActiveApplications>
+-        <numPendingApplications>0</numPendingApplications>
+-        <numContainers>0</numContainers>
+-        <maxApplications>1</maxApplications>
+-        <maxApplicationsPerUser>1</maxApplicationsPerUser>
+-        <maxActiveApplications>1</maxActiveApplications>
+-        <maxActiveApplicationsPerUser>1</maxActiveApplicationsPerUser>
+-        <userLimit>100</userLimit>
+-        <userLimitFactor>1.0</userLimitFactor>
+-      </queue>
+       <queue>
+-        <capacity>20.0</capacity>
++        <capacity>10.5</capacity>
+         <usedCapacity>0.0</usedCapacity>
+-        <maxCapacity>100.0</maxCapacity>
+-        <absoluteCapacity>20.0</absoluteCapacity>
+-        <absoluteMaxCapacity>100.0</absoluteMaxCapacity>
++        <maxCapacity>50.0</maxCapacity>
++        <absoluteCapacity>10.5</absoluteCapacity>
++        <absoluteMaxCapacity>50.0</absoluteMaxCapacity>
+         <absoluteUsedCapacity>0.0</absoluteUsedCapacity>
+         <numApplications>0</numApplications>
+-        <usedResources>memory: 0</usedResources>
+-        <queueName>test</queueName>
++        <usedResources>&lt;memory:0, vCores:0&gt;</usedResources>
++        <queueName>a</queueName>
+         <state>RUNNING</state>
+         <queues>
+           <queue>
+-            <capacity>60.000004</capacity>
++            <capacity>30.000002</capacity>
+             <usedCapacity>0.0</usedCapacity>
+-            <maxCapacity>100.0</maxCapacity>
+-            <absoluteCapacity>12.0</absoluteCapacity>
+-            <absoluteMaxCapacity>100.0</absoluteMaxCapacity>
++            <maxCapacity>50.0</maxCapacity>
++            <absoluteCapacity>3.15</absoluteCapacity>
++            <absoluteMaxCapacity>25.0</absoluteMaxCapacity>
+             <absoluteUsedCapacity>0.0</absoluteUsedCapacity>
+             <numApplications>0</numApplications>
+-            <usedResources>memory: 0</usedResources>
++            <usedResources>&lt;memory:0, vCores:0&gt;</usedResources>
+             <queueName>a1</queueName>
+             <state>RUNNING</state>
+             <queues>
+@@ -675,124 +745,206 @@ ResourceManager REST API's.
+                 <capacity>85.0</capacity>
+                 <usedCapacity>0.0</usedCapacity>
+                 <maxCapacity>100.0</maxCapacity>
+-                <absoluteCapacity>10.200001</absoluteCapacity>
+-                <absoluteMaxCapacity>100.0</absoluteMaxCapacity>
++                <absoluteCapacity>2.6775</absoluteCapacity>
++                <absoluteMaxCapacity>25.0</absoluteMaxCapacity>
+                 <absoluteUsedCapacity>0.0</absoluteUsedCapacity>
+                 <numApplications>0</numApplications>
+-                <usedResources>memory: 0</usedResources>
+-                <queueName>a11</queueName>
++                <usedResources>&lt;memory:0, vCores:0&gt;</usedResources>
++                <queueName>a1a</queueName>
+                 <state>RUNNING</state>
++                <resourcesUsed>
++                  <memory>0</memory>
++                  <vCores>0</vCores>
++                </resourcesUsed>
+                 <numActiveApplications>0</numActiveApplications>
+                 <numPendingApplications>0</numPendingApplications>
+                 <numContainers>0</numContainers>
+-                <maxApplications>0</maxApplications>
+-                <maxApplicationsPerUser>0</maxApplicationsPerUser>
++                <maxApplications>267</maxApplications>
++                <maxApplicationsPerUser>267</maxApplicationsPerUser>
+                 <maxActiveApplications>1</maxActiveApplications>
+                 <maxActiveApplicationsPerUser>1</maxActiveApplicationsPerUser>
+                 <userLimit>100</userLimit>
++                <users/>
+                 <userLimitFactor>1.0</userLimitFactor>
+               </queue>
+               <queue xsi:type="capacitySchedulerLeafQueueInfo">
+                 <capacity>15.000001</capacity>
+                 <usedCapacity>0.0</usedCapacity>
+                 <maxCapacity>100.0</maxCapacity>
+-                <absoluteCapacity>1.8000001</absoluteCapacity>
+-                <absoluteMaxCapacity>100.0</absoluteMaxCapacity>
++                <absoluteCapacity>0.47250003</absoluteCapacity>
++                <absoluteMaxCapacity>25.0</absoluteMaxCapacity>
+                 <absoluteUsedCapacity>0.0</absoluteUsedCapacity>
+                 <numApplications>0</numApplications>
+-                <usedResources>memory: 0</usedResources>
+-                <queueName>a12</queueName>
++                <usedResources>&lt;memory:0, vCores:0&gt;</usedResources>
++                <queueName>a1b</queueName>
+                 <state>RUNNING</state>
++                <resourcesUsed>
++                  <memory>0</memory>
++                  <vCores>0</vCores>
++                </resourcesUsed>
+                 <numActiveApplications>0</numActiveApplications>
+                 <numPendingApplications>0</numPendingApplications>
+                 <numContainers>0</numContainers>
+-                <maxApplications>0</maxApplications>
+-                <maxApplicationsPerUser>0</maxApplicationsPerUser>
++                <maxApplications>47</maxApplications>
++                <maxApplicationsPerUser>47</maxApplicationsPerUser>
+                 <maxActiveApplications>1</maxActiveApplications>
+                 <maxActiveApplicationsPerUser>1</maxActiveApplicationsPerUser>
+                 <userLimit>100</userLimit>
++                <users/>
+                 <userLimitFactor>1.0</userLimitFactor>
+               </queue>
+             </queues>
++            <resourcesUsed>
++              <memory>0</memory>
++              <vCores>0</vCores>
++            </resourcesUsed>
+           </queue>
+           <queue xsi:type="capacitySchedulerLeafQueueInfo">
+-            <capacity>40.0</capacity>
++            <capacity>70.0</capacity>
+             <usedCapacity>0.0</usedCapacity>
+             <maxCapacity>100.0</maxCapacity>
+-            <absoluteCapacity>8.000001</absoluteCapacity>
+-            <absoluteMaxCapacity>100.0</absoluteMaxCapacity>
++            <absoluteCapacity>7.35</absoluteCapacity>
++            <absoluteMaxCapacity>50.0</absoluteMaxCapacity>
+             <absoluteUsedCapacity>0.0</absoluteUsedCapacity>
+             <numApplications>0</numApplications>
+-            <usedResources>memory: 0</usedResources>
++            <usedResources>&lt;memory:0, vCores:0&gt;</usedResources>
+             <queueName>a2</queueName>
+             <state>RUNNING</state>
++            <resourcesUsed>
++              <memory>0</memory>
++              <vCores>0</vCores>
++            </resourcesUsed>
+             <numActiveApplications>0</numActiveApplications>
+             <numPendingApplications>0</numPendingApplications>
+             <numContainers>0</numContainers>
+-            <maxApplications>0</maxApplications>
+-            <maxApplicationsPerUser>0</maxApplicationsPerUser>
++            <maxApplications>735</maxApplications>
++            <maxApplicationsPerUser>73500</maxApplicationsPerUser>
+             <maxActiveApplications>1</maxActiveApplications>
+-            <maxActiveApplicationsPerUser>1</maxActiveApplicationsPerUser>
++            <maxActiveApplicationsPerUser>100</maxActiveApplicationsPerUser>
+             <userLimit>100</userLimit>
+-            <userLimitFactor>1.0</userLimitFactor>
++            <users/>
++            <userLimitFactor>100.0</userLimitFactor>
+           </queue>
+         </queues>
++        <resourcesUsed>
++          <memory>0</memory>
++          <vCores>0</vCores>
++        </resourcesUsed>
+       </queue>
+       <queue>
+-        <capacity>10.0</capacity>
++        <capacity>89.5</capacity>
+         <usedCapacity>0.0</usedCapacity>
+-        <maxCapacity>15.000001</maxCapacity>
+-        <absoluteCapacity>10.0</absoluteCapacity>
+-        <absoluteMaxCapacity>15.000001</absoluteMaxCapacity>
++        <maxCapacity>100.0</maxCapacity>
++        <absoluteCapacity>89.5</absoluteCapacity>
++        <absoluteMaxCapacity>100.0</absoluteMaxCapacity>
+         <absoluteUsedCapacity>0.0</absoluteUsedCapacity>
+-        <numApplications>0</numApplications>
+-        <usedResources>memory: 0</usedResources>
+-        <queueName>test2</queueName>
++        <numApplications>2</numApplications>
++        <usedResources>&lt;memory:0, vCores:0&gt;</usedResources>
++        <queueName>b</queueName>
+         <state>RUNNING</state>
+         <queues>
+           <queue xsi:type="capacitySchedulerLeafQueueInfo">
+-            <capacity>90.0</capacity>
++            <capacity>60.000004</capacity>
+             <usedCapacity>0.0</usedCapacity>
+             <maxCapacity>100.0</maxCapacity>
+-            <absoluteCapacity>9.0</absoluteCapacity>
+-            <absoluteMaxCapacity>15.000001</absoluteMaxCapacity>
++            <absoluteCapacity>53.7</absoluteCapacity>
++            <absoluteMaxCapacity>100.0</absoluteMaxCapacity>
++            <absoluteUsedCapacity>0.0</absoluteUsedCapacity>
++            <numApplications>2</numApplications>
++            <usedResources>&lt;memory:0, vCores:0&gt;</usedResources>
++            <queueName>b1</queueName>
++            <state>RUNNING</state>
++            <resourcesUsed>
++              <memory>0</memory>
++              <vCores>0</vCores>
++            </resourcesUsed>
++            <numActiveApplications>1</numActiveApplications>
++            <numPendingApplications>1</numPendingApplications>
++            <numContainers>0</numContainers>
++            <maxApplications>5370</maxApplications>
++            <maxApplicationsPerUser>537000</maxApplicationsPerUser>
++            <maxActiveApplications>1</maxActiveApplications>
++            <maxActiveApplicationsPerUser>100</maxActiveApplicationsPerUser>
++            <userLimit>100</userLimit>
++            <users>
++              <user>
++                <username>user2</username>
++                <resourcesUsed>
++                  <memory>0</memory>
++                  <vCores>0</vCores>
++                </resourcesUsed>
++                <numPendingApplications>1</numPendingApplications>
++                <numActiveApplications>0</numActiveApplications>
++              </user>
++              <user>
++                <username>user1</username>
++                <resourcesUsed>
++                  <memory>0</memory>
++                  <vCores>0</vCores>
++                </resourcesUsed>
++                <numPendingApplications>0</numPendingApplications>
++                <numActiveApplications>1</numActiveApplications>
++              </user>
++            </users>
++            <userLimitFactor>100.0</userLimitFactor>
++          </queue>
++          <queue xsi:type="capacitySchedulerLeafQueueInfo">
++            <capacity>39.5</capacity>
++            <usedCapacity>0.0</usedCapacity>
++            <maxCapacity>100.0</maxCapacity>
++            <absoluteCapacity>35.3525</absoluteCapacity>
++            <absoluteMaxCapacity>100.0</absoluteMaxCapacity>
+             <absoluteUsedCapacity>0.0</absoluteUsedCapacity>
+             <numApplications>0</numApplications>
+-            <usedResources>memory: 0</usedResources>
+-            <queueName>a3</queueName>
++            <usedResources>&lt;memory:0, vCores:0&gt;</usedResources>
++            <queueName>b2</queueName>
+             <state>RUNNING</state>
++            <resourcesUsed>
++              <memory>0</memory>
++              <vCores>0</vCores>
++            </resourcesUsed>
+             <numActiveApplications>0</numActiveApplications>
+             <numPendingApplications>0</numPendingApplications>
+             <numContainers>0</numContainers>
+-            <maxApplications>0</maxApplications>
+-            <maxApplicationsPerUser>0</maxApplicationsPerUser>
++            <maxApplications>3535</maxApplications>
++            <maxApplicationsPerUser>353500</maxApplicationsPerUser>
+             <maxActiveApplications>1</maxActiveApplications>
+-            <maxActiveApplicationsPerUser>1</maxActiveApplicationsPerUser>
++            <maxActiveApplicationsPerUser>100</maxActiveApplicationsPerUser>
+             <userLimit>100</userLimit>
+-            <userLimitFactor>1.0</userLimitFactor>
++            <users/>
++            <userLimitFactor>100.0</userLimitFactor>
+           </queue>
+           <queue xsi:type="capacitySchedulerLeafQueueInfo">
+-            <capacity>10.0</capacity>
++            <capacity>0.5</capacity>
+             <usedCapacity>0.0</usedCapacity>
+             <maxCapacity>100.0</maxCapacity>
+-            <absoluteCapacity>1.0000001</absoluteCapacity>
+-            <absoluteMaxCapacity>15.000001</absoluteMaxCapacity>
++            <absoluteCapacity>0.4475</absoluteCapacity>
++            <absoluteMaxCapacity>100.0</absoluteMaxCapacity>
+             <absoluteUsedCapacity>0.0</absoluteUsedCapacity>
+             <numApplications>0</numApplications>
+-            <usedResources>memory: 0</usedResources>
+-            <queueName>a4</queueName>
++            <usedResources>&lt;memory:0, vCores:0&gt;</usedResources>
++            <queueName>b3</queueName>
+             <state>RUNNING</state>
++            <resourcesUsed>
++              <memory>0</memory>
++              <vCores>0</vCores>
++            </resourcesUsed>
+             <numActiveApplications>0</numActiveApplications>
+             <numPendingApplications>0</numPendingApplications>
+             <numContainers>0</numContainers>
+-            <maxApplications>0</maxApplications>
+-            <maxApplicationsPerUser>0</maxApplicationsPerUser>
++            <maxApplications>44</maxApplications>
++            <maxApplicationsPerUser>4400</maxApplicationsPerUser>
+             <maxActiveApplications>1</maxActiveApplications>
+-            <maxActiveApplicationsPerUser>1</maxActiveApplicationsPerUser>
++            <maxActiveApplicationsPerUser>100</maxActiveApplicationsPerUser>
+             <userLimit>100</userLimit>
+-            <userLimitFactor>1.0</userLimitFactor>
++            <users/>
++            <userLimitFactor>100.0</userLimitFactor>
+           </queue>
+         </queues>
++        <resourcesUsed>
++          <memory>0</memory>
++          <vCores>0</vCores>
++        </resourcesUsed>
+       </queue>
+     </queues>
+   </schedulerInfo>
+-- 
+1.7.0.4
+

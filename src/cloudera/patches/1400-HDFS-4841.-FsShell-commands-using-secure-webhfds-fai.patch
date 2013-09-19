@@ -1,0 +1,28 @@
+From 20a440af2230e3627b528b9c7ed62abb7356f9d2 Mon Sep 17 00:00:00 2001
+From: Alejandro Abdelnur <tucu@apache.org>
+Date: Mon, 8 Jul 2013 23:07:15 +0000
+Subject: [PATCH 1400/1475] HDFS-4841. FsShell commands using secure webhfds fail ClientFinalizer shutdown hook. (rkanter via tucu)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1501005 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 064b4ec73aa9faf3bc9f81eaa255eea41c60e09c)
+---
+ .../main/java/org/apache/hadoop/fs/FileSystem.java |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/FileSystem.java b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/FileSystem.java
+index 35e9d64..ccfc0ef 100644
+--- a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/FileSystem.java
++++ b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/FileSystem.java
+@@ -2348,7 +2348,8 @@ public abstract class FileSystem extends Configured implements Closeable {
+         }
+         
+         // now insert the new file system into the map
+-        if (map.isEmpty() ) {
++        if (map.isEmpty()
++                && !ShutdownHookManager.get().isShutdownInProgress()) {
+           ShutdownHookManager.get().addShutdownHook(clientFinalizer, SHUTDOWN_HOOK_PRIORITY);
+         }
+         fs.key = key;
+-- 
+1.7.0.4
+

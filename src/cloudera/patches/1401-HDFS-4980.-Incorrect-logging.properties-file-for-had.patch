@@ -1,0 +1,26 @@
+From 33426a40484efb5c8193e432a633d15d157b9114 Mon Sep 17 00:00:00 2001
+From: Suresh Srinivas <suresh@apache.org>
+Date: Thu, 11 Jul 2013 18:05:34 +0000
+Subject: [PATCH 1401/1475] HDFS-4980. Incorrect logging.properties file for hadoop-httpfs. Contributed by Mark Grover.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1502302 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 6c5d6f35c84fe750d443649ad4df138346b4f494)
+---
+ hadoop-hdfs-project/hadoop-hdfs-httpfs/pom.xml |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs-httpfs/pom.xml b/hadoop-hdfs-project/hadoop-hdfs-httpfs/pom.xml
+index 5cc6d48..c70d0a1 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs-httpfs/pom.xml
++++ b/hadoop-hdfs-project/hadoop-hdfs-httpfs/pom.xml
+@@ -549,6 +549,7 @@
+                     <delete file="${httpfs.tomcat.dist.dir}/conf/server.xml"/>
+                     <copy file="${basedir}/src/main/tomcat/server.xml"
+                           toDir="${httpfs.tomcat.dist.dir}/conf"/>
++                    <delete file="${httpfs.tomcat.dist.dir}/conf/logging.properties"/>
+                     <copy file="${basedir}/src/main/tomcat/logging.properties"
+                           toDir="${httpfs.tomcat.dist.dir}/conf"/>
+                     <copy toDir="${httpfs.tomcat.dist.dir}/webapps/ROOT">
+-- 
+1.7.0.4
+

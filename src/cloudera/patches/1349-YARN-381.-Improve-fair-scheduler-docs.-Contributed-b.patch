@@ -1,0 +1,89 @@
+From 742ada3b2942a1c4c7249bfad9823e9768e474e5 Mon Sep 17 00:00:00 2001
+From: Thomas White <tomwhite@apache.org>
+Date: Wed, 3 Apr 2013 18:01:14 +0000
+Subject: [PATCH 1349/1475] YARN-381. Improve fair scheduler docs. Contributed by Sandy Ryza.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1464130 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 130dfe79b7526cfea3ea3aa7b231f32704a22dec)
+---
+ .../hadoop-common/src/site/apt/ClusterSetup.apt.vm |    2 +-
+ .../src/site/apt/FairScheduler.apt.vm              |   30 +++++++++++++++----
+ 2 files changed, 24 insertions(+), 8 deletions(-)
+
+diff --git a/hadoop-common-project/hadoop-common/src/site/apt/ClusterSetup.apt.vm b/hadoop-common-project/hadoop-common/src/site/apt/ClusterSetup.apt.vm
+index 5f28d7c..c73f94d 100644
+--- a/hadoop-common-project/hadoop-common/src/site/apt/ClusterSetup.apt.vm
++++ b/hadoop-common-project/hadoop-common/src/site/apt/ClusterSetup.apt.vm
+@@ -249,7 +249,7 @@ Hadoop MapReduce Next Generation - Cluster Setup
+ *-------------------------+-------------------------+------------------------+
+ | <<<yarn.resourcemanager.scheduler.class>>> | | |
+ | | <<<ResourceManager>>> Scheduler class. | |
+-| | | <<<CapacityScheduler>>> (recommended) or <<<FifoScheduler>>> |
++| | | <<<CapacityScheduler>>> (recommended), <<<FairScheduler>>> (also recommended), or <<<FifoScheduler>>> |
+ *-------------------------+-------------------------+------------------------+
+ | <<<yarn.scheduler.minimum-allocation-mb>>> | | |
+ | | Minimum limit of memory to allocate to each container request at the <<<Resource Manager>>>. | |
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/FairScheduler.apt.vm b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/FairScheduler.apt.vm
+index 2d12699..c7a8229 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/FairScheduler.apt.vm
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/FairScheduler.apt.vm
+@@ -85,8 +85,9 @@ Hadoop MapReduce Next Generation - Fair Scheduler
+   cause too much intermediate data to be created or too much context-switching.
+   Limiting the apps does not cause any subsequently submitted apps to fail, 
+   only to wait in the scheduler's queue until some of the user's earlier apps 
+-  finish. apps to run from each user/queue are chosen in order of priority and 
+-  then submit time, as in the default FIFO scheduler in Hadoop.
++  finish. Apps to run from each user/queue are chosen in the same fair sharing
++  manner, but can alternatively be configured to be chosen in order of submit
++  time, as in the default FIFO scheduler in Hadoop.
+ 
+   Certain add-ons are not yet supported which existed in the original (MR1) 
+   Fair Scheduler. Among them, is the use of a custom policies governing 
+@@ -142,7 +143,9 @@ Hadoop MapReduce Next Generation - Fair Scheduler
+  * <<<yarn.scheduler.fair.sizebasedweight>>>
+   
+     * Whether to assign shares to individual apps based on their size, rather than
+-      providing an equal share to all apps regardless of size. Defaults to false.
++      providing an equal share to all apps regardless of size. When set to true,
++      apps are weighted by the natural logarithm of one plus the app's total
++      requested memory, divided by the natural logarithm of 2. Defaults to false.
+ 
+  * <<<yarn.scheduler.fair.assignmultiple>>>
+ 
+@@ -180,16 +183,29 @@ Allocation file format
+  * <<Queue elements>>, which represent queues. Each may contain the following
+      properties:
+ 
+-   * minResources: minimum amount of aggregate memory
++   * minResources: minimum MB of aggregate memory the queue expects. If a queue
++     demands resources, and its current allocation is below its configured minimum,
++     it will be assigned available resources before any queue that is not in this
++     situation.  If multiple queues are in this situation, resources go to the
++     queue with the smallest ratio between allocation and minimum. Note that it is
++     possible that a queue that is below its minimum may not immediately get up to
++     its minimum when it submits an application, because already-running jobs may
++     be using those resources.
+ 
+-   * maxResources: maximum amount of aggregate memory
++   * maxResources: maximum MB of aggregate memory a queue is allowed.  A queue
++     will never be assigned a container that would put it over this limit.
+ 
+    * maxRunningApps: limit the number of apps from the queue to run at once
+ 
+-   * weight: to share the cluster non-proportionally with other queues
++   * weight: to share the cluster non-proportionally with other queues. Weights
++     default to 1, and a queue with weight 2 should receive approximately twice
++     as many resources as a queue with the default weight.
+ 
+    * schedulingMode: either "fifo" or "fair" depending on the in-queue scheduling
+-     policy desired
++     policy desired. Defaults to "fair". If "fifo", apps with earlier submit
++     times are given preference for containers, but apps submitted later may
++     run concurrently if there is leftover space on the cluster after satisfying
++     the earlier app's requests.
+ 
+    * aclSubmitApps: a list of users that can submit apps to the queue. A (default)
+      value of "*" means that any users can submit apps. A queue inherits the ACL of
+-- 
+1.7.0.4
+

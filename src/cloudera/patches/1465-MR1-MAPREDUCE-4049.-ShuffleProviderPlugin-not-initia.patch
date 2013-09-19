@@ -1,0 +1,26 @@
+From 68db90ba305c5901e53c1ae573bcf42ab3186dfb Mon Sep 17 00:00:00 2001
+From: Alejandro Abdelnur <tucu@cloudera.com>
+Date: Tue, 13 Aug 2013 13:55:59 -0700
+Subject: [PATCH 1465/1475] MR1: MAPREDUCE-4049. ShuffleProviderPlugin not initializing
+
+  Reason: bug, a missing hunk from the original backport
+---
+ .../org/apache/hadoop/mapred/TaskTracker.java      |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/hadoop-mapreduce1-project/src/mapred/org/apache/hadoop/mapred/TaskTracker.java b/hadoop-mapreduce1-project/src/mapred/org/apache/hadoop/mapred/TaskTracker.java
+index 3522674..8e2a56d 100644
+--- a/hadoop-mapreduce1-project/src/mapred/org/apache/hadoop/mapred/TaskTracker.java
++++ b/hadoop-mapreduce1-project/src/mapred/org/apache/hadoop/mapred/TaskTracker.java
+@@ -1787,7 +1787,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
+     String exceptionMsgRegex = conf.get("mapreduce.reduce.shuffle.catch.exception.message.regex");
+     server.setAttribute("exceptionStackRegex", exceptionStackRegex);
+     server.setAttribute("exceptionMsgRegex", exceptionMsgRegex);
+-    server.addInternalServlet("mapOutput", "/mapOutput", MapOutputServlet.class);
++    shuffleProviderPlugin.initialize(this);
+     server.addServlet("taskLog", "/tasklog", TaskLogServlet.class);
+ 
+     boolean shuffleSsl = conf.getBoolean(JobTracker.SHUFFLE_SSL_ENABLED_KEY,
+-- 
+1.7.0.4
+

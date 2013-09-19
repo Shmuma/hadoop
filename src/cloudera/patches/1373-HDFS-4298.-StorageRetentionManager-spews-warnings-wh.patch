@@ -1,0 +1,548 @@
+From 2f626acc8cdfbc391160e6b94ba37ee9e42d915a Mon Sep 17 00:00:00 2001
+From: Aaron Twining Myers <atm@apache.org>
+Date: Wed, 22 May 2013 19:37:41 +0000
+Subject: [PATCH 1373/1475] HDFS-4298. StorageRetentionManager spews warnings when used with QJM. Contributed by Aaron T. Myers.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1485371 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 01931284a7f1a7767846cbcf9761e417c7b4a01f)
+---
+ .../org/apache/hadoop/test/GenericTestUtils.java   |    4 +-
+ .../bkjournal/BookKeeperJournalManager.java        |    8 ++++++-
+ .../hadoop/hdfs/qjournal/client/AsyncLogger.java   |    2 +-
+ .../hdfs/qjournal/client/AsyncLoggerSet.java       |    4 +-
+ .../hdfs/qjournal/client/IPCLoggerChannel.java     |    4 +-
+ .../hdfs/qjournal/client/QuorumJournalManager.java |    9 ++++++-
+ .../hdfs/qjournal/protocol/QJournalProtocol.java   |    4 ++-
+ .../QJournalProtocolServerSideTranslatorPB.java    |    3 +-
+ .../protocolPB/QJournalProtocolTranslatorPB.java   |    3 +-
+ .../hadoop/hdfs/qjournal/server/Journal.java       |    6 ++--
+ .../hdfs/qjournal/server/JournalNodeRpcServer.java |    4 +-
+ .../hdfs/server/namenode/BackupJournalManager.java |    2 +-
+ .../hadoop/hdfs/server/namenode/FSEditLog.java     |   10 ++++----
+ .../hdfs/server/namenode/FileJournalManager.java   |   21 +++++++++++++------
+ .../hadoop/hdfs/server/namenode/JournalSet.java    |   12 +++++++---
+ .../hadoop/hdfs/server/namenode/LogsPurgeable.java |    3 +-
+ .../server/namenode/NNStorageRetentionManager.java |    2 +-
+ .../hdfs/server/namenode/SecondaryNameNode.java    |    2 +-
+ .../src/main/proto/QJournalProtocol.proto          |    2 +
+ .../qjournal/client/TestQuorumJournalManager.java  |   21 ++++++++++++++++++++
+ .../server/namenode/TestFileJournalManager.java    |    6 ++--
+ .../server/namenode/TestGenericJournalConf.java    |    2 +-
+ .../namenode/TestNNStorageRetentionManager.java    |    5 ++-
+ 23 files changed, 95 insertions(+), 44 deletions(-)
+
+diff --git a/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/test/GenericTestUtils.java b/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/test/GenericTestUtils.java
+index 9f920f4..254a713 100644
+--- a/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/test/GenericTestUtils.java
++++ b/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/test/GenericTestUtils.java
+@@ -95,8 +95,8 @@ public abstract class GenericTestUtils {
+     Set<String> expectedSet = Sets.newTreeSet(
+         Arrays.asList(expectedMatches));
+     Assert.assertEquals("Bad files matching " + pattern + " in " + dir,
+-        Joiner.on(",").join(found),
+-        Joiner.on(",").join(expectedSet));
++        Joiner.on(",").join(expectedSet),
++        Joiner.on(",").join(found));
+   }
+   
+   public static void assertExceptionContains(String string, Throwable t) {
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/main/java/org/apache/hadoop/contrib/bkjournal/BookKeeperJournalManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/main/java/org/apache/hadoop/contrib/bkjournal/BookKeeperJournalManager.java
+index 2baf4dc..ed57eea 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/main/java/org/apache/hadoop/contrib/bkjournal/BookKeeperJournalManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/main/java/org/apache/hadoop/contrib/bkjournal/BookKeeperJournalManager.java
+@@ -500,9 +500,15 @@ public class BookKeeperJournalManager implements JournalManager {
+     } 
+   }
+ 
+-  @Override
+   public void selectInputStreams(Collection<EditLogInputStream> streams,
+       long fromTxId, boolean inProgressOk) throws IOException {
++    selectInputStreams(streams, fromTxId, inProgressOk, true);
++  }
++
++  @Override
++  public void selectInputStreams(Collection<EditLogInputStream> streams,
++      long fromTxId, boolean inProgressOk, boolean forReading)
++      throws IOException {
+     List<EditLogLedgerMetadata> currentLedgerList = getLedgerList(fromTxId,
+         inProgressOk);
+     try {
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/AsyncLogger.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/AsyncLogger.java
+index 99b9d6b..dda1de1 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/AsyncLogger.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/AsyncLogger.java
+@@ -109,7 +109,7 @@ interface AsyncLogger {
+    * Fetch the list of edit logs available on the remote node.
+    */
+   public ListenableFuture<RemoteEditLogManifest> getEditLogManifest(
+-      long fromTxnId);
++      long fromTxnId, boolean forReading);
+ 
+   /**
+    * Prepare recovery. See the HDFS-3077 design document for details.
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/AsyncLoggerSet.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/AsyncLoggerSet.java
+index 16cd548..3beff86 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/AsyncLoggerSet.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/AsyncLoggerSet.java
+@@ -263,13 +263,13 @@ class AsyncLoggerSet {
+   }
+ 
+   public QuorumCall<AsyncLogger, RemoteEditLogManifest>
+-      getEditLogManifest(long fromTxnId) {
++      getEditLogManifest(long fromTxnId, boolean forReading) {
+     Map<AsyncLogger,
+         ListenableFuture<RemoteEditLogManifest>> calls
+         = Maps.newHashMap();
+     for (AsyncLogger logger : loggers) {
+       ListenableFuture<RemoteEditLogManifest> future =
+-          logger.getEditLogManifest(fromTxnId);
++          logger.getEditLogManifest(fromTxnId, forReading);
+       calls.put(logger, future);
+     }
+     return QuorumCall.create(calls);
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/IPCLoggerChannel.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/IPCLoggerChannel.java
+index 1c82af8..23f9c7e 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/IPCLoggerChannel.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/IPCLoggerChannel.java
+@@ -511,12 +511,12 @@ public class IPCLoggerChannel implements AsyncLogger {
+ 
+   @Override
+   public ListenableFuture<RemoteEditLogManifest> getEditLogManifest(
+-      final long fromTxnId) {
++      final long fromTxnId, final boolean forReading) {
+     return executor.submit(new Callable<RemoteEditLogManifest>() {
+       @Override
+       public RemoteEditLogManifest call() throws IOException {
+         GetEditLogManifestResponseProto ret = getProxy().getEditLogManifest(
+-            journalId, fromTxnId);
++            journalId, fromTxnId, forReading);
+         // Update the http port, since we need this to build URLs to any of the
+         // returned logs.
+         httpPort = ret.getHttpPort();
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumJournalManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumJournalManager.java
+index 6b3503d..3852001 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumJournalManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumJournalManager.java
+@@ -445,13 +445,18 @@ public class QuorumJournalManager implements JournalManager {
+   public void close() throws IOException {
+     loggers.close();
+   }
++  
++  public void selectInputStreams(Collection<EditLogInputStream> streams,
++      long fromTxnId, boolean inProgressOk) throws IOException {
++    selectInputStreams(streams, fromTxnId, inProgressOk, true);
++  }
+ 
+   @Override
+   public void selectInputStreams(Collection<EditLogInputStream> streams,
+-      long fromTxnId, boolean inProgressOk) throws IOException {
++      long fromTxnId, boolean inProgressOk, boolean forReading) throws IOException {
+ 
+     QuorumCall<AsyncLogger, RemoteEditLogManifest> q =
+-        loggers.getEditLogManifest(fromTxnId);
++        loggers.getEditLogManifest(fromTxnId, forReading);
+     Map<AsyncLogger, RemoteEditLogManifest> resps =
+         loggers.waitForWriteQuorum(q, selectInputStreamsTimeoutMs,
+             "selectInputStreams");
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/protocol/QJournalProtocol.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/protocol/QJournalProtocol.java
+index 769d084..63d7a75 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/protocol/QJournalProtocol.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/protocol/QJournalProtocol.java
+@@ -123,10 +123,12 @@ public interface QJournalProtocol {
+   /**
+    * @param jid the journal from which to enumerate edits
+    * @param sinceTxId the first transaction which the client cares about
++   * @param forReading whether or not the caller intends to read from the edit
++   *        logs
+    * @return a list of edit log segments since the given transaction ID.
+    */
+   public GetEditLogManifestResponseProto getEditLogManifest(
+-      String jid, long sinceTxId) throws IOException;
++      String jid, long sinceTxId, boolean forReading) throws IOException;
+   
+   /**
+    * Begin the recovery process for a given segment. See the HDFS-3077
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/protocolPB/QJournalProtocolServerSideTranslatorPB.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/protocolPB/QJournalProtocolServerSideTranslatorPB.java
+index a232331..2c81065 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/protocolPB/QJournalProtocolServerSideTranslatorPB.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/protocolPB/QJournalProtocolServerSideTranslatorPB.java
+@@ -195,7 +195,8 @@ public class QJournalProtocolServerSideTranslatorPB implements QJournalProtocolP
+     try {
+       return impl.getEditLogManifest(
+           request.getJid().getIdentifier(),
+-          request.getSinceTxId());
++          request.getSinceTxId(),
++          request.getForReading());
+     } catch (IOException e) {
+       throw new ServiceException(e);
+     }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/protocolPB/QJournalProtocolTranslatorPB.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/protocolPB/QJournalProtocolTranslatorPB.java
+index 290a62a..7b36ff5 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/protocolPB/QJournalProtocolTranslatorPB.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/protocolPB/QJournalProtocolTranslatorPB.java
+@@ -228,12 +228,13 @@ public class QJournalProtocolTranslatorPB implements ProtocolMetaInterface,
+ 
+   @Override
+   public GetEditLogManifestResponseProto getEditLogManifest(String jid,
+-      long sinceTxId) throws IOException {
++      long sinceTxId, boolean forReading) throws IOException {
+     try {
+       return rpcProxy.getEditLogManifest(NULL_CONTROLLER,
+           GetEditLogManifestRequestProto.newBuilder()
+             .setJid(convertJournalId(jid))
+             .setSinceTxId(sinceTxId)
++            .setForReading(forReading)
+             .build());
+     } catch (ServiceException e) {
+       throw ProtobufHelper.getRemoteException(e);
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/Journal.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/Journal.java
+index 9a15fc1..d14ee87 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/Journal.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/Journal.java
+@@ -618,14 +618,14 @@ class Journal implements Closeable {
+   /**
+    * @see QJournalProtocol#getEditLogManifest(String, long)
+    */
+-  public RemoteEditLogManifest getEditLogManifest(long sinceTxId)
+-      throws IOException {
++  public RemoteEditLogManifest getEditLogManifest(long sinceTxId,
++      boolean forReading) throws IOException {
+     // No need to checkRequest() here - anyone may ask for the list
+     // of segments.
+     checkFormatted();
+     
+     RemoteEditLogManifest manifest = new RemoteEditLogManifest(
+-        fjm.getRemoteEditLogs(sinceTxId));
++        fjm.getRemoteEditLogs(sinceTxId, forReading));
+     return manifest;
+   }
+ 
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/JournalNodeRpcServer.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/JournalNodeRpcServer.java
+index 02d9df0..2942f63 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/JournalNodeRpcServer.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/JournalNodeRpcServer.java
+@@ -172,10 +172,10 @@ class JournalNodeRpcServer implements QJournalProtocol {
+ 
+   @Override
+   public GetEditLogManifestResponseProto getEditLogManifest(String jid,
+-      long sinceTxId) throws IOException {
++      long sinceTxId, boolean forReading) throws IOException {
+     
+     RemoteEditLogManifest manifest = jn.getOrCreateJournal(jid)
+-        .getEditLogManifest(sinceTxId);
++        .getEditLogManifest(sinceTxId, forReading);
+     
+     return GetEditLogManifestResponseProto.newBuilder()
+         .setManifest(PBHelper.convert(manifest))
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/BackupJournalManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/BackupJournalManager.java
+index 8d7720e..37592da 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/BackupJournalManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/BackupJournalManager.java
+@@ -75,7 +75,7 @@ class BackupJournalManager implements JournalManager {
+ 
+   @Override
+   public void selectInputStreams(Collection<EditLogInputStream> streams,
+-      long fromTxnId, boolean inProgressOk) {
++      long fromTxnId, boolean inProgressOk, boolean forReading) {
+     // This JournalManager is never used for input. Therefore it cannot
+     // return any transactions
+   }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSEditLog.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSEditLog.java
+index a96ba5e..a2f7cc8 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSEditLog.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSEditLog.java
+@@ -252,7 +252,7 @@ public class FSEditLog implements LogsPurgeable {
+     // Safety check: we should never start a segment if there are
+     // newer txids readable.
+     List<EditLogInputStream> streams = new ArrayList<EditLogInputStream>();
+-    journalSet.selectInputStreams(streams, segmentTxId, true);
++    journalSet.selectInputStreams(streams, segmentTxId, true, true);
+     if (!streams.isEmpty()) {
+       String error = String.format("Cannot start writing at txid %s " +
+         "when there is a stream available for read: %s",
+@@ -876,7 +876,7 @@ public class FSEditLog implements LogsPurgeable {
+    */
+   public synchronized RemoteEditLogManifest getEditLogManifest(long fromTxId)
+       throws IOException {
+-    return journalSet.getEditLogManifest(fromTxId);
++    return journalSet.getEditLogManifest(fromTxId, true);
+   }
+  
+   /**
+@@ -1126,8 +1126,8 @@ public class FSEditLog implements LogsPurgeable {
+   }
+   
+   public void selectInputStreams(Collection<EditLogInputStream> streams,
+-      long fromTxId, boolean inProgressOk) {
+-    journalSet.selectInputStreams(streams, fromTxId, inProgressOk);
++      long fromTxId, boolean inProgressOk, boolean forReading) {
++    journalSet.selectInputStreams(streams, fromTxId, inProgressOk, forReading);
+   }
+ 
+   public Collection<EditLogInputStream> selectInputStreams(
+@@ -1146,7 +1146,7 @@ public class FSEditLog implements LogsPurgeable {
+       long fromTxId, long toAtLeastTxId, MetaRecoveryContext recovery,
+       boolean inProgressOk) throws IOException {
+     List<EditLogInputStream> streams = new ArrayList<EditLogInputStream>();
+-    selectInputStreams(streams, fromTxId, inProgressOk);
++    selectInputStreams(streams, fromTxId, inProgressOk, true);
+ 
+     try {
+       checkForGaps(streams, fromTxId, toAtLeastTxId, inProgressOk);
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FileJournalManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FileJournalManager.java
+index 0f63192..435216c 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FileJournalManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FileJournalManager.java
+@@ -164,10 +164,13 @@ public class FileJournalManager implements JournalManager {
+   /**
+    * Find all editlog segments starting at or above the given txid.
+    * @param fromTxId the txnid which to start looking
++   * @param forReading whether or not the caller intends to read from the edit
++   *        logs
+    * @return a list of remote edit logs
+    * @throws IOException if edit logs cannot be listed.
+    */
+-  public List<RemoteEditLog> getRemoteEditLogs(long firstTxId) throws IOException {
++  public List<RemoteEditLog> getRemoteEditLogs(long firstTxId,
++      boolean forReading) throws IOException {
+     File currentDir = sd.getCurrentDir();
+     List<EditLogFile> allLogFiles = matchEditLogs(currentDir);
+     List<RemoteEditLog> ret = Lists.newArrayListWithCapacity(
+@@ -177,11 +180,15 @@ public class FileJournalManager implements JournalManager {
+       if (elf.hasCorruptHeader() || elf.isInProgress()) continue;
+       if (elf.getFirstTxId() >= firstTxId) {
+         ret.add(new RemoteEditLog(elf.firstTxId, elf.lastTxId));
+-      } else if ((firstTxId > elf.getFirstTxId()) &&
+-                 (firstTxId <= elf.getLastTxId())) {
+-        // Note that this behavior is different from getLogFiles below.
+-        throw new IllegalStateException("Asked for firstTxId " + firstTxId
+-            + " which is in the middle of file " + elf.file);
++      } else if (elf.getFirstTxId() < firstTxId && firstTxId <= elf.getLastTxId()) {
++        // If the firstTxId is in the middle of an edit log segment
++        if (forReading) {
++          // Note that this behavior is different from getLogFiles below.
++          throw new IllegalStateException("Asked for firstTxId " + firstTxId
++              + " which is in the middle of file " + elf.file);
++        } else {
++          ret.add(new RemoteEditLog(elf.firstTxId, elf.lastTxId));
++        }
+       }
+     }
+     
+@@ -242,7 +249,7 @@ public class FileJournalManager implements JournalManager {
+   @Override
+   synchronized public void selectInputStreams(
+       Collection<EditLogInputStream> streams, long fromTxId,
+-      boolean inProgressOk) throws IOException {
++      boolean inProgressOk, boolean forReading) throws IOException {
+     List<EditLogFile> elfs = matchEditLogs(sd.getCurrentDir());
+     LOG.debug(this + ": selecting input streams starting at " + fromTxId + 
+         (inProgressOk ? " (inProgress ok) " : " (excluding inProgress) ") +
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/JournalSet.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/JournalSet.java
+index bc285b2..2bf4192 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/JournalSet.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/JournalSet.java
+@@ -234,10 +234,12 @@ public class JournalSet implements JournalManager {
+    *                         may not be sorted-- this is up to the caller.
+    * @param fromTxId         The transaction ID to start looking for streams at
+    * @param inProgressOk     Should we consider unfinalized streams?
++   * @param forReading       Whether or not the caller intends to read from
++   *                         the returned streams.
+    */
+   @Override
+   public void selectInputStreams(Collection<EditLogInputStream> streams,
+-      long fromTxId, boolean inProgressOk) {
++      long fromTxId, boolean inProgressOk, boolean forReading) {
+     final PriorityQueue<EditLogInputStream> allStreams = 
+         new PriorityQueue<EditLogInputStream>(64,
+             EDIT_LOG_INPUT_STREAM_COMPARATOR);
+@@ -247,7 +249,8 @@ public class JournalSet implements JournalManager {
+         continue;
+       }
+       try {
+-        jas.getManager().selectInputStreams(allStreams, fromTxId, inProgressOk);
++        jas.getManager().selectInputStreams(allStreams, fromTxId, inProgressOk,
++            forReading);
+       } catch (IOException ioe) {
+         LOG.warn("Unable to determine input streams from " + jas.getManager() +
+             ". Skipping.", ioe);
+@@ -586,14 +589,15 @@ public class JournalSet implements JournalManager {
+    * @param fromTxId Starting transaction id to read the logs.
+    * @return RemoteEditLogManifest object.
+    */
+-  public synchronized RemoteEditLogManifest getEditLogManifest(long fromTxId) {
++  public synchronized RemoteEditLogManifest getEditLogManifest(long fromTxId,
++      boolean forReading) {
+     // Collect RemoteEditLogs available from each FileJournalManager
+     List<RemoteEditLog> allLogs = Lists.newArrayList();
+     for (JournalAndStream j : journals) {
+       if (j.getManager() instanceof FileJournalManager) {
+         FileJournalManager fjm = (FileJournalManager)j.getManager();
+         try {
+-          allLogs.addAll(fjm.getRemoteEditLogs(fromTxId));
++          allLogs.addAll(fjm.getRemoteEditLogs(fromTxId, forReading));
+         } catch (Throwable t) {
+           LOG.warn("Cannot list edit logs in " + fjm, t);
+         }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/LogsPurgeable.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/LogsPurgeable.java
+index d644ed5..4261825 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/LogsPurgeable.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/LogsPurgeable.java
+@@ -42,12 +42,13 @@ interface LogsPurgeable {
+    * 
+    * @param fromTxId the first transaction id we want to read
+    * @param inProgressOk whether or not in-progress streams should be returned
++   * @param forReading whether or not the caller intends to read from the edit logs
+    *
+    * @return a list of streams
+    * @throws IOException if the underlying storage has an error or is otherwise
+    * inaccessible
+    */
+   void selectInputStreams(Collection<EditLogInputStream> streams,
+-      long fromTxId, boolean inProgressOk) throws IOException;
++      long fromTxId, boolean inProgressOk, boolean forReading) throws IOException;
+   
+ }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NNStorageRetentionManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NNStorageRetentionManager.java
+index 75d1bd8..6b545a6 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NNStorageRetentionManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NNStorageRetentionManager.java
+@@ -108,7 +108,7 @@ public class NNStorageRetentionManager {
+     long purgeLogsFrom = Math.max(0, minimumRequiredTxId - numExtraEditsToRetain);
+     
+     ArrayList<EditLogInputStream> editLogs = new ArrayList<EditLogInputStream>();
+-    purgeableLogs.selectInputStreams(editLogs, purgeLogsFrom, false);
++    purgeableLogs.selectInputStreams(editLogs, purgeLogsFrom, false, false);
+     Collections.sort(editLogs, new Comparator<EditLogInputStream>() {
+       @Override
+       public int compare(EditLogInputStream a, EditLogInputStream b) {
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/SecondaryNameNode.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/SecondaryNameNode.java
+index 914db17..fad35bd 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/SecondaryNameNode.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/SecondaryNameNode.java
+@@ -792,7 +792,7 @@ public class SecondaryNameNode implements Runnable {
+ 
+       @Override
+       public void selectInputStreams(Collection<EditLogInputStream> streams,
+-          long fromTxId, boolean inProgressOk) {
++          long fromTxId, boolean inProgressOk, boolean forReading) {
+         Iterator<StorageDirectory> iter = storage.dirIterator();
+         while (iter.hasNext()) {
+           StorageDirectory dir = iter.next();
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/proto/QJournalProtocol.proto b/hadoop-hdfs-project/hadoop-hdfs/src/main/proto/QJournalProtocol.proto
+index d188f2b..642535c 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/proto/QJournalProtocol.proto
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/proto/QJournalProtocol.proto
+@@ -168,6 +168,8 @@ message NewEpochResponseProto {
+ message GetEditLogManifestRequestProto {
+   required JournalIdProto jid = 1;
+   required uint64 sinceTxId = 2;  // Transaction ID
++  // Whether or not the client will be reading from the returned streams.
++  optional bool forReading = 3 [default = true];
+ }
+ 
+ message GetEditLogManifestResponseProto {
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/qjournal/client/TestQuorumJournalManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/qjournal/client/TestQuorumJournalManager.java
+index e62e26b..990d3ec 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/qjournal/client/TestQuorumJournalManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/qjournal/client/TestQuorumJournalManager.java
+@@ -31,6 +31,7 @@ import java.io.IOException;
+ import java.net.InetSocketAddress;
+ import java.net.URISyntaxException;
+ import java.net.URL;
++import java.util.ArrayList;
+ import java.util.List;
+ import java.util.concurrent.ExecutorService;
+ 
+@@ -900,6 +901,26 @@ public class TestQuorumJournalManager {
+         "QJM to \\[127.0.0.1:\\d+, 127.0.0.1:\\d+, 127.0.0.1:\\d+\\]");
+   }
+   
++  @Test
++  public void testSelectInputStreamsNotOnBoundary() throws Exception {
++    final int txIdsPerSegment = 10; 
++    for (int txid = 1; txid <= 5 * txIdsPerSegment; txid += txIdsPerSegment) {
++      writeSegment(cluster, qjm, txid, txIdsPerSegment, true);
++    }
++    File curDir = cluster.getCurrentDir(0, JID);
++    GenericTestUtils.assertGlobEquals(curDir, "edits_.*",
++        NNStorage.getFinalizedEditsFileName(1, 10),
++        NNStorage.getFinalizedEditsFileName(11, 20),
++        NNStorage.getFinalizedEditsFileName(21, 30),
++        NNStorage.getFinalizedEditsFileName(31, 40),
++        NNStorage.getFinalizedEditsFileName(41, 50));
++    
++    ArrayList<EditLogInputStream> streams = new ArrayList<EditLogInputStream>();
++    qjm.selectInputStreams(streams, 25, false, false);
++    
++    verifyEdits(streams, 25, 50);
++  }
++  
+   
+   private QuorumJournalManager createSpyingQJM()
+       throws IOException, URISyntaxException {
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestFileJournalManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestFileJournalManager.java
+index bb52ebc..e8e7fbb 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestFileJournalManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestFileJournalManager.java
+@@ -74,7 +74,7 @@ public class TestFileJournalManager {
+     final PriorityQueue<EditLogInputStream> allStreams = 
+         new PriorityQueue<EditLogInputStream>(64,
+             JournalSet.EDIT_LOG_INPUT_STREAM_COMPARATOR);
+-    jm.selectInputStreams(allStreams, fromTxId, inProgressOk);
++    jm.selectInputStreams(allStreams, fromTxId, inProgressOk, true);
+     EditLogInputStream elis = null;
+     try {
+       while ((elis = allStreams.poll()) != null) {
+@@ -393,7 +393,7 @@ public class TestFileJournalManager {
+     final PriorityQueue<EditLogInputStream> allStreams = 
+         new PriorityQueue<EditLogInputStream>(64,
+             JournalSet.EDIT_LOG_INPUT_STREAM_COMPARATOR);
+-    jm.selectInputStreams(allStreams, txId, inProgressOk);
++    jm.selectInputStreams(allStreams, txId, inProgressOk, true);
+     EditLogInputStream elis = null, ret;
+     try {
+       while ((elis = allStreams.poll()) != null) {
+@@ -463,6 +463,6 @@ public class TestFileJournalManager {
+ 
+   private static String getLogsAsString(
+       FileJournalManager fjm, long firstTxId) throws IOException {
+-    return Joiner.on(",").join(fjm.getRemoteEditLogs(firstTxId));
++    return Joiner.on(",").join(fjm.getRemoteEditLogs(firstTxId, true));
+   }
+ }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestGenericJournalConf.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestGenericJournalConf.java
+index a941ae4..3c3dcf4 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestGenericJournalConf.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestGenericJournalConf.java
+@@ -171,7 +171,7 @@ public class TestGenericJournalConf {
+ 
+     @Override
+     public void selectInputStreams(Collection<EditLogInputStream> streams,
+-        long fromTxnId, boolean inProgressOk) {
++        long fromTxnId, boolean inProgressOk, boolean forReading) {
+     }
+ 
+     @Override
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestNNStorageRetentionManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestNNStorageRetentionManager.java
+index 161a9f1..62fd810 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestNNStorageRetentionManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestNNStorageRetentionManager.java
+@@ -355,11 +355,12 @@ public class TestNNStorageRetentionManager {
+         public Void answer(InvocationOnMock invocation) throws Throwable {
+           Object[] args = invocation.getArguments();
+           journalSet.selectInputStreams((Collection<EditLogInputStream>)args[0],
+-              (long)((Long)args[1]), (boolean)((Boolean)args[2]));
++              (long)((Long)args[1]), (boolean)((Boolean)args[2]),
++              (boolean)((Boolean)args[3]));
+           return null;
+         }
+       }).when(mockLog).selectInputStreams(Mockito.anyCollection(),
+-          Mockito.anyLong(), Mockito.anyBoolean());
++          Mockito.anyLong(), Mockito.anyBoolean(), Mockito.anyBoolean());
+       return mockLog;
+     }
+   }
+-- 
+1.7.0.4
+

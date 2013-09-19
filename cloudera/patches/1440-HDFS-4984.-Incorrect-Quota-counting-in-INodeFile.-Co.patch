@@ -1,0 +1,42 @@
+From 21e34714aab2601bf0043df039d7d853f444ed17 Mon Sep 17 00:00:00 2001
+From: Kihwal Lee <kihwal@apache.org>
+Date: Mon, 15 Jul 2013 18:25:18 +0000
+Subject: [PATCH 1440/1475] HDFS-4984. Incorrect Quota counting in INodeFile. Contributed by Jing Zhao.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-0.23@1503397 13f79535-47bb-0310-9956-ffa450edef68
+---
+ .../hadoop/hdfs/server/namenode/INodeFile.java     |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/INodeFile.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/INodeFile.java
+index 1116dd6..7c65f9f 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/INodeFile.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/INodeFile.java
+@@ -212,8 +212,9 @@ class INodeFile extends INode implements BlockCollection {
+   
+   private long diskspaceConsumed(Block[] blkArr) {
+     long size = 0;
+-    if(blkArr == null) 
++    if(blkArr == null || blocks.length == 0) { 
+       return 0;
++    }
+     
+     for (Block blk : blkArr) {
+       if (blk != null) {
+@@ -223,9 +224,10 @@ class INodeFile extends INode implements BlockCollection {
+     /* If the last block is being written to, use prefferedBlockSize
+      * rather than the actual block size.
+      */
+-    if (blkArr.length > 0 && blkArr[blkArr.length-1] != null && 
+-        isUnderConstruction()) {
+-      size += getPreferredBlockSize() - blkArr[blkArr.length-1].getNumBytes();
++    final int last = blkArr.length - 1;
++    if (blkArr.length > 0 && blkArr[last] != null && 
++        blkArr[last] instanceof BlockInfoUnderConstruction) {
++      size += getPreferredBlockSize() - blkArr[last].getNumBytes();
+     }
+     return size * getBlockReplication();
+   }
+-- 
+1.7.0.4
+

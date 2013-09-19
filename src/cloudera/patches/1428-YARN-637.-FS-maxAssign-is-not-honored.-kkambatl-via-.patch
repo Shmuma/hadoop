@@ -1,0 +1,70 @@
+From 9f6ad60f133466809390db9ce13656d1668c88ed Mon Sep 17 00:00:00 2001
+From: Alejandro Abdelnur <tucu@apache.org>
+Date: Thu, 9 May 2013 21:52:03 +0000
+Subject: [PATCH 1428/1475] YARN-637. FS: maxAssign is not honored. (kkambatl via tucu)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1480802 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 651f55404a2dac329497b580d52ef3e1bfd9d9aa)
+---
+ .../scheduler/fair/FairScheduler.java              |    1 +
+ .../scheduler/fair/TestFairScheduler.java          |   32 ++++++++++++++++++++
+ 2 files changed, 33 insertions(+), 0 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
+index 49927bd..a61ccca 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
+@@ -882,6 +882,7 @@ public class FairScheduler implements ResourceScheduler {
+         if (Resources.greaterThan(RESOURCE_CALCULATOR, clusterCapacity,
+               queueMgr.getRootQueue().assignContainer(node),
+               Resources.none())) {
++          assignedContainers++;
+           assignedContainer = true;
+         }
+         if (!assignedContainer) { break; }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
+index 57c63c1..b225226 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
+@@ -1440,6 +1440,38 @@ public class TestFairScheduler {
+     assertEquals(1, app2.getLiveContainers().size());
+   }
+ 
++  @Test(timeout = 3000)
++  public void testMaxAssign() throws AllocationConfigurationException {
++    // set required scheduler configs
++    scheduler.assignMultiple = true;
++    scheduler.getQueueManager().getLeafQueue("root.default")
++        .setPolicy(SchedulingPolicy.getDefault());
++
++    RMNode node = MockNodes.newNodeInfo(1, Resources.createResource(16384));
++    NodeAddedSchedulerEvent nodeEvent = new NodeAddedSchedulerEvent(node);
++    NodeUpdateSchedulerEvent updateEvent = new NodeUpdateSchedulerEvent(node,
++        new ArrayList<ContainerStatus>(), new ArrayList<ContainerStatus>());
++    scheduler.handle(nodeEvent);
++
++    ApplicationAttemptId attId =
++        createSchedulingRequest(1024, "root.default", "user", 8);
++    FSSchedulerApp app = scheduler.applications.get(attId);
++
++    // set maxAssign to 2: only 2 containers should be allocated
++    scheduler.maxAssign = 2;
++    scheduler.update();
++    scheduler.handle(updateEvent);
++    assertEquals("Incorrect number of containers allocated", 2, app
++        .getLiveContainers().size());
++
++    // set maxAssign to -1: all remaining containers should be allocated
++    scheduler.maxAssign = -1;
++    scheduler.update();
++    scheduler.handle(updateEvent);
++    assertEquals("Incorrect number of containers allocated", 8, app
++        .getLiveContainers().size());
++  }
++
+   /**
+    * Test to verify the behavior of
+    * {@link FSQueue#assignContainer(FSSchedulerNode)})
+-- 
+1.7.0.4
+

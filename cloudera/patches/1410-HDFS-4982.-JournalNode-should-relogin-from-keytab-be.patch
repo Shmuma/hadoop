@@ -1,0 +1,37 @@
+From d7fb7d31a7da979258d54eb7eb870fdcf0f9bb38 Mon Sep 17 00:00:00 2001
+From: Todd Lipcon <todd@apache.org>
+Date: Fri, 12 Jul 2013 20:44:50 +0000
+Subject: [PATCH 1410/1475] HDFS-4982. JournalNode should relogin from keytab before fetching logs from other JNs. Contributed by Todd Lipcon.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-2@1502683 13f79535-47bb-0310-9956-ffa450edef68
+---
+ .../hadoop/hdfs/qjournal/server/Journal.java       |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/Journal.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/Journal.java
+index d14ee87..dfd6de2 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/Journal.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/Journal.java
+@@ -56,6 +56,7 @@ import org.apache.hadoop.hdfs.util.PersistentLongFile;
+ import org.apache.hadoop.io.IOUtils;
+ import org.apache.hadoop.ipc.Server;
+ import org.apache.hadoop.security.SecurityUtil;
++import org.apache.hadoop.security.UserGroupInformation;
+ 
+ import com.google.common.annotations.VisibleForTesting;
+ import com.google.common.base.Preconditions;
+@@ -845,6 +846,11 @@ class Journal implements Closeable {
+         new PrivilegedExceptionAction<Void>() {
+           @Override
+           public Void run() throws IOException {
++            // We may have lost our ticket since last checkpoint, log in again, just in case
++            if (UserGroupInformation.isSecurityEnabled()) {
++              UserGroupInformation.getCurrentUser().checkTGTAndReloginFromKeytab();
++            }
++
+             boolean success = false;
+             try {
+               TransferFsImage.doGetUrl(url, localPaths, storage, true);
+-- 
+1.7.0.4
+

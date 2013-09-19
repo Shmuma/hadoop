@@ -1,0 +1,29 @@
+From af6a5d788deea3a735873fc7e1b4b8cd793f6fa2 Mon Sep 17 00:00:00 2001
+From: Wei Yan <wei.yan@wyan-MBP.local>
+Date: Wed, 29 May 2013 13:19:16 -0700
+Subject: [PATCH 1361/1475] HDFS-4865. Remove sub resource warning from httpfs log at startup time. (ywskycn via tucu)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-2@1487619 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 771239c869d5c2e515dcb5ab61ff03418a9ba8d1)
+
+Conflicts:
+	hadoop-hdfs-project/hadoop-hdfs/CHANGES.txt
+---
+ .../apache/hadoop/fs/http/server/HttpFSServer.java |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs-httpfs/src/main/java/org/apache/hadoop/fs/http/server/HttpFSServer.java b/hadoop-hdfs-project/hadoop-hdfs-httpfs/src/main/java/org/apache/hadoop/fs/http/server/HttpFSServer.java
+index ca7edcc..798d4fb 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs-httpfs/src/main/java/org/apache/hadoop/fs/http/server/HttpFSServer.java
++++ b/hadoop-hdfs-project/hadoop-hdfs-httpfs/src/main/java/org/apache/hadoop/fs/http/server/HttpFSServer.java
+@@ -197,7 +197,6 @@ public class HttpFSServer {
+    * {@link HttpFSExceptionProvider}.
+    */
+   @GET
+-  @Path("/")
+   @Produces(MediaType.APPLICATION_JSON)
+   public Response getRoot(@Context Principal user,
+                           @QueryParam(OperationParam.NAME) OperationParam op,
+-- 
+1.7.0.4
+

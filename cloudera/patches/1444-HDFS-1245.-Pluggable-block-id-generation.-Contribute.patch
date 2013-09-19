@@ -1,0 +1,213 @@
+From fcb9d4405abe6c5069cb5cd5ce29fdd1b94f8720 Mon Sep 17 00:00:00 2001
+From: Konstantin Shvachko <shv@apache.org>
+Date: Sun, 13 Jan 2013 01:29:57 +0000
+Subject: [PATCH 1444/1475] HDFS-1245. Pluggable block id generation. Contributed by Konstantin Shvachko.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-2@1432541 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 24ef63858fdf750f83e9ffb56ee0da3a15d28c33)
+---
+ .../java/org/apache/hadoop/util/IdGenerator.java   |   31 ++++++++++++
+ .../hadoop/hdfs/server/namenode/FSImage.java       |   17 ++++++
+ .../hadoop/hdfs/server/namenode/FSNamesystem.java  |   13 +----
+ .../server/namenode/RandomBlockIdGenerator.java    |   52 ++++++++++++++++++++
+ 4 files changed, 102 insertions(+), 11 deletions(-)
+ create mode 100644 hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/util/IdGenerator.java
+ create mode 100644 hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/RandomBlockIdGenerator.java
+
+diff --git a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/util/IdGenerator.java b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/util/IdGenerator.java
+new file mode 100644
+index 0000000..c14727a
+--- /dev/null
++++ b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/util/IdGenerator.java
+@@ -0,0 +1,31 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.apache.hadoop.util;
++
++import org.apache.hadoop.classification.InterfaceAudience;
++
++/**
++ * Generic ID generator
++ * used for generating various types of number sequences.
++ */
++@InterfaceAudience.Private
++public interface IdGenerator {
++
++  /** Increment and then return the next value. */
++  public long nextValue();
++}
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSImage.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSImage.java
+index 12c6547..404ed8f 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSImage.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSImage.java
+@@ -61,6 +61,7 @@ import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
+ import org.apache.hadoop.hdfs.util.Canceler;
+ import org.apache.hadoop.hdfs.util.MD5FileUtils;
+ import org.apache.hadoop.io.MD5Hash;
++import org.apache.hadoop.util.IdGenerator;
+ import org.apache.hadoop.util.Time;
+ import org.apache.hadoop.hdfs.DFSConfigKeys;
+ import org.apache.hadoop.hdfs.DFSUtil;
+@@ -94,6 +95,7 @@ public class FSImage implements Closeable {
+   final private Configuration conf;
+ 
+   protected NNStorageRetentionManager archivalManager;
++  protected IdGenerator blockIdGenerator;
+ 
+   /**
+    * Construct an FSImage
+@@ -141,6 +143,9 @@ public class FSImage implements Closeable {
+     Preconditions.checkState(fileCount == 1,
+         "FSImage.format should be called with an uninitialized namesystem, has " +
+         fileCount + " files");
++    // BlockIdGenerator is defined during formatting
++    // currently there is only one BlockIdGenerator
++    blockIdGenerator = createBlockIdGenerator(fsn);
+     NamespaceInfo ns = NNStorage.newNamespaceInfo();
+     ns.clusterID = clusterId;
+     
+@@ -262,6 +267,7 @@ public class FSImage implements Closeable {
+       doRollback();
+       break;
+     case REGULAR:
++    default:
+       // just load the image
+     }
+     
+@@ -778,6 +784,9 @@ public class FSImage implements Closeable {
+     FSImageFormat.Loader loader = new FSImageFormat.Loader(
+         conf, target);
+     loader.load(curFile);
++    // BlockIdGenerator is determined after loading image
++    // currently there is only one BlockIdGenerator
++    blockIdGenerator = createBlockIdGenerator(target);
+     target.setBlockPoolId(this.getBlockPoolID());
+ 
+     // Check that the image digest we loaded matches up with what
+@@ -1208,4 +1217,12 @@ public class FSImage implements Closeable {
+   public synchronized long getMostRecentCheckpointTxId() {
+     return storage.getMostRecentCheckpointTxId();
+   }
++
++  public long getUniqueBlockId() {
++    return blockIdGenerator.nextValue();
++  }
++
++  public IdGenerator createBlockIdGenerator(FSNamesystem fsn) {
++    return new RandomBlockIdGenerator(fsn);
++  }
+ }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java
+index 6f0b307..b707696 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java
+@@ -80,6 +80,7 @@ import java.io.DataOutputStream;
+ import java.io.File;
+ import java.io.FileNotFoundException;
+ import java.io.FileWriter;
++import java.io.FileOutputStream;
+ import java.io.IOException;
+ import java.io.PrintWriter;
+ import java.io.StringWriter;
+@@ -2575,10 +2576,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
+    */
+   Block createNewBlock() throws IOException {
+     assert hasWriteLock();
+-    Block b = new Block(DFSUtil.getRandom().nextLong(), 0, 0); 
+-    while(isValidBlock(b)) {
+-      b.setBlockId(DFSUtil.getRandom().nextLong());
+-    }
++    Block b = new Block(getFSImage().getUniqueBlockId(), 0, 0); 
+     // Increment the generation stamp for every new block.
+     nextGenerationStamp();
+     b.setGenerationStamp(getGenerationStamp());
+@@ -4626,13 +4624,6 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
+     }
+   }
+ 
+-  /**
+-   * Returns whether the given block is one pointed-to by a file.
+-   */
+-  private boolean isValidBlock(Block b) {
+-    return (blockManager.getBlockCollection(b) != null);
+-  }
+-
+   // Distributed upgrade manager
+   final UpgradeManagerNamenode upgradeManager = new UpgradeManagerNamenode(this);
+ 
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/RandomBlockIdGenerator.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/RandomBlockIdGenerator.java
+new file mode 100644
+index 0000000..943662d
+--- /dev/null
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/RandomBlockIdGenerator.java
+@@ -0,0 +1,52 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.apache.hadoop.hdfs.server.namenode;
++
++import org.apache.hadoop.classification.InterfaceAudience;
++import org.apache.hadoop.hdfs.DFSUtil;
++import org.apache.hadoop.hdfs.protocol.Block;
++import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
++import org.apache.hadoop.util.IdGenerator;
++
++/**
++ * Generator of random block IDs.
++ */
++@InterfaceAudience.Private
++public class RandomBlockIdGenerator implements IdGenerator {
++  private final BlockManager blockManager;
++
++  RandomBlockIdGenerator(FSNamesystem namesystem) {
++    this.blockManager = namesystem.getBlockManager();
++  }
++
++  @Override // NumberGenerator
++  public long nextValue() {
++    Block b = new Block(DFSUtil.getRandom().nextLong(), 0, 0); 
++    while(isValidBlock(b)) {
++      b.setBlockId(DFSUtil.getRandom().nextLong());
++    }
++    return b.getBlockId();
++  }
++
++  /**
++   * Returns whether the given block is one pointed-to by a file.
++   */
++  private boolean isValidBlock(Block b) {
++    return (blockManager.getBlockCollection(b) != null);
++  }
++}
+-- 
+1.7.0.4
+

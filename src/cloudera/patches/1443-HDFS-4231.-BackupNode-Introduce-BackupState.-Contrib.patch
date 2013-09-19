@@ -1,0 +1,145 @@
+From aa63e57ccee4abb9b58b34ea4a34829d287a647d Mon Sep 17 00:00:00 2001
+From: Konstantin Shvachko <shv@apache.org>
+Date: Sun, 2 Dec 2012 23:18:17 +0000
+Subject: [PATCH 1443/1475] HDFS-4231. BackupNode: Introduce BackupState. Contributed by Konstantin Shvachko.
+
+CDH note: Removed BackupNode-related changes from this patch.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-2@1416289 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 490c178cae92d12c7a9536c7203e201c4aac5a7a)
+---
+ .../hadoop/hdfs/server/namenode/BackupState.java   |   51 ++++++++++++++++++++
+ .../hadoop/hdfs/server/namenode/FSNamesystem.java  |    6 +-
+ .../hadoop/hdfs/server/namenode/NameNode.java      |   12 ++--
+ 3 files changed, 60 insertions(+), 9 deletions(-)
+ create mode 100644 hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/BackupState.java
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/BackupState.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/BackupState.java
+new file mode 100644
+index 0000000..f8c7928
+--- /dev/null
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/BackupState.java
+@@ -0,0 +1,51 @@
++package org.apache.hadoop.hdfs.server.namenode;
++
++import java.io.IOException;
++
++import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
++import org.apache.hadoop.ha.ServiceFailedException;
++import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
++import org.apache.hadoop.hdfs.server.namenode.ha.HAContext;
++import org.apache.hadoop.hdfs.server.namenode.ha.HAState;
++import org.apache.hadoop.ipc.StandbyException;
++
++public class BackupState extends HAState {
++
++  public BackupState() {
++    super(HAServiceState.STANDBY);
++  }
++
++  @Override // HAState
++  public void checkOperation(HAContext context, OperationCategory op)
++      throws StandbyException {
++    context.checkOperation(op);
++  }
++
++  @Override // HAState
++  public boolean shouldPopulateReplQueues() {
++    return false;
++  }
++
++  @Override
++  public void enterState(HAContext context) throws ServiceFailedException {
++    try {
++      context.startActiveServices();
++    } catch (IOException e) {
++      throw new ServiceFailedException("Failed to start backup services", e);
++    }
++  }
++
++  @Override
++  public void exitState(HAContext context) throws ServiceFailedException {
++    try {
++      context.stopActiveServices();
++    } catch (IOException e) {
++      throw new ServiceFailedException("Failed to stop backup services", e);
++    }
++  }
++
++  @Override
++  public void prepareToExitState(HAContext context) throws ServiceFailedException {
++    context.prepareToStopStandbyServices();
++  }
++}
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java
+index fe466d1..6f0b307 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java
+@@ -126,6 +126,7 @@ import org.apache.hadoop.fs.UnresolvedLinkException;
+ import org.apache.hadoop.fs.permission.FsAction;
+ import org.apache.hadoop.fs.permission.FsPermission;
+ import org.apache.hadoop.fs.permission.PermissionStatus;
++import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
+ import org.apache.hadoop.ha.ServiceFailedException;
+ import org.apache.hadoop.hdfs.DFSConfigKeys;
+ import org.apache.hadoop.hdfs.DFSUtil;
+@@ -169,7 +170,6 @@ import org.apache.hadoop.hdfs.server.common.UpgradeStatusReport;
+ import org.apache.hadoop.hdfs.server.common.Util;
+ import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
+ import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
+-import org.apache.hadoop.hdfs.server.namenode.ha.ActiveState;
+ import org.apache.hadoop.hdfs.server.namenode.ha.EditLogTailer;
+ import org.apache.hadoop.hdfs.server.namenode.ha.HAContext;
+ import org.apache.hadoop.hdfs.server.namenode.ha.HAState;
+@@ -3550,9 +3550,9 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
+   private NNHAStatusHeartbeat createHaStatusHeartbeat() {
+     HAState state = haContext.getState();
+     NNHAStatusHeartbeat.State hbState;
+-    if (state instanceof ActiveState) {
++    if (state.getServiceState() == HAServiceState.ACTIVE) {
+       hbState = NNHAStatusHeartbeat.State.ACTIVE;
+-    } else if (state instanceof StandbyState) {
++    } else if (state.getServiceState() == HAServiceState.STANDBY) {
+       hbState = NNHAStatusHeartbeat.State.STANDBY;      
+     } else {
+       throw new AssertionError("Invalid state: " + state.getClass());
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NameNode.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NameNode.java
+index 1e8e371..03c2d1c 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NameNode.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NameNode.java
+@@ -605,11 +605,7 @@ public class NameNode {
+     String nsId = getNameServiceId(conf);
+     String namenodeId = HAUtil.getNameNodeId(conf, nsId);
+     this.haEnabled = HAUtil.isHAEnabled(conf, nsId);
+-    if (!haEnabled) {
+-      state = ACTIVE_STATE;
+-    } else {
+-      state = STANDBY_STATE;
+-    }
++    state = createHAState();
+     this.allowStaleStandbyReads = HAUtil.shouldAllowStandbyReads(conf);
+     this.haContext = createHAContext();
+     try {
+@@ -626,6 +622,10 @@ public class NameNode {
+     }
+   }
+ 
++  protected HAState createHAState() {
++    return !haEnabled ? ACTIVE_STATE : STANDBY_STATE;
++  }
++
+   protected HAContext createHAContext() {
+     return new NameNodeHAContext();
+   }
+@@ -1314,7 +1314,7 @@ public class NameNode {
+    *          before exit.
+    * @throws ExitException thrown only for testing.
+    */
+-  private synchronized void doImmediateShutdown(Throwable t)
++  protected synchronized void doImmediateShutdown(Throwable t)
+       throws ExitException {
+     String message = "Error encountered requiring NN shutdown. " +
+         "Shutting down immediately.";
+-- 
+1.7.0.4
+

@@ -1,0 +1,28 @@
+From 9156675e5d9d48e3701fd2fd9540d572a7287241 Mon Sep 17 00:00:00 2001
+From: Siddharth Seth <sseth@apache.org>
+Date: Thu, 7 Feb 2013 20:28:20 +0000
+Subject: [PATCH 1427/1475] YARN-385. Add missing fields - location and #containers to ResourceRequestPBImpl's toString(). Contributed by Sandy Ryza.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1443702 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit a019e046354ab93fadf909b5ab1875baab94fecb)
+---
+ .../api/records/impl/pb/ResourceRequestPBImpl.java |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/impl/pb/ResourceRequestPBImpl.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/impl/pb/ResourceRequestPBImpl.java
+index f3834a4..ba064c7 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/impl/pb/ResourceRequestPBImpl.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/impl/pb/ResourceRequestPBImpl.java
+@@ -166,6 +166,7 @@ public class ResourceRequestPBImpl extends  ResourceRequest {
+   @Override
+   public String toString() {
+     return "{Priority: " + getPriority() + ", Capability: " + getCapability()
+-        + "}";
++        + ", # Containers: " + getNumContainers()
++        + ", Location: " + getHostName() + "}";
+   }
+ }
+\ No newline at end of file
+-- 
+1.7.0.4
+

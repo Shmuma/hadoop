@@ -1,0 +1,119 @@
+From 3438f82082bafb4cd4d33142ad41de9467206ecb Mon Sep 17 00:00:00 2001
+From: Todd Lipcon <todd@apache.org>
+Date: Wed, 27 Mar 2013 18:43:55 +0000
+Subject: [PATCH 1468/1475] HDFS-4621. Additional logging to help diagnose slow QJM syncs. Contributed by Todd Lipcon.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-2@1461779 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit c857cf518bf52cdb536938da077ff4a476aefee2)
+---
+ .../hdfs/qjournal/client/IPCLoggerChannel.java     |    8 +++++
+ .../hadoop/hdfs/qjournal/client/QuorumCall.java    |   28 ++++++++++++++++++++
+ .../hadoop/hdfs/qjournal/server/Journal.java       |    8 +++++
+ 3 files changed, 44 insertions(+), 0 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/IPCLoggerChannel.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/IPCLoggerChannel.java
+index 23f9c7e..9115804 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/IPCLoggerChannel.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/IPCLoggerChannel.java
+@@ -133,6 +133,8 @@ public class IPCLoggerChannel implements AsyncLogger {
+   private Stopwatch lastHeartbeatStopwatch = new Stopwatch();
+   
+   private static final long HEARTBEAT_INTERVAL_MILLIS = 1000;
++
++  private static final long WARN_JOURNAL_MILLIS_THRESHOLD = 1000;
+   
+   static final Factory FACTORY = new AsyncLogger.Factory() {
+     @Override
+@@ -371,6 +373,12 @@ public class IPCLoggerChannel implements AsyncLogger {
+                 now - submitNanos, TimeUnit.NANOSECONDS);
+             metrics.addWriteEndToEndLatency(endToEndTime);
+             metrics.addWriteRpcLatency(rpcTime);
++            if (rpcTime / 1000 > WARN_JOURNAL_MILLIS_THRESHOLD) {
++              QuorumJournalManager.LOG.warn(
++                  "Took " + (rpcTime / 1000) + "ms to send a batch of " +
++                  numTxns + " edits (" + data.length + " bytes) to " +
++                  "remote journal " + IPCLoggerChannel.this);
++            }
+           }
+           synchronized (IPCLoggerChannel.this) {
+             highestAckedTxId = firstTxnId + numTxns - 1;
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumCall.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumCall.java
+index c42f6b9..f15e462 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumCall.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/client/QuorumCall.java
+@@ -24,6 +24,7 @@ import java.util.concurrent.TimeoutException;
+ import org.apache.hadoop.ipc.RemoteException;
+ import org.apache.hadoop.util.Time;
+ 
++import com.google.common.base.Joiner;
+ import com.google.common.base.Preconditions;
+ import com.google.common.collect.Maps;
+ import com.google.common.util.concurrent.FutureCallback;
+@@ -120,6 +121,15 @@ class QuorumCall<KEY, RESULT> {
+         String msg = String.format(
+             "Waited %s ms (timeout=%s ms) for a response for %s",
+             waited, millis, operationName);
++        if (!successes.isEmpty()) {
++          msg += ". Succeeded so far: [" + Joiner.on(",").join(successes.keySet()) + "]";
++        }
++        if (!exceptions.isEmpty()) {
++          msg += ". Exceptions so far: [" + getExceptionMapString() + "]";
++        }
++        if (successes.isEmpty() && exceptions.isEmpty()) {
++          msg += ". No responses yet.";
++        }
+         if (waited > millis * WAIT_PROGRESS_WARN_THRESHOLD) {
+           QuorumJournalManager.LOG.warn(msg);
+         } else {
+@@ -227,4 +237,22 @@ class QuorumCall<KEY, RESULT> {
+     }
+     return sb.toString();
+   }
++
++  /**
++   * Return a string suitable for displaying to the user, containing
++   * any exceptions that have been received so far.
++   */
++  private String getExceptionMapString() {
++    StringBuilder sb = new StringBuilder();
++    boolean first = true;
++    for (Map.Entry<KEY, Throwable> e : exceptions.entrySet()) {
++      if (!first) {
++        sb.append(", ");
++      }
++      first = false;
++      sb.append(e.getKey()).append(": ")
++        .append(e.getValue().getLocalizedMessage());
++    }
++    return sb.toString();
++  }
+ }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/Journal.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/Journal.java
+index dfd6de2..2209592 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/Journal.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/qjournal/server/Journal.java
+@@ -128,6 +128,10 @@ class Journal implements Closeable {
+ 
+   private final JournalMetrics metrics;
+ 
++  /**
++   * Time threshold for sync calls, beyond which a warning should be logged to the console.
++   */
++  private static final int WARN_SYNC_MILLIS_THRESHOLD = 1000;
+ 
+   Journal(File logDir, String journalId,
+       StorageErrorReporter errorReporter) throws IOException {
+@@ -370,6 +374,10 @@ class Journal implements Closeable {
+     sw.stop();
+     
+     metrics.addSync(sw.elapsedTime(TimeUnit.MICROSECONDS));
++    if (sw.elapsedTime(TimeUnit.MILLISECONDS) > WARN_SYNC_MILLIS_THRESHOLD) {
++      LOG.warn("Sync of transaction range " + firstTxnId + "-" + lastTxnId +
++               " took " + sw.elapsedTime(TimeUnit.MILLISECONDS) + "ms");
++    }
+ 
+     if (isLagging) {
+       // This batch of edits has already been committed on a quorum of other
+-- 
+1.7.0.4
+

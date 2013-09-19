@@ -1,0 +1,97 @@
+From 6031c1c4f74e0e86406e7b66f1e9063b36317e22 Mon Sep 17 00:00:00 2001
+From: Harsh J <harsh@apache.org>
+Date: Fri, 25 May 2012 06:06:01 +0000
+Subject: [PATCH 1413/1475] HADOOP-8415. Add getDouble() and setDouble() in org.apache.hadoop.conf.Configuration. Contributed by Jan van der Lugt. (harsh)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1342501 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit df43edc829b94ae3970fdcc34d417a3d5270a8d8)
+---
+ .../java/org/apache/hadoop/conf/Configuration.java |   30 ++++++++++++++++++++
+ .../org/apache/hadoop/conf/TestConfiguration.java  |   23 +++++++++++++++
+ 2 files changed, 53 insertions(+), 0 deletions(-)
+
+diff --git a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/conf/Configuration.java b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/conf/Configuration.java
+index 2ea24e8..1694592 100644
+--- a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/conf/Configuration.java
++++ b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/conf/Configuration.java
+@@ -1023,6 +1023,7 @@ public class Configuration implements Iterable<Map.Entry<String,String>>,
+       return defaultValue;
+     return Float.parseFloat(valueString);
+   }
++
+   /**
+    * Set the value of the <code>name</code> property to a <code>float</code>.
+    * 
+@@ -1032,6 +1033,35 @@ public class Configuration implements Iterable<Map.Entry<String,String>>,
+   public void setFloat(String name, float value) {
+     set(name,Float.toString(value));
+   }
++
++  /** 
++   * Get the value of the <code>name</code> property as a <code>double</code>.  
++   * If no such property exists, the provided default value is returned,
++   * or if the specified value is not a valid <code>double</code>,
++   * then an error is thrown.
++   *
++   * @param name property name.
++   * @param defaultValue default value.
++   * @throws NumberFormatException when the value is invalid
++   * @return property value as a <code>double</code>, 
++   *         or <code>defaultValue</code>. 
++   */
++  public double getDouble(String name, double defaultValue) {
++    String valueString = getTrimmed(name);
++    if (valueString == null)
++      return defaultValue;
++    return Double.parseDouble(valueString);
++  }
++
++  /**
++   * Set the value of the <code>name</code> property to a <code>double</code>.
++   * 
++   * @param name property name.
++   * @param value property value.
++   */
++  public void setDouble(String name, double value) {
++    set(name,Double.toString(value));
++  }
+  
+   /** 
+    * Get the value of the <code>name</code> property as a <code>boolean</code>.  
+diff --git a/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/conf/TestConfiguration.java b/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/conf/TestConfiguration.java
+index 71e7868..57da627 100644
+--- a/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/conf/TestConfiguration.java
++++ b/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/conf/TestConfiguration.java
+@@ -581,6 +581,29 @@ public class TestConfiguration extends TestCase {
+     }
+   }
+   
++  public void testDoubleValues() throws IOException {
++    out=new BufferedWriter(new FileWriter(CONFIG));
++    startConfig();
++    appendProperty("test.double1", "3.1415");
++    appendProperty("test.double2", "003.1415");
++    appendProperty("test.double3", "-3.1415");
++    appendProperty("test.double4", " -3.1415 ");
++    appendProperty("test.double5", "xyz-3.1415xyz");
++    endConfig();
++    Path fileResource = new Path(CONFIG);
++    conf.addResource(fileResource);
++    assertEquals(3.1415, conf.getDouble("test.double1", 0.0));
++    assertEquals(3.1415, conf.getDouble("test.double2", 0.0));
++    assertEquals(-3.1415, conf.getDouble("test.double3", 0.0));
++    assertEquals(-3.1415, conf.getDouble("test.double4", 0.0));
++    try {
++      conf.getDouble("test.double5", 0.0);
++      fail("Property had invalid double value, but was read successfully.");
++    } catch (NumberFormatException e) {
++      // pass
++    }
++  }
++  
+   public void testGetClass() throws IOException {
+     out=new BufferedWriter(new FileWriter(CONFIG));
+     startConfig();
+-- 
+1.7.0.4
+

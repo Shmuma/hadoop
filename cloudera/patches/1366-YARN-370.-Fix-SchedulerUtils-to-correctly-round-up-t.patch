@@ -1,0 +1,111 @@
+From 6a3a5a423f0e536299776a258994a65ff4ee6b7c Mon Sep 17 00:00:00 2001
+From: Arun Murthy <acmurthy@apache.org>
+Date: Wed, 6 Feb 2013 04:24:56 +0000
+Subject: [PATCH 1366/1475] YARN-370. Fix SchedulerUtils to correctly round up the resource for containers. Contributed by Zhijie Shen.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1442840 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit b82a31eb79285d09598add90452838186ede4828)
+---
+ .../resourcemanager/scheduler/SchedulerUtils.java  |    3 +-
+ .../scheduler/TestSchedulerUtils.java              |   22 ++++++++++++++++++++
+ 2 files changed, 24 insertions(+), 1 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/SchedulerUtils.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/SchedulerUtils.java
+index e1bb437..f651566 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/SchedulerUtils.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/SchedulerUtils.java
+@@ -108,7 +108,8 @@ public class SchedulerUtils {
+     Resource normalized = 
+         Resources.normalize(
+             resourceCalculator, ask.getCapability(), minimumResource);
+-    ask.setCapability(normalized);
++    ask.getCapability().setMemory(normalized.getMemory());
++    ask.getCapability().setVirtualCores(normalized.getVirtualCores());
+   }
+ 
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestSchedulerUtils.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestSchedulerUtils.java
+index 681e8d0..bc806f6 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestSchedulerUtils.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestSchedulerUtils.java
+@@ -19,6 +19,7 @@
+ package org.apache.hadoop.yarn.server.resourcemanager.scheduler;
+ 
+ import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertTrue;
+ 
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.api.records.ResourceRequest;
+@@ -42,23 +43,35 @@ public class TestSchedulerUtils {
+ 
+     // case negative memory
+     ask.setCapability(Resources.createResource(-1024));
++    Resource before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(ask, resourceCalculator, null, minResource);
++    Resource after = ask.getCapability();
+     assertEquals(minMemory, ask.getCapability().getMemory());
++    assertTrue(before == after);
+ 
+     // case zero memory
+     ask.setCapability(Resources.createResource(0));
++    before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(ask, resourceCalculator, null, minResource);
++    after = ask.getCapability();
+     assertEquals(minMemory, ask.getCapability().getMemory());
++    assertTrue(before == after);
+ 
+     // case memory is a multiple of minMemory
+     ask.setCapability(Resources.createResource(2 * minMemory));
++    before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(ask, resourceCalculator, null, minResource);
++    after = ask.getCapability();
+     assertEquals(2 * minMemory, ask.getCapability().getMemory());
++    assertTrue(before == after);
+ 
+     // case memory is not a multiple of minMemory
+     ask.setCapability(Resources.createResource(minMemory + 10));
++    before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(ask, resourceCalculator, null, minResource);
++    after = ask.getCapability();
+     assertEquals(2 * minMemory, ask.getCapability().getMemory());
++    assertTrue(before == after);
+ 
+   }
+   
+@@ -73,24 +86,33 @@ public class TestSchedulerUtils {
+ 
+     // case negative memory/vcores
+     ask.setCapability(Resources.createResource(-1024, -1));
++    Resource before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(
+         ask, resourceCalculator, clusterResource, minResource);
++    Resource after = ask.getCapability();
+     assertEquals(minResource, ask.getCapability());
++    assertTrue(before == after);
+ 
+     // case zero memory/vcores
+     ask.setCapability(Resources.createResource(0, 0));
++    before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(
+         ask, resourceCalculator, clusterResource, minResource);
++    after = ask.getCapability();
+     assertEquals(minResource, ask.getCapability());
+     assertEquals(1, ask.getCapability().getVirtualCores());
+     assertEquals(1024, ask.getCapability().getMemory());
++    assertTrue(before == after);
+ 
+     // case non-zero memory & zero cores
+     ask.setCapability(Resources.createResource(1536, 0));
++    before = ask.getCapability();
+     SchedulerUtils.normalizeRequest(
+         ask, resourceCalculator, clusterResource, minResource);
++    after = ask.getCapability();
+     assertEquals(Resources.createResource(2048, 1), ask.getCapability());
+     assertEquals(1, ask.getCapability().getVirtualCores());
+     assertEquals(2048, ask.getCapability().getMemory());
++    assertTrue(before == after);
+   }
+ }
+-- 
+1.7.0.4
+

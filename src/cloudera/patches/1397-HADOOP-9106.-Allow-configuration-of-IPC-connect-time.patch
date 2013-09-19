@@ -1,0 +1,141 @@
+From 27cb1b25046d39c5ad4ca7765cd4e9f1b16b8a76 Mon Sep 17 00:00:00 2001
+From: Suresh Srinivas <suresh@apache.org>
+Date: Tue, 15 Jan 2013 23:54:21 +0000
+Subject: [PATCH 1397/1475] HADOOP-9106. Allow configuration of IPC connect timeout. Contributed by Rober Parker.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1433747 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 406021717835e45b5d002f740c3f68ec145ad97a)
+---
+ .../hadoop/fs/CommonConfigurationKeysPublic.java   |    5 ++++
+ .../main/java/org/apache/hadoop/ipc/Client.java    |   18 ++++++++++++++--
+ .../src/main/resources/core-default.xml            |    8 +++++++
+ .../test/java/org/apache/hadoop/ipc/TestIPC.java   |   21 +++++++++++++++++++-
+ 4 files changed, 48 insertions(+), 4 deletions(-)
+
+diff --git a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeysPublic.java b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeysPublic.java
+index 769ccb9..d6774b8 100644
+--- a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeysPublic.java
++++ b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/fs/CommonConfigurationKeysPublic.java
+@@ -173,6 +173,11 @@ public class CommonConfigurationKeysPublic {
+   /** Default value for IPC_CLIENT_CONNECTION_MAXIDLETIME_KEY */
+   public static final int     IPC_CLIENT_CONNECTION_MAXIDLETIME_DEFAULT = 10000; // 10s
+   /** See <a href="{@docRoot}/../core-default.html">core-default.xml</a> */
++  public static final String  IPC_CLIENT_CONNECT_TIMEOUT_KEY =
++    "ipc.client.connect.timeout";
++  /** Default value for IPC_CLIENT_CONNECT_TIMEOUT_KEY */
++  public static final int     IPC_CLIENT_CONNECT_TIMEOUT_DEFAULT = 20000; // 20s
++  /** See <a href="{@docRoot}/../core-default.html">core-default.xml</a> */
+   public static final String  IPC_CLIENT_CONNECT_MAX_RETRIES_KEY =
+     "ipc.client.connect.max.retries";
+   /** Default value for IPC_CLIENT_CONNECT_MAX_RETRIES_KEY */
+diff --git a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Client.java b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Client.java
+index 46d5831..dcf5dac 100644
+--- a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Client.java
++++ b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Client.java
+@@ -105,6 +105,8 @@ public class Client {
+ 
+   private SocketFactory socketFactory;           // how to create sockets
+   private int refCount = 1;
++
++  private final int connectionTimeout;
+   
+   final static int PING_CALL_ID = -1;
+   
+@@ -158,7 +160,16 @@ public class Client {
+     }
+     return -1;
+   }
+-  
++  /**
++   * set the connection timeout value in configuration
++   * 
++   * @param conf Configuration
++   * @param timeout the socket connect timeout value
++   */
++  public static final void setConnectTimeout(Configuration conf, int timeout) {
++    conf.setInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_TIMEOUT_KEY, timeout);
++  }
++
+   /**
+    * Increment this client's reference count
+    *
+@@ -495,8 +506,7 @@ public class Client {
+             }
+           }
+           
+-          // connection time out is 20s
+-          NetUtils.connect(this.socket, server, 20000);
++          NetUtils.connect(this.socket, server, connectionTimeout);
+           if (rpcTimeout > 0) {
+             pingInterval = rpcTimeout;  // rpcTimeout overwrites pingInterval
+           }
+@@ -1035,6 +1045,8 @@ public class Client {
+     this.valueClass = valueClass;
+     this.conf = conf;
+     this.socketFactory = factory;
++    this.connectionTimeout = conf.getInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_TIMEOUT_KEY,
++        CommonConfigurationKeys.IPC_CLIENT_CONNECT_TIMEOUT_DEFAULT);
+   }
+ 
+   /**
+diff --git a/hadoop-common-project/hadoop-common/src/main/resources/core-default.xml b/hadoop-common-project/hadoop-common/src/main/resources/core-default.xml
+index 5587b3d..5393193 100644
+--- a/hadoop-common-project/hadoop-common/src/main/resources/core-default.xml
++++ b/hadoop-common-project/hadoop-common/src/main/resources/core-default.xml
+@@ -577,6 +577,14 @@
+ </property>
+ 
+ <property>
++  <name>ipc.client.connect.timeout</name>
++  <value>20000</value>
++  <description>Indicates the number of milliseconds a client will wait for the 
++               socket to establish a server connection.
++  </description>
++</property>
++
++<property>
+   <name>ipc.client.connect.max.retries.on.timeouts</name>
+   <value>45</value>
+   <description>Indicates the number of retries a client will make on socket timeout
+diff --git a/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestIPC.java b/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestIPC.java
+index cb77ab3..cb26b3c 100644
+--- a/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestIPC.java
++++ b/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestIPC.java
+@@ -63,7 +63,6 @@ public class TestIPC {
+   final private static Configuration conf = new Configuration();
+   final static private int PING_INTERVAL = 1000;
+   final static private int MIN_SLEEP_TIME = 1000;
+-
+   /**
+    * Flag used to turn off the fault injection behavior
+    * of the various writables.
+@@ -497,6 +496,26 @@ public class TestIPC {
+     client.call(new LongWritable(RANDOM.nextLong()),
+         addr, null, null, 3*PING_INTERVAL+MIN_SLEEP_TIME, conf);
+   }
++
++  @Test
++  public void testIpcConnectTimeout() throws Exception {
++    // start server
++    Server server = new TestServer(1, true);
++    InetSocketAddress addr = NetUtils.getConnectAddress(server);
++    //Intentionally do not start server to get a connection timeout
++
++    // start client
++    Client.setConnectTimeout(conf, 100);
++    Client client = new Client(LongWritable.class, conf);
++    // set the rpc timeout to twice the MIN_SLEEP_TIME
++    try {
++      client.call(new LongWritable(RANDOM.nextLong()),
++              addr, null, null, MIN_SLEEP_TIME*2, conf);
++      fail("Expected an exception to have been thrown");
++    } catch (SocketTimeoutException e) {
++      LOG.info("Get a SocketTimeoutException ", e);
++    }
++  }
+   
+   /**
+    * Check that file descriptors aren't leaked by starting
+-- 
+1.7.0.4
+

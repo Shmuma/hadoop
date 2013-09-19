@@ -1,0 +1,43 @@
+From 2658fda6da555e2c78ff9f88f1e04e676e0e7703 Mon Sep 17 00:00:00 2001
+From: David S. Wang <dsw@cloudera.com>
+Date: Wed, 3 Jul 2013 09:24:42 -0700
+Subject: [PATCH 1392/1475] HADOOP-9496. Bad merge of HADOOP-9450 on branch-2 breaks all bin/hadoop calls that need HADOOP_CLASSPATH. Contributed by Harsh J (harsh)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-2@1471230 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit cc6bfcc467ea31fb865ceb642ce3906cc34e57e4)
+---
+ .../hadoop-common/src/main/bin/hadoop-config.sh    |   14 ++++++++++++--
+ 1 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/hadoop-common-project/hadoop-common/src/main/bin/hadoop-config.sh b/hadoop-common-project/hadoop-common/src/main/bin/hadoop-config.sh
+index cca43d6..f90c46e 100644
+--- a/hadoop-common-project/hadoop-common/src/main/bin/hadoop-config.sh
++++ b/hadoop-common-project/hadoop-common/src/main/bin/hadoop-config.sh
+@@ -294,6 +294,18 @@ if [ "$HADOOP_MAPRED_HOME/$MAPRED_DIR" != "$YARN_HOME/$YARN_DIR" ] ; then
+   CLASSPATH=${CLASSPATH}:$HADOOP_MAPRED_HOME/$MAPRED_DIR'/*'
+ fi
+ 
++# Add the user-specified CLASSPATH via HADOOP_CLASSPATH
++# Add it first or last depending on if user has
++# set env-var HADOOP_USER_CLASSPATH_FIRST
++if [ "$HADOOP_CLASSPATH" != "" ]; then
++  # Prefix it if its to be preceded
++  if [ "$HADOOP_USER_CLASSPATH_FIRST" != "" ]; then
++    CLASSPATH=${HADOOP_CLASSPATH}:${CLASSPATH}
++  else
++    CLASSPATH=${CLASSPATH}:${HADOOP_CLASSPATH}
++  fi
++fi
++
+ # cygwin path translation
+ if $cygwin; then
+   HADOOP_HDFS_HOME=`cygpath -w "$HADOOP_HDFS_HOME"`
+@@ -303,5 +315,3 @@ fi
+ if $cygwin; then
+   TOOL_PATH=`cygpath -p -w "$TOOL_PATH"`
+ fi
+-
+-
+-- 
+1.7.0.4
+

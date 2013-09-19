@@ -1,0 +1,43 @@
+From 063e0a44dd1bae145512e8e15c694f8ee35d02d0 Mon Sep 17 00:00:00 2001
+From: Karthik Kambatla <kasha@cloudera.com>
+Date: Thu, 8 Aug 2013 12:10:38 -0700
+Subject: [PATCH 1449/1475] MR1: CLOUDERA-BUILD. Change rat dependency to match branch-1 upstream
+
+---
+ hadoop-mapreduce1-project/ivy.xml                  |    4 ++++
+ hadoop-mapreduce1-project/ivy/libraries.properties |    2 +-
+ 2 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/hadoop-mapreduce1-project/ivy.xml b/hadoop-mapreduce1-project/ivy.xml
+index 425def6..f54d2e0 100644
+--- a/hadoop-mapreduce1-project/ivy.xml
++++ b/hadoop-mapreduce1-project/ivy.xml
+@@ -92,8 +92,12 @@
+    <dependency org="log4j" name="log4j" rev="${log4j.version}" 
+                conf="compile->master"/>
+ 
++<!--
+    <dependency org="org.apache.rat" name="apache-rat-tasks" 
+                rev="${rats-lib.version}" conf="releaseaudit->default"/>
++-->
++   <dependency org="com.google.code.p.arat" name="rat-lib" rev="${rats-lib.version}"
++	       conf="releaseaudit->default"/>
+    <dependency org="commons-lang" name="commons-lang" 
+                rev="${commons-lang.version}" conf="releaseaudit->default"/>
+    <dependency org="commons-collections" name="commons-collections" 
+diff --git a/hadoop-mapreduce1-project/ivy/libraries.properties b/hadoop-mapreduce1-project/ivy/libraries.properties
+index 99cda36..71dc83c 100644
+--- a/hadoop-mapreduce1-project/ivy/libraries.properties
++++ b/hadoop-mapreduce1-project/ivy/libraries.properties
+@@ -70,7 +70,7 @@ mockito-all.version=1.8.5
+ 
+ oro.version=2.0.8
+ 
+-rats-lib.version=0.6
++rats-lib.version=0.5.1
+ 
+ servlet.version=4.0.6
+ servlet-api-2.5.version=6.1.14
+-- 
+1.7.0.4
+

@@ -1,0 +1,27 @@
+From feae09a71e2fe4cb1d3d072a72f601c903d0718d Mon Sep 17 00:00:00 2001
+From: Alejandro Abdelnur <tucu@apache.org>
+Date: Wed, 17 Apr 2013 23:05:58 +0000
+Subject: [PATCH 1417/1475] YARN-518. Fair Scheduler's document link could be added to the hadoop 2.x main doc page. (sandyr via tucu)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1469091 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 5be8a9dcf8563818bdb1dddf3d1612053463065c)
+---
+ .../hadoop-yarn-site/src/site/apt/index.apt.vm     |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/index.apt.vm b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/index.apt.vm
+index da5ff5f..1b9f6e9 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/index.apt.vm
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/apt/index.apt.vm
+@@ -47,6 +47,8 @@ MapReduce NextGen aka YARN aka MRv2
+ 
+   * {{{./CapacityScheduler.html}Capacity Scheduler}}
+ 
++  * {{{./FairScheduler.html}Fair Scheduler}}
++
+   * {{{./WebApplicationProxy.html}Web Application Proxy}}
+ 
+   * {{{../../hadoop-project-dist/hadoop-common/CLIMiniCluster.html}CLI MiniCluster}}
+-- 
+1.7.0.4
+

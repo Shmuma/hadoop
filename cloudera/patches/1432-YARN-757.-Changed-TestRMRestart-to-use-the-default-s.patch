@@ -1,0 +1,30 @@
+From a03d1c2b19c4697bdbb9d2a091e6b5f67bee6dc9 Mon Sep 17 00:00:00 2001
+From: Vinod Kumar Vavilapalli <vinodkv@apache.org>
+Date: Tue, 4 Jun 2013 01:14:22 +0000
+Subject: [PATCH 1432/1475] YARN-757. Changed TestRMRestart to use the default scheduler to avoid test failures. Contributed by Bikas Saha.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1489268 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit e8e79e5a493ff60ade57de4a729f60a2936ec855)
+
+Conflicts:
+	hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestRMRestart.java
+---
+ .../yarn/server/resourcemanager/TestRMRestart.java |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestRMRestart.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestRMRestart.java
+index 5d816d5..7e1631c 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestRMRestart.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestRMRestart.java
+@@ -60,8 +60,6 @@ public class TestRMRestart {
+     conf.set(YarnConfiguration.RECOVERY_ENABLED, "true");
+     conf.set(YarnConfiguration.RM_STORE, 
+     "org.apache.hadoop.yarn.server.resourcemanager.recovery.MemoryRMStateStore");
+-    conf.set(YarnConfiguration.RM_SCHEDULER, 
+-    "org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.FairScheduler");
+ 
+     MemoryRMStateStore memStore = new MemoryRMStateStore();
+     memStore.init(conf);
+-- 
+1.7.0.4
+

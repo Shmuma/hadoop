@@ -1,0 +1,163 @@
+From 7ec4367a84fbe90a856bf6eb033c15e439dc192b Mon Sep 17 00:00:00 2001
+From: Sanford Ryza <sandy@apache.org>
+Date: Mon, 29 Jul 2013 22:06:28 +0000
+Subject: [PATCH 1439/1475] YARN-932. TestResourceLocalizationService.testLocalizationInit can fail on JDK7. (Karthik Kambatla via Sandy Ryza)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1508209 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 37895ae9ccf6e18f18d0afd6ace5a2b8ccd97720)
+
+Conflicts:
+	hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/localizer/TestResourceLocalizationService.java
+---
+ .../hadoop-yarn-server-nodemanager/pom.xml         |    4 ++
+ .../localizer/TestResourceLocalizationService.java |   54 ++++++++++----------
+ 2 files changed, 31 insertions(+), 27 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/pom.xml b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/pom.xml
+index e979302..4a2d52c 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/pom.xml
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/pom.xml
+@@ -140,6 +140,10 @@
+               <name>application.submitter</name>
+               <value>${application.submitter}</value>
+             </property>
++	    <property>
++	      <name>yarn.log.dir</name>
++	      <value>${maven.project.build.directory}/logs</value>
++	    </property>
+           </systemPropertyVariables>
+           <excludes>
+             <exclude>**/TestFSDownload.java</exclude>
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/localizer/TestResourceLocalizationService.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/localizer/TestResourceLocalizationService.java
+index b448dea..ce66cd1 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/localizer/TestResourceLocalizationService.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/localizer/TestResourceLocalizationService.java
+@@ -34,6 +34,7 @@ import static org.mockito.Mockito.spy;
+ import static org.mockito.Mockito.verify;
+ import static org.mockito.Mockito.when;
+ 
++import java.io.IOException;
+ import java.net.InetSocketAddress;
+ import java.net.URI;
+ import java.util.ArrayList;
+@@ -98,6 +99,8 @@ import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.even
+ import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.event.LocalizerEventType;
+ import org.apache.hadoop.yarn.util.BuilderUtils;
+ import org.apache.hadoop.yarn.util.ConverterUtils;
++import org.junit.After;
++import org.junit.Before;
+ import org.junit.BeforeClass;
+ import org.junit.Test;
+ import org.mockito.ArgumentCaptor;
+@@ -108,31 +111,44 @@ public class TestResourceLocalizationService {
+   static final Path basedir =
+       new Path("target", TestResourceLocalizationService.class.getName());
+   static Server mockServer;
++
++  private Configuration conf;
++  private AbstractFileSystem spylfs;
++  private FileContext lfs;
+   
+   @BeforeClass
+-  public static void setup() {
++  public static void setupClass() {
+     mockServer = mock(Server.class);
+     doReturn(new InetSocketAddress(123)).when(mockServer).getListenerAddress();
+   }
++
++  @Before
++  public void setup() throws IOException {
++    conf = new Configuration();
++    spylfs = spy(FileContext.getLocalFSFileContext().getDefaultFileSystem());
++    lfs = FileContext.getFileContext(spylfs, conf);
++    doNothing().when(spylfs).mkdir(
++        isA(Path.class), isA(FsPermission.class), anyBoolean());
++    String logDir = lfs.makeQualified(new Path(basedir, "logdir ")).toString();
++    conf.set(YarnConfiguration.NM_LOG_DIRS, logDir);
++  }
++
++  @After
++  public void cleanup() {
++    conf = null;
++  }
+   
+   @Test
+   public void testLocalizationInit() throws Exception {
+-    final Configuration conf = new Configuration();
+     conf.set(CommonConfigurationKeys.FS_PERMISSIONS_UMASK_KEY, "077");
+     AsyncDispatcher dispatcher = new AsyncDispatcher();
+     dispatcher.init(new Configuration());
+ 
+     ContainerExecutor exec = mock(ContainerExecutor.class);
+     DeletionService delService = spy(new DeletionService(exec));
+-    delService.init(new Configuration());
++    delService.init(conf);
+     delService.start();
+ 
+-    AbstractFileSystem spylfs =
+-      spy(FileContext.getLocalFSFileContext().getDefaultFileSystem());
+-    FileContext lfs = FileContext.getFileContext(spylfs, conf);
+-    doNothing().when(spylfs).mkdir(
+-        isA(Path.class), isA(FsPermission.class), anyBoolean());
+-
+     List<Path> localDirs = new ArrayList<Path>();
+     String[] sDirs = new String[4];
+     for (int i = 0; i < 4; ++i) {
+@@ -140,6 +156,7 @@ public class TestResourceLocalizationService {
+       sDirs[i] = localDirs.get(i).toString();
+     }
+     conf.setStrings(YarnConfiguration.NM_LOCAL_DIRS, sDirs);
++
+     LocalDirsHandlerService diskhandler = new LocalDirsHandlerService();
+     diskhandler.init(conf);
+ 
+@@ -180,13 +197,6 @@ public class TestResourceLocalizationService {
+   @Test
+   @SuppressWarnings("unchecked") // mocked generics
+   public void testResourceRelease() throws Exception {
+-    Configuration conf = new YarnConfiguration();
+-    AbstractFileSystem spylfs =
+-      spy(FileContext.getLocalFSFileContext().getDefaultFileSystem());
+-    final FileContext lfs = FileContext.getFileContext(spylfs, conf);
+-    doNothing().when(spylfs).mkdir(
+-        isA(Path.class), isA(FsPermission.class), anyBoolean());
+-
+     List<Path> localDirs = new ArrayList<Path>();
+     String[] sDirs = new String[4];
+     for (int i = 0; i < 4; ++i) {
+@@ -194,8 +204,7 @@ public class TestResourceLocalizationService {
+       sDirs[i] = localDirs.get(i).toString();
+     }
+     conf.setStrings(YarnConfiguration.NM_LOCAL_DIRS, sDirs);
+-    String logDir = lfs.makeQualified(new Path(basedir, "logdir " )).toString();
+-    conf.set(YarnConfiguration.NM_LOG_DIRS, logDir);
++
+     LocalizerTracker mockLocallilzerTracker = mock(LocalizerTracker.class);
+     DrainDispatcher dispatcher = new DrainDispatcher();
+     dispatcher.init(conf);
+@@ -370,13 +379,6 @@ public class TestResourceLocalizationService {
+   @Test
+   @SuppressWarnings("unchecked") // mocked generics
+   public void testLocalizationHeartbeat() throws Exception {
+-    Configuration conf = new YarnConfiguration();
+-    AbstractFileSystem spylfs =
+-      spy(FileContext.getLocalFSFileContext().getDefaultFileSystem());
+-    final FileContext lfs = FileContext.getFileContext(spylfs, conf);
+-    doNothing().when(spylfs).mkdir(
+-        isA(Path.class), isA(FsPermission.class), anyBoolean());
+-
+     List<Path> localDirs = new ArrayList<Path>();
+     String[] sDirs = new String[4];
+     for (int i = 0; i < 4; ++i) {
+@@ -384,8 +386,6 @@ public class TestResourceLocalizationService {
+       sDirs[i] = localDirs.get(i).toString();
+     }
+     conf.setStrings(YarnConfiguration.NM_LOCAL_DIRS, sDirs);
+-    String logDir = lfs.makeQualified(new Path(basedir, "logdir " )).toString();
+-    conf.set(YarnConfiguration.NM_LOG_DIRS, logDir);
+     DrainDispatcher dispatcher = new DrainDispatcher();
+     dispatcher.init(conf);
+     dispatcher.start();
+-- 
+1.7.0.4
+

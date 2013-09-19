@@ -1,0 +1,231 @@
+From f2e22c5ceea2d047ed870158594768bcffd1925a Mon Sep 17 00:00:00 2001
+From: Alejandro Abdelnur <tucu@apache.org>
+Date: Thu, 9 May 2013 21:47:21 +0000
+Subject: [PATCH 1429/1475] YARN-507. Add interface visibility and stability annotations to FS interfaces/classes. (kkambatl via tucu)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1480799 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 2bf842899ee2e1ea52f5a265766815d2712a6202)
+---
+ .../scheduler/fair/FSLeafQueue.java                |    4 ++++
+ .../scheduler/fair/FSParentQueue.java              |    4 ++++
+ .../resourcemanager/scheduler/fair/FSQueue.java    |    4 ++++
+ .../scheduler/fair/FSSchedulerApp.java             |    8 +++++---
+ .../scheduler/fair/FSSchedulerNode.java            |    4 ++++
+ .../scheduler/fair/FairSchedulerConfiguration.java |    5 ++++-
+ .../scheduler/fair/SchedulingPolicy.java           |    4 ++--
+ .../scheduler/fair/policies/FairSharePolicy.java   |    4 ++++
+ .../scheduler/fair/policies/FifoPolicy.java        |    4 ++++
+ 9 files changed, 35 insertions(+), 6 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSLeafQueue.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSLeafQueue.java
+index 09b14a4..292a719 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSLeafQueue.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSLeafQueue.java
+@@ -28,6 +28,8 @@ import java.util.Map;
+ 
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
++import org.apache.hadoop.classification.InterfaceAudience.Private;
++import org.apache.hadoop.classification.InterfaceStability.Unstable;
+ import org.apache.hadoop.security.UserGroupInformation;
+ import org.apache.hadoop.security.authorize.AccessControlList;
+ import org.apache.hadoop.yarn.api.records.QueueACL;
+@@ -35,6 +37,8 @@ import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ 
++@Private
++@Unstable
+ public class FSLeafQueue extends FSQueue {
+   private static final Log LOG = LogFactory.getLog(
+       FSLeafQueue.class.getName());
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSParentQueue.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSParentQueue.java
+index 253052a..28a0dd2 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSParentQueue.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSParentQueue.java
+@@ -25,12 +25,16 @@ import java.util.List;
+ 
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
++import org.apache.hadoop.classification.InterfaceAudience.Private;
++import org.apache.hadoop.classification.InterfaceStability.Unstable;
+ import org.apache.hadoop.security.UserGroupInformation;
+ import org.apache.hadoop.yarn.api.records.QueueACL;
+ import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ 
++@Private
++@Unstable
+ public class FSParentQueue extends FSQueue {
+   private static final Log LOG = LogFactory.getLog(
+       FSParentQueue.class.getName());
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSQueue.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSQueue.java
+index f4b29d3..dbe16ce 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSQueue.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSQueue.java
+@@ -23,6 +23,8 @@ import java.util.Collection;
+ import java.util.HashMap;
+ import java.util.Map;
+ 
++import org.apache.hadoop.classification.InterfaceAudience.Private;
++import org.apache.hadoop.classification.InterfaceStability.Unstable;
+ import org.apache.hadoop.security.UserGroupInformation;
+ import org.apache.hadoop.security.authorize.AccessControlList;
+ import org.apache.hadoop.yarn.api.records.Priority;
+@@ -36,6 +38,8 @@ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.Queue;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.QueueMetrics;
+ 
++@Private
++@Unstable
+ public abstract class FSQueue extends Schedulable implements Queue {
+   private final String name;
+   private final QueueManager queueMgr;
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerApp.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerApp.java
+index 1df8d97..9db15a6 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerApp.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerApp.java
+@@ -28,7 +28,7 @@ import java.util.Set;
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
+ import org.apache.hadoop.classification.InterfaceAudience.Private;
+-import org.apache.hadoop.classification.InterfaceStability.Stable;
++import org.apache.hadoop.classification.InterfaceStability.Unstable;
+ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
+ import org.apache.hadoop.yarn.api.records.ApplicationId;
+ import org.apache.hadoop.yarn.api.records.Container;
+@@ -58,9 +58,12 @@ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.NodeType;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.Queue;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerApplication;
+ 
++import com.google.common.annotations.VisibleForTesting;
+ import com.google.common.collect.HashMultiset;
+ import com.google.common.collect.Multiset;
+ 
++@Private
++@Unstable
+ public class FSSchedulerApp extends SchedulerApplication {
+ 
+   private static final Log LOG = LogFactory.getLog(FSSchedulerApp.class);
+@@ -312,8 +315,7 @@ public class FSSchedulerApp extends SchedulerApplication {
+    * Used only by unit tests
+    * @return total current reservations
+    */
+-  @Stable
+-  @Private
++  @VisibleForTesting
+   public synchronized Resource getCurrentReservation() {
+     return currentReservation;
+   }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerNode.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerNode.java
+index 533d5c3..d2e6f08 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerNode.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSSchedulerNode.java
+@@ -25,6 +25,8 @@ import java.util.Map;
+ 
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
++import org.apache.hadoop.classification.InterfaceAudience.Private;
++import org.apache.hadoop.classification.InterfaceStability.Unstable;
+ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
+ import org.apache.hadoop.yarn.api.records.ApplicationId;
+ import org.apache.hadoop.yarn.api.records.Container;
+@@ -39,6 +41,8 @@ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerNode;
+ 
++@Private
++@Unstable
+ public class FSSchedulerNode extends SchedulerNode {
+ 
+   private static final Log LOG = LogFactory.getLog(FSSchedulerNode.class);
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairSchedulerConfiguration.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairSchedulerConfiguration.java
+index e9b2a44..73a372b 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairSchedulerConfiguration.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairSchedulerConfiguration.java
+@@ -1,12 +1,15 @@
+ package org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair;
+ 
+ import java.io.File;
+-
++import org.apache.hadoop.classification.InterfaceAudience.Private;
++import org.apache.hadoop.classification.InterfaceStability.Evolving;
+ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ 
++@Private
++@Evolving
+ public class FairSchedulerConfiguration extends Configuration {
+   public static final String FS_CONFIGURATION_FILE = "fair-scheduler.xml";
+ 
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/SchedulingPolicy.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/SchedulingPolicy.java
+index 8e08a18..e6e771b 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/SchedulingPolicy.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/SchedulingPolicy.java
+@@ -22,14 +22,14 @@ import java.util.Comparator;
+ import java.util.concurrent.ConcurrentHashMap;
+ 
+ import org.apache.hadoop.classification.InterfaceAudience.Public;
+-import org.apache.hadoop.classification.InterfaceStability.Unstable;
++import org.apache.hadoop.classification.InterfaceStability.Evolving;
+ import org.apache.hadoop.util.ReflectionUtils;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.policies.FairSharePolicy;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.policies.FifoPolicy;
+ 
+ @Public
+-@Unstable
++@Evolving
+ public abstract class SchedulingPolicy {
+   private static final ConcurrentHashMap<Class<? extends SchedulingPolicy>, SchedulingPolicy> instances =
+       new ConcurrentHashMap<Class<? extends SchedulingPolicy>, SchedulingPolicy>();
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/policies/FairSharePolicy.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/policies/FairSharePolicy.java
+index e94d032..910dd61 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/policies/FairSharePolicy.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/policies/FairSharePolicy.java
+@@ -21,6 +21,8 @@ import java.io.Serializable;
+ import java.util.Collection;
+ import java.util.Comparator;
+ 
++import org.apache.hadoop.classification.InterfaceAudience.Private;
++import org.apache.hadoop.classification.InterfaceStability.Unstable;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+@@ -29,6 +31,8 @@ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.SchedulingPo
+ 
+ import com.google.common.annotations.VisibleForTesting;
+ 
++@Private
++@Unstable
+ public class FairSharePolicy extends SchedulingPolicy {
+   @VisibleForTesting
+   public static final String NAME = "Fairshare";
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/policies/FifoPolicy.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/policies/FifoPolicy.java
+index c8fabee..7f61081 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/policies/FifoPolicy.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/policies/FifoPolicy.java
+@@ -21,6 +21,8 @@ import java.io.Serializable;
+ import java.util.Collection;
+ import java.util.Comparator;
+ 
++import org.apache.hadoop.classification.InterfaceAudience.Private;
++import org.apache.hadoop.classification.InterfaceStability.Unstable;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.Schedulable;
+@@ -28,6 +30,8 @@ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.SchedulingPo
+ 
+ import com.google.common.annotations.VisibleForTesting;
+ 
++@Private
++@Unstable
+ public class FifoPolicy extends SchedulingPolicy {
+   @VisibleForTesting
+   public static final String NAME = "FIFO";
+-- 
+1.7.0.4
+

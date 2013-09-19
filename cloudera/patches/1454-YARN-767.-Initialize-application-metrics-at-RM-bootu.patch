@@ -1,0 +1,134 @@
+From 6bc64180cbcca8fe004a5467c02e66598126b076 Mon Sep 17 00:00:00 2001
+From: Arun Murthy <acmurthy@apache.org>
+Date: Tue, 11 Jun 2013 22:15:02 +0000
+Subject: [PATCH 1454/1475] YARN-767. Initialize application metrics at RM bootup. Contributed by Jian He.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1491989 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 4cd1e5e50abb02d4b97da455b43f5c195e3b9f08)
+
+Conflicts:
+
+	hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestQueueMetrics.java
+---
+ .../server/resourcemanager/ResourceManager.java    |    7 ++++---
+ .../resourcemanager/scheduler/QueueMetrics.java    |   13 +++++++++++++
+ .../scheduler/TestQueueMetrics.java                |   14 ++++++++++++++
+ .../scheduler/fair/TestFairScheduler.java          |    2 ++
+ 4 files changed, 33 insertions(+), 3 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ResourceManager.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ResourceManager.java
+index e196770..c03eb3b 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ResourceManager.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ResourceManager.java
+@@ -221,7 +221,10 @@ public class ResourceManager extends CompositeService implements Recoverable {
+ 
+     this.resourceTracker = createResourceTrackerService();
+     addService(resourceTracker);
+-  
++
++    DefaultMetricsSystem.initialize("ResourceManager");
++    JvmMetrics.initSingleton("ResourceManager", null);
++
+     try {
+       this.scheduler.reinitialize(conf, this.rmContext);
+     } catch (IOException ioe) {
+@@ -547,8 +550,6 @@ public class ResourceManager extends CompositeService implements Recoverable {
+     }
+ 
+     startWepApp();
+-    DefaultMetricsSystem.initialize("ResourceManager");
+-    JvmMetrics.initSingleton("ResourceManager", null);
+     try {
+       rmDTSecretManager.startThreads();
+     } catch(IOException ie) {
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/QueueMetrics.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/QueueMetrics.java
+index b0269cb..9453d09 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/QueueMetrics.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/QueueMetrics.java
+@@ -126,6 +126,18 @@ public class QueueMetrics implements MetricsSource {
+                     enableUserMetrics, conf);
+   }
+ 
++  // this method is here because we want to make sure these metrics show up on
++  // queue registration.
++  private void initMetrics() {
++    appsSubmitted.incr(0);
++    appsRunning.incr(0);
++    appsPending.incr(0);
++    appsCompleted.incr(0);
++    appsKilled.incr(0);
++    appsFailed.incr(0);
++    reservedContainers.incr(0);
++  }
++
+   /**
+    * Helper method to clear cache - used only for unit tests.
+    */
+@@ -156,6 +168,7 @@ public class QueueMetrics implements MetricsSource {
+             ms.register(
+                 sourceName(queueName).toString(), 
+                 "Metrics for queue: " + queueName, metrics);
++        metrics.initMetrics();
+       }
+       queueMetrics.put(queueName, metrics);
+     }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestQueueMetrics.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestQueueMetrics.java
+index 017dadc..944587e 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestQueueMetrics.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestQueueMetrics.java
+@@ -32,11 +32,15 @@ import org.apache.hadoop.metrics2.MetricsRecordBuilder;
+ import org.apache.hadoop.metrics2.MetricsSource;
+ import org.apache.hadoop.metrics2.MetricsSystem;
+ import org.apache.hadoop.metrics2.impl.MetricsSystemImpl;
++import org.apache.hadoop.test.MetricsAsserts;
+ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
+ import org.apache.hadoop.yarn.api.records.ApplicationId;
++import org.apache.hadoop.yarn.conf.YarnConfiguration;
++import org.apache.hadoop.yarn.server.resourcemanager.MockRM;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptState;
+ import org.apache.hadoop.yarn.util.BuilderUtils;
++import org.apache.hadoop.yarn.server.resourcemanager.scheduler.fifo.FifoScheduler;
+ import org.junit.Assert;
+ import org.junit.Before;
+ import org.junit.Test;
+@@ -264,6 +268,16 @@ public class TestQueueMetrics {
+     }
+   }
+ 
++  @Test
++  public void testMetricsInitializedOnRMInit() {
++    YarnConfiguration conf = new YarnConfiguration();
++    conf.setClass(YarnConfiguration.RM_SCHEDULER,
++      FifoScheduler.class, ResourceScheduler.class);
++    MockRM rm = new MockRM(conf);
++    QueueMetrics metrics = rm.getResourceScheduler().getRootQueueMetrics();
++    checkApps(metrics, 0, 0, 0, 0, 0, 0);
++    MetricsAsserts.assertGauge("ReservedContainers", 0, metrics);
++  }
+ 
+   public static void checkApps(MetricsSource source, int submitted, int pending,
+       int running, int completed, int failed, int killed) {
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
+index 0d82eae..e0bac52 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
+@@ -40,6 +40,7 @@ import javax.xml.parsers.ParserConfigurationException;
+ import junit.framework.Assert;
+ 
+ import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
+ import org.apache.hadoop.security.authorize.AccessControlList;
+ import org.apache.hadoop.yarn.Clock;
+ import org.apache.hadoop.yarn.MockApps;
+@@ -129,6 +130,7 @@ public class TestFairScheduler {
+     scheduler = null;
+     resourceManager = null;
+     QueueMetrics.clearQueueMetrics();
++    DefaultMetricsSystem.shutdown();
+   }
+   
+   private Configuration createConfiguration() {
+-- 
+1.7.0.4
+

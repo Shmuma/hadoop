@@ -1,0 +1,41 @@
+From 1b250eb9e77aeb8c31c859ba2c9bf27594583f29 Mon Sep 17 00:00:00 2001
+From: David S. Wang <dsw@cloudera.com>
+Date: Wed, 3 Jul 2013 09:24:02 -0700
+Subject: [PATCH 1391/1475] HADOOP-9450. HADOOP_USER_CLASSPATH_FIRST is not honored; CLASSPATH is PREpended instead of APpended. Contributed by Chris Nauroth and Harsh J. (harsh)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-2@1469215 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 26352f37b0521afcd0c1ce06bb56b0d1826ceec7)
+---
+ .../hadoop-common/src/main/bin/hadoop-config.sh    |    9 ---------
+ 1 files changed, 0 insertions(+), 9 deletions(-)
+
+diff --git a/hadoop-common-project/hadoop-common/src/main/bin/hadoop-config.sh b/hadoop-common-project/hadoop-common/src/main/bin/hadoop-config.sh
+index 43cf597..cca43d6 100644
+--- a/hadoop-common-project/hadoop-common/src/main/bin/hadoop-config.sh
++++ b/hadoop-common-project/hadoop-common/src/main/bin/hadoop-config.sh
+@@ -163,10 +163,6 @@ fi
+ # CLASSPATH initially contains $HADOOP_CONF_DIR
+ CLASSPATH="${HADOOP_CONF_DIR}"
+ 
+-if [ "$HADOOP_USER_CLASSPATH_FIRST" != "" ] && [ "$HADOOP_CLASSPATH" != "" ] ; then
+-  CLASSPATH=${CLASSPATH}:${HADOOP_CLASSPATH}
+-fi
+-
+ # so that filenames w/ spaces are handled correctly in loops below
+ IFS=
+ 
+@@ -187,11 +183,6 @@ fi
+ 
+ CLASSPATH=${CLASSPATH}:$HADOOP_COMMON_HOME/$HADOOP_COMMON_DIR'/*'
+ 
+-# add user-specified CLASSPATH last
+-if [ "$HADOOP_USER_CLASSPATH_FIRST" = "" ] && [ "$HADOOP_CLASSPATH" != "" ]; then
+-  CLASSPATH=${CLASSPATH}:${HADOOP_CLASSPATH}
+-fi
+-
+ # default log directory & file
+ if [ "$HADOOP_LOG_DIR" = "" ]; then
+   HADOOP_LOG_DIR="$HADOOP_PREFIX/logs"
+-- 
+1.7.0.4
+

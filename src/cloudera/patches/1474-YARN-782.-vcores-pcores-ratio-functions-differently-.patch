@@ -1,0 +1,93 @@
+From 2a2cbed4f3fbf4f3ddcb885025447984eed37d80 Mon Sep 17 00:00:00 2001
+From: Alejandro Abdelnur <tucu@apache.org>
+Date: Fri, 14 Jun 2013 13:41:45 +0000
+Subject: [PATCH 1474/1475] YARN-782. vcores-pcores ratio functions differently from vmem-pmem ratio in misleading way. (sandyr via tucu)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1493064 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 53ec4fc7218e370637c11e699454eb5dea793313)
+---
+ .../apache/hadoop/yarn/conf/YarnConfiguration.java |    9 ++-------
+ .../src/main/resources/yarn-default.xml            |   10 +---------
+ .../server/nodemanager/NodeStatusUpdaterImpl.java  |   11 +++--------
+ 3 files changed, 6 insertions(+), 24 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
+index e8e4654..41ae89b 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
+@@ -420,14 +420,9 @@ public class YarnConfiguration extends Configuration {
+     NM_PREFIX + "vmem-pmem-ratio";
+   public static final float DEFAULT_NM_VMEM_PMEM_RATIO = 2.1f;
+   
+-  /** Number of Physical CPU Cores which can be allocated for containers.*/
+-  public static final String NM_VCORES = NM_PREFIX + "resource.cpu-cores";
++  /** Number of Virtual CPU Cores which can be allocated for containers.*/
++  public static final String NM_VCORES = NM_PREFIX + "resource.cpu-vcores";
+   public static final int DEFAULT_NM_VCORES = 8;
+-
+-  /** Conversion ratio for physical cores to virtual cores. */
+-  public static final String NM_VCORES_PCORES_RATIO =
+-      NM_PREFIX + "vcores-pcores-ratio";
+-  public static final float DEFAULT_NM_VCORES_PCORES_RATIO = 2.0f;
+   
+   /** NM Webapp address.**/
+   public static final String NM_WEBAPP_ADDRESS = NM_PREFIX + "webapp.address";
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/yarn-default.xml b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/yarn-default.xml
+index 58f4eb6..d7fc61e 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/yarn-default.xml
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/yarn-default.xml
+@@ -454,19 +454,11 @@
+   <property>
+     <description>Number of CPU cores that can be allocated 
+     for containers.</description>
+-    <name>yarn.nodemanager.resource.cpu-cores</name>
++    <name>yarn.nodemanager.resource.cpu-vcores</name>
+     <value>8</value>
+   </property>
+ 
+   <property>
+-    <description>Ratio between virtual cores to physical cores when
+-    allocating CPU resources to containers. 
+-    </description>
+-    <name>yarn.nodemanager.vcores-pcores-ratio</name>
+-    <value>2</value>
+-  </property>
+-
+-  <property>
+     <description>NM Webapp address.</description>
+     <name>yarn.nodemanager.webapp.address</name>
+     <value>0.0.0.0:8042</value>
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/NodeStatusUpdaterImpl.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/NodeStatusUpdaterImpl.java
+index c9f83d9..2f0312b 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/NodeStatusUpdaterImpl.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/NodeStatusUpdaterImpl.java
+@@ -117,14 +117,9 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
+             YarnConfiguration.DEFAULT_NM_VMEM_PMEM_RATIO); 
+     int virtualMemoryMb = (int)Math.ceil(memoryMb * vMemToPMem);
+     
+-    int cpuCores =
++    int virtualCores =
+         conf.getInt(
+             YarnConfiguration.NM_VCORES, YarnConfiguration.DEFAULT_NM_VCORES);
+-    float vCoresToPCores =             
+-        conf.getFloat(
+-            YarnConfiguration.NM_VCORES_PCORES_RATIO, 
+-            YarnConfiguration.DEFAULT_NM_VCORES_PCORES_RATIO); 
+-    int virtualCores = (int)Math.ceil(cpuCores * vCoresToPCores); 
+ 
+     this.totalResource = recordFactory.newRecordInstance(Resource.class);
+     this.totalResource.setMemory(memoryMb);
+@@ -136,8 +131,8 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
+             YarnConfiguration.DEFAULT_RM_NM_EXPIRY_INTERVAL_MS);
+     
+     LOG.info("Initialized nodemanager for " + nodeId + ":" +
+-    		" physical-memory=" + memoryMb + " virtual-memory=" + virtualMemoryMb +
+-    		" physical-cores=" + cpuCores + " virtual-cores=" + virtualCores);
++        " physical-memory=" + memoryMb + " virtual-memory=" + virtualMemoryMb +
++        " virtual-cores=" + virtualCores);
+     
+     super.init(conf);
+   }
+-- 
+1.7.0.4
+

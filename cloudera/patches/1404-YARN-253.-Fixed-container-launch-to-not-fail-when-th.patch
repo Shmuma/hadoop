@@ -1,0 +1,61 @@
+From 069cbe6bdddc550762f87d01f6b12bdda6ccc7ba Mon Sep 17 00:00:00 2001
+From: Alejandro Abdelnur <tucu@cloudera.com>
+Date: Fri, 12 Jul 2013 16:27:06 -0700
+Subject: [PATCH 1404/1475] YARN-253. Fixed container-launch to not fail when there are no local resources to localize. Contributed by Tom White.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1430269 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit a91c650af60933ed4b960603377057615df70f27)
+
+Conflicts:
+	hadoop-yarn-project/CHANGES.txt
+	hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java
+---
+ .../nodemanager/DefaultContainerExecutor.java      |    2 +-
+ .../yarn/server/TestContainerManagerSecurity.java  |   16 +---------------
+ 2 files changed, 2 insertions(+), 16 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/DefaultContainerExecutor.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/DefaultContainerExecutor.java
+index 428e24d..27730f4 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/DefaultContainerExecutor.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/DefaultContainerExecutor.java
+@@ -124,7 +124,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
+       Path appCacheDir = new Path(userdir, ContainerLocalizer.APPCACHE);
+       Path appDir = new Path(appCacheDir, appIdStr);
+       Path containerDir = new Path(appDir, containerIdStr);
+-      createDir(containerDir, dirPerm, false);
++      createDir(containerDir, dirPerm, true);
+     }
+ 
+     // Create the container log-dirs on all disks
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java
+index 2fdf08c..14761d4 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java
+@@ -403,23 +403,9 @@ public class TestContainerManagerSecurity {
+       UnsupportedFileSystemException, YarnRemoteException,
+       InterruptedException {
+ 
+-    // TODO: Use a resource to work around bugs. Today NM doesn't create local
+-    // app-dirs if there are no file to download!!
+-    String fileName = "testFile-" + appID.toString();
+-    File testFile = new File(localDir.getAbsolutePath(), fileName);
+-    FileWriter tmpFile = new FileWriter(testFile);
+-    tmpFile.write("testing");
+-    tmpFile.close();
+-    URL testFileURL = ConverterUtils.getYarnUrlFromPath(FileContext
+-        .getFileContext().makeQualified(
+-            new Path(localDir.getAbsolutePath(), fileName)));
+-    LocalResource rsrc = BuilderUtils.newLocalResource(testFileURL,
+-        LocalResourceType.FILE, LocalResourceVisibility.PRIVATE, testFile
+-            .length(), testFile.lastModified());
+-
+     ContainerLaunchContext amContainer = BuilderUtils
+         .newContainerLaunchContext(null, "testUser", BuilderUtils
+-	    .newResource(1024, 1), Collections.singletonMap(fileName, rsrc),
++            .newResource(1024, 1), Collections.<String, LocalResource>emptyMap(),
+             new HashMap<String, String>(), Arrays.asList("sleep", "100"),
+             new HashMap<String, ByteBuffer>(), null,
+             new HashMap<ApplicationAccessType, String>());
+-- 
+1.7.0.4
+

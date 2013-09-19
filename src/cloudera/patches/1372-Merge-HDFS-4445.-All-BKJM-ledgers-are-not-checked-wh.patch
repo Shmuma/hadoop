@@ -1,0 +1,140 @@
+From 4aac4a7a8725dad86c43ca0b9eb4c5c655916176 Mon Sep 17 00:00:00 2001
+From: Uma Maheswara Rao G <umamahesh@apache.org>
+Date: Sun, 3 Feb 2013 17:37:12 +0000
+Subject: [PATCH 1372/1475] Merge HDFS-4445. All BKJM ledgers are not checked while tailing, So failover will fail. Contributed Vinay.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-2@1441936 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit a79cebd81765a4b6d8bd07eddbeff75f382268d6)
+---
+ .../bkjournal/BookKeeperJournalManager.java        |   18 ++++++++-
+ .../bkjournal/TestBookKeeperAsHASharedDir.java     |   41 ++++++++++++++++++-
+ 2 files changed, 55 insertions(+), 4 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/main/java/org/apache/hadoop/contrib/bkjournal/BookKeeperJournalManager.java b/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/main/java/org/apache/hadoop/contrib/bkjournal/BookKeeperJournalManager.java
+index 5d18142..2baf4dc 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/main/java/org/apache/hadoop/contrib/bkjournal/BookKeeperJournalManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/main/java/org/apache/hadoop/contrib/bkjournal/BookKeeperJournalManager.java
+@@ -503,7 +503,8 @@ public class BookKeeperJournalManager implements JournalManager {
+   @Override
+   public void selectInputStreams(Collection<EditLogInputStream> streams,
+       long fromTxId, boolean inProgressOk) throws IOException {
+-    List<EditLogLedgerMetadata> currentLedgerList = getLedgerList(inProgressOk);
++    List<EditLogLedgerMetadata> currentLedgerList = getLedgerList(fromTxId,
++        inProgressOk);
+     try {
+       BookKeeperEditLogInputStream elis = null;
+       for (EditLogLedgerMetadata l : currentLedgerList) {
+@@ -511,6 +512,8 @@ public class BookKeeperJournalManager implements JournalManager {
+         if (l.isInProgress()) {
+           lastTxId = recoverLastTxId(l, false);
+         }
++        // Check once again, required in case of InProgress and is case of any
++        // gap.
+         if (fromTxId >= l.getFirstTxId() && fromTxId <= lastTxId) {
+           LedgerHandle h;
+           if (l.isInProgress()) { // we don't want to fence the current journal
+@@ -523,6 +526,8 @@ public class BookKeeperJournalManager implements JournalManager {
+           elis = new BookKeeperEditLogInputStream(h, l);
+           elis.skipTo(fromTxId);
+         } else {
++          // If mismatches then there might be some gap, so we should not check
++          // further.
+           return;
+         }
+         streams.add(elis);
+@@ -732,6 +737,11 @@ public class BookKeeperJournalManager implements JournalManager {
+    */
+   List<EditLogLedgerMetadata> getLedgerList(boolean inProgressOk)
+       throws IOException {
++    return getLedgerList(-1, inProgressOk);
++  }
++
++  private List<EditLogLedgerMetadata> getLedgerList(long fromTxId,
++      boolean inProgressOk) throws IOException {
+     List<EditLogLedgerMetadata> ledgers
+       = new ArrayList<EditLogLedgerMetadata>();
+     try {
+@@ -744,6 +754,12 @@ public class BookKeeperJournalManager implements JournalManager {
+         try {
+           EditLogLedgerMetadata editLogLedgerMetadata = EditLogLedgerMetadata
+               .read(zkc, legderMetadataPath);
++          if (editLogLedgerMetadata.getLastTxId() != HdfsConstants.INVALID_TXID
++              && editLogLedgerMetadata.getLastTxId() < fromTxId) {
++            // exclude already read closed edits, but include inprogress edits
++            // as this will be handled in caller
++            continue;
++          }
+           ledgers.add(editLogLedgerMetadata);
+         } catch (KeeperException.NoNodeException e) {
+           LOG.warn("ZNode: " + legderMetadataPath
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/test/java/org/apache/hadoop/contrib/bkjournal/TestBookKeeperAsHASharedDir.java b/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/test/java/org/apache/hadoop/contrib/bkjournal/TestBookKeeperAsHASharedDir.java
+index edfbcc3..fc596be 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/test/java/org/apache/hadoop/contrib/bkjournal/TestBookKeeperAsHASharedDir.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/contrib/bkjournal/src/test/java/org/apache/hadoop/contrib/bkjournal/TestBookKeeperAsHASharedDir.java
+@@ -21,7 +21,6 @@ import static org.junit.Assert.*;
+ 
+ import org.junit.Test;
+ import org.junit.Before;
+-import org.junit.After;
+ import org.junit.BeforeClass;
+ import org.junit.AfterClass;
+ 
+@@ -34,12 +33,10 @@ import org.apache.hadoop.hdfs.DFSConfigKeys;
+ import org.apache.hadoop.hdfs.HAUtil;
+ import org.apache.hadoop.hdfs.MiniDFSCluster;
+ import org.apache.hadoop.hdfs.MiniDFSNNTopology;
+-import org.apache.hadoop.hdfs.DFSTestUtil;
+ 
+ import org.apache.hadoop.ha.ServiceFailedException;
+ import org.apache.hadoop.hdfs.server.namenode.ha.HATestUtil;
+ import org.apache.hadoop.hdfs.server.namenode.NameNode;
+-import org.apache.hadoop.hdfs.server.namenode.FSEditLogTestUtil;
+ import org.apache.hadoop.hdfs.server.namenode.NameNodeAdapter;
+ 
+ import org.apache.hadoop.ipc.RemoteException;
+@@ -369,4 +366,42 @@ public class TestBookKeeperAsHASharedDir {
+       }
+     }
+   }
++
++  /**
++   * NameNode should load the edits correctly if the applicable edits are
++   * present in the BKJM.
++   */
++  @Test
++  public void testNameNodeMultipleSwitchesUsingBKJM() throws Exception {
++    MiniDFSCluster cluster = null;
++    try {
++      Configuration conf = new Configuration();
++      conf.setInt(DFSConfigKeys.DFS_HA_TAILEDITS_PERIOD_KEY, 1);
++      conf.set(DFSConfigKeys.DFS_NAMENODE_SHARED_EDITS_DIR_KEY, BKJMUtil
++          .createJournalURI("/correctEditLogSelection").toString());
++      BKJMUtil.addJournalManagerDefinition(conf);
++
++      cluster = new MiniDFSCluster.Builder(conf)
++          .nnTopology(MiniDFSNNTopology.simpleHATopology()).numDataNodes(0)
++          .manageNameDfsSharedDirs(false).build();
++      NameNode nn1 = cluster.getNameNode(0);
++      NameNode nn2 = cluster.getNameNode(1);
++      cluster.waitActive();
++      cluster.transitionToActive(0);
++      nn1.getRpcServer().rollEditLog(); // Roll Edits from current Active.
++      // Transition to standby current active gracefully.
++      cluster.transitionToStandby(0);
++      // Make the other Active and Roll edits multiple times
++      cluster.transitionToActive(1);
++      nn2.getRpcServer().rollEditLog();
++      nn2.getRpcServer().rollEditLog();
++      // Now One more failover. So NN1 should be able to failover successfully.
++      cluster.transitionToStandby(1);
++      cluster.transitionToActive(0);
++    } finally {
++      if (cluster != null) {
++        cluster.shutdown();
++      }
++    }
++  }
+ }
+-- 
+1.7.0.4
+

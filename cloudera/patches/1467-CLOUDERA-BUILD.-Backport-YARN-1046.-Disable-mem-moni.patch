@@ -1,0 +1,53 @@
+From 673f9a572bbc63ee73c682baa98265cee062f5d6 Mon Sep 17 00:00:00 2001
+From: Karthik Kambatla <kasha@cloudera.com>
+Date: Tue, 13 Aug 2013 16:52:09 -0700
+Subject: [PATCH 1467/1475] CLOUDERA-BUILD. Backport YARN-1046. Disable mem monitoring my default in MiniYARNCluster (Karthik Kambatla via Sandy Ryza)
+
+---
+ .../apache/hadoop/yarn/conf/YarnConfiguration.java |    8 ++++++++
+ .../apache/hadoop/yarn/server/MiniYARNCluster.java |   10 ++++++++++
+ 2 files changed, 18 insertions(+), 0 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
+index f46b0ca..e8e4654 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
+@@ -523,6 +523,14 @@ public class YarnConfiguration extends Configuration {
+ 
+   public static final String DEFAULT_NM_USER_HOME_DIR= "/home/";
+ 
++  /**
++   * Whether users are explicitly trying to control resource monitoring
++   * configuration for the MiniYARNCluster. Disabled by default.
++   */
++  public static final String YARN_MINICLUSTER_CONTROL_RESOURCE_MONITORING =
++      YARN_PREFIX + "minicluster.control-resource-monitoring";
++  public static final boolean
++      DEFAULT_YARN_MINICLUSTER_CONTROL_RESOURCE_MONITORING = false;
+ 
+   public static final int INVALID_CONTAINER_EXIT_STATUS = -1000;
+   public static final int ABORTED_CONTAINER_EXIT_STATUS = -100;
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/MiniYARNCluster.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/MiniYARNCluster.java
+index 1bb4dea..239dea7 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/MiniYARNCluster.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/MiniYARNCluster.java
+@@ -251,6 +251,16 @@ public class MiniYARNCluster extends CompositeService {
+                         MiniYARNCluster.getHostname() + ":0");
+         getConfig().set(YarnConfiguration.NM_WEBAPP_ADDRESS,
+                         MiniYARNCluster.getHostname() + ":0");
++
++        // Disable resource checks by default
++        if (!getConfig().getBoolean(
++            YarnConfiguration.YARN_MINICLUSTER_CONTROL_RESOURCE_MONITORING,
++            YarnConfiguration.
++                DEFAULT_YARN_MINICLUSTER_CONTROL_RESOURCE_MONITORING)) {
++          getConfig().setBoolean(YarnConfiguration.NM_PMEM_CHECK_ENABLED, false);
++          getConfig().setBoolean(YarnConfiguration.NM_VMEM_CHECK_ENABLED, false);
++        }
++
+         LOG.info("Starting NM: " + index);
+         nodeManagers[index].init(getConfig());
+         new Thread() {
+-- 
+1.7.0.4
+

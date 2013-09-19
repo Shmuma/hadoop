@@ -1,0 +1,36 @@
+From 908e455261c829c6ceed9475d63371c5b63541c2 Mon Sep 17 00:00:00 2001
+From: Jason Darrell Lowe <jlowe@apache.org>
+Date: Wed, 17 Jul 2013 00:29:50 +0000
+Subject: [PATCH 1471/1475] MAPREDUCE-5380. Invalid mapred command should return non-zero exit code. Contributed by Stephen Chu
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1503957 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit f5e440e0f04deef8bb5762dfa3ce035699881c1e)
+---
+ hadoop-mapreduce-project/bin/mapred |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hadoop-mapreduce-project/bin/mapred b/hadoop-mapreduce-project/bin/mapred
+index a3513cc..ba2702f 100755
+--- a/hadoop-mapreduce-project/bin/mapred
++++ b/hadoop-mapreduce-project/bin/mapred
+@@ -83,7 +83,7 @@ elif [ "$COMMAND" = "mradmin" ] \
+   echo "Sorry, the $COMMAND command is no longer supported."
+   echo "You may find similar functionality with the \"yarn\" shell command."
+   print_usage
+-  exit
++  exit 1
+ elif [ "$COMMAND" = "distcp" ] ; then
+   CLASS=org.apache.hadoop.tools.DistCp
+   CLASSPATH=${CLASSPATH}:${TOOL_PATH}
+@@ -95,7 +95,7 @@ elif [ "$COMMAND" = "archive" ] ; then
+ else
+   echo $COMMAND - invalid command
+   print_usage
+-  exit
++  exit 1
+ fi
+ 
+ # for developers, add mapred classes to CLASSPATH
+-- 
+1.7.0.4
+

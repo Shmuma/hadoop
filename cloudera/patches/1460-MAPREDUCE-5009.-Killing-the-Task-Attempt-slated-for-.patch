@@ -1,0 +1,60 @@
+From 380dc1873759d85b22771bce03ad111df83f8cda Mon Sep 17 00:00:00 2001
+From: Jonathan Turner Eagles <jeagles@apache.org>
+Date: Tue, 19 Feb 2013 23:35:56 +0000
+Subject: [PATCH 1460/1475] MAPREDUCE-5009. Killing the Task Attempt slated for commit does not clear the value from the Task commitAttempt member (Robert Parker via jeagles)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1447965 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit a93604a83f6922fb18c8af702958cdedffb62e50)
+---
+ .../hadoop/mapreduce/v2/app/job/impl/TaskImpl.java |    3 +++
+ .../mapreduce/v2/app/job/impl/TestTaskImpl.java    |   18 ++++++++++++++++++
+ 2 files changed, 21 insertions(+), 0 deletions(-)
+
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TaskImpl.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TaskImpl.java
+index 1771395..82ed9a6 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TaskImpl.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/main/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TaskImpl.java
+@@ -851,6 +851,9 @@ public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {
+       if (task.successfulAttempt == null) {
+         task.addAndScheduleAttempt();
+       }
++      if ((task.commitAttempt != null) && (task.commitAttempt == taskAttemptId)) {
++    	task.commitAttempt = null;
++      }
+     }
+   }
+ 
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TestTaskImpl.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TestTaskImpl.java
+index cea1255..b1f8678 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TestTaskImpl.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TestTaskImpl.java
+@@ -463,8 +463,26 @@ public class TestTaskImpl {
+     assert(mockTask.getProgress() == progress);
+         
+   }
++
+   
+   @Test
++  public void testKillDuringTaskAttemptCommit() {
++    mockTask = createMockTask(TaskType.REDUCE);        
++    TaskId taskId = getNewTaskID();
++    scheduleTaskAttempt(taskId);
++    
++    launchTaskAttempt(getLastAttempt().getAttemptId());
++    updateLastAttemptState(TaskAttemptState.COMMIT_PENDING);
++    commitTaskAttempt(getLastAttempt().getAttemptId());
++
++    TaskAttemptId commitAttempt = getLastAttempt().getAttemptId();
++    updateLastAttemptState(TaskAttemptState.KILLED);
++    killRunningTaskAttempt(commitAttempt);
++
++    assertFalse(mockTask.canCommit(commitAttempt));
++  }
++
++  @Test
+   public void testFailureDuringTaskAttemptCommit() {
+     mockTask = createMockTask(TaskType.MAP);        
+     TaskId taskId = getNewTaskID();
+-- 
+1.7.0.4
+

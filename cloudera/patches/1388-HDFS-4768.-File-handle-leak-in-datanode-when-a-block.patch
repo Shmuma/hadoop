@@ -1,0 +1,30 @@
+From 03eb4bb7a8841811ece308d0e4fdf4294b29e332 Mon Sep 17 00:00:00 2001
+From: Suresh Srinivas <suresh@apache.org>
+Date: Sat, 27 Apr 2013 14:08:34 +0000
+Subject: [PATCH 1388/1475] HDFS-4768. File handle leak in datanode when a block pool is removed. Contributed by Chris Nauroth.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1476579 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 8eecf6e51e4a26c96ab7689ed4afc26377ff27e0)
+---
+ .../hdfs/server/datanode/DataBlockScanner.java     |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataBlockScanner.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataBlockScanner.java
+index 62ee4b9..fdc76ca 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataBlockScanner.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/datanode/DataBlockScanner.java
+@@ -272,7 +272,10 @@ public class DataBlockScanner implements Runnable {
+   }
+   
+   public synchronized void removeBlockPool(String blockPoolId) {
+-    blockPoolScannerMap.remove(blockPoolId);
++    BlockPoolSliceScanner bpss = blockPoolScannerMap.remove(blockPoolId);
++    if (bpss != null) {
++      bpss.shutdown();
++    }
+     LOG.info("Removed bpid="+blockPoolId+" from blockPoolScannerMap");
+   }
+   
+-- 
+1.7.0.4
+

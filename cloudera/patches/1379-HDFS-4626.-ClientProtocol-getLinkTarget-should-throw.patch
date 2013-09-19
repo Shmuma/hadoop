@@ -1,0 +1,133 @@
+From 8398d0afd37b81851fbdbd438663d9f58e152f10 Mon Sep 17 00:00:00 2001
+From: Colin McCabe <cmccabe@apache.org>
+Date: Tue, 18 Jun 2013 02:29:03 +0000
+Subject: [PATCH 1379/1475] HDFS-4626. ClientProtocol#getLinkTarget should throw an exception for non-symlink and non-existent paths.  (Andrew Wang via cmccabe)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/branches/branch-2@1493987 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit e19caccedd000abc76830fdde26d23b783f92a65)
+---
+ .../hdfs/server/namenode/NameNodeRpcServer.java    |   15 ++++--
+ .../apache/hadoop/fs/TestResolveHdfsSymlink.java   |   50 ++++++++++++++++++++
+ 2 files changed, 59 insertions(+), 6 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NameNodeRpcServer.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NameNodeRpcServer.java
+index aee3b98..bddc4d3 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NameNodeRpcServer.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/NameNodeRpcServer.java
+@@ -24,6 +24,7 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SERVICE_HANDLER_
+ import static org.apache.hadoop.hdfs.protocol.HdfsConstants.MAX_PATH_DEPTH;
+ import static org.apache.hadoop.hdfs.protocol.HdfsConstants.MAX_PATH_LENGTH;
+ 
++import java.io.FileNotFoundException;
+ import java.io.IOException;
+ import java.net.InetSocketAddress;
+ import java.util.Arrays;
+@@ -852,19 +853,21 @@ class NameNodeRpcServer implements NamenodeProtocols {
+   @Override // ClientProtocol
+   public String getLinkTarget(String path) throws IOException {
+     metrics.incrGetLinkTargetOps();
++    HdfsFileStatus stat = null;
+     try {
+-      HdfsFileStatus stat = namesystem.getFileInfo(path, false);
+-      if (stat != null) {
+-        // NB: getSymlink throws IOException if !stat.isSymlink() 
+-        return stat.getSymlink();
+-      }
++      stat = namesystem.getFileInfo(path, false);
+     } catch (UnresolvedPathException e) {
+       return e.getResolvedPath().toString();
+     } catch (UnresolvedLinkException e) {
+       // The NameNode should only throw an UnresolvedPathException
+       throw new AssertionError("UnresolvedLinkException thrown");
+     }
+-    return null;
++    if (stat == null) {
++      throw new FileNotFoundException("File does not exist: " + path);
++    } else if (!stat.isSymlink()) {
++      throw new IOException("Path " + path + " is not a symbolic link");
++    }
++    return stat.getSymlink();
+   }
+ 
+ 
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/fs/TestResolveHdfsSymlink.java b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/fs/TestResolveHdfsSymlink.java
+index 516ff1a..c48759e 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/fs/TestResolveHdfsSymlink.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/fs/TestResolveHdfsSymlink.java
+@@ -18,11 +18,16 @@
+ 
+ package org.apache.hadoop.fs;
+ 
++import static org.junit.Assert.fail;
++
++import java.io.FileNotFoundException;
+ import java.io.IOException;
++import java.util.EnumSet;
+ import java.util.List;
+ import java.util.Set;
+ 
+ import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.hdfs.DFSClient;
+ import org.apache.hadoop.hdfs.DFSConfigKeys;
+ import org.apache.hadoop.hdfs.DFSTestUtil;
+ import org.apache.hadoop.hdfs.HdfsConfiguration;
+@@ -31,6 +36,7 @@ import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenIdentifie
+ import org.apache.hadoop.security.UserGroupInformation;
+ import org.apache.hadoop.security.token.Token;
+ import org.apache.hadoop.security.token.delegation.AbstractDelegationTokenIdentifier;
++import org.apache.hadoop.test.GenericTestUtils;
+ import org.junit.AfterClass;
+ import org.junit.Assert;
+ import org.junit.BeforeClass;
+@@ -122,4 +128,48 @@ public class TestResolveHdfsSymlink {
+     ((Hdfs) afs).cancelDelegationToken(
+         (Token<? extends AbstractDelegationTokenIdentifier>) tokenList.get(0));
+   }
++
++  /**
++   * Verifies that attempting to resolve a non-symlink results in client
++   * exception
++   */
++  @Test
++  public void testLinkTargetNonSymlink() throws UnsupportedFileSystemException,
++      IOException {
++    FileContext fc = null;
++    Path notSymlink = new Path("/notasymlink");
++    try {
++      fc = FileContext.getFileContext(cluster.getFileSystem().getUri());
++      fc.create(notSymlink, EnumSet.of(CreateFlag.CREATE));
++      DFSClient client = new DFSClient(cluster.getFileSystem().getUri(),
++          cluster.getConfiguration(0));
++      try {
++        client.getLinkTarget(notSymlink.toString());
++        fail("Expected exception for resolving non-symlink");
++      } catch (IOException e) {
++        GenericTestUtils.assertExceptionContains("is not a symbolic link", e);
++      }
++    } finally {
++      if (fc != null) {
++        fc.delete(notSymlink, false);
++      }
++    }
++  }
++
++  /**
++   * Tests that attempting to resolve a non-existent-file
++   */
++  @Test
++  public void testLinkTargetNonExistent() throws IOException {
++    Path doesNotExist = new Path("/filethatdoesnotexist");
++    DFSClient client = new DFSClient(cluster.getFileSystem().getUri(),
++        cluster.getConfiguration(0));
++    try {
++      client.getLinkTarget(doesNotExist.toString());
++      fail("Expected exception for resolving non-existent file");
++    } catch (FileNotFoundException e) {
++      GenericTestUtils.assertExceptionContains("File does not exist: "
++          + doesNotExist.toString(), e);
++    }
++  }
+ }
+-- 
+1.7.0.4
+

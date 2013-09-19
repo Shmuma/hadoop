@@ -1,0 +1,188 @@
+From a09abfb26398948a711c7b0ac2f1f4c155f0f7e1 Mon Sep 17 00:00:00 2001
+From: Alejandro Abdelnur <tucu@apache.org>
+Date: Thu, 9 May 2013 22:15:58 +0000
+Subject: [PATCH 1425/1475] YARN-655. Fair scheduler metrics should subtract allocated memory from available memory. (sandyr via tucu)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1480809 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 1619addaa5d0799a24bb06612af4f0aef1e40387)
+---
+ .../resourcemanager/scheduler/QueueMetrics.java    |    5 +++
+ .../scheduler/fair/FairScheduler.java              |   20 ++++++++++--
+ .../scheduler/fair/TestFairScheduler.java          |   32 ++++++++++++++++++++
+ 3 files changed, 53 insertions(+), 4 deletions(-)
+
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/QueueMetrics.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/QueueMetrics.java
+index ef1f78b..13def49 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/QueueMetrics.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/QueueMetrics.java
+@@ -43,6 +43,7 @@ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptState;
++import org.apache.hadoop.yarn.util.BuilderUtils;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
+@@ -425,6 +426,10 @@ public class QueueMetrics implements MetricsSource {
+   public int getAppsFailed() {
+     return appsFailed.value();
+   }
++  
++  public Resource getAllocatedResources() {
++    return BuilderUtils.newResource(allocatedMB.value(), 0);
++  }
+ 
+   public int getAllocatedMB() {
+     return allocatedMB.value();
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
+index 452703f..49927bd 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
+@@ -234,10 +234,6 @@ public class FairScheduler implements ResourceScheduler {
+     // Recursively compute fair shares for all queues
+     // and update metrics
+     rootQueue.recomputeShares();
+-
+-    // Update recorded capacity of root queue (child queues are updated
+-    // when fair share is calculated).
+-    rootMetrics.setAvailableResourcesToQueue(clusterCapacity);
+   }
+ 
+   /**
+@@ -670,6 +666,7 @@ public class FairScheduler implements ResourceScheduler {
+     } else {
+       application.containerCompleted(rmContainer, containerStatus, event);
+       node.releaseContainer(container);
++      updateRootQueueMetrics();
+     }
+ 
+     LOG.info("Application " + applicationAttemptId +
+@@ -681,6 +678,7 @@ public class FairScheduler implements ResourceScheduler {
+   private synchronized void addNode(RMNode node) {
+     nodes.put(node.getNodeID(), new FSSchedulerNode(node));
+     Resources.addTo(clusterCapacity, node.getTotalCapability());
++    updateRootQueueMetrics();
+ 
+     LOG.info("Added node " + node.getNodeAddress() +
+         " cluster capacity: " + clusterCapacity);
+@@ -689,6 +687,7 @@ public class FairScheduler implements ResourceScheduler {
+   private synchronized void removeNode(RMNode rmNode) {
+     FSSchedulerNode node = nodes.get(rmNode.getNodeID());
+     Resources.subtractFrom(clusterCapacity, rmNode.getTotalCapability());
++    updateRootQueueMetrics();
+ 
+     // Remove running containers
+     List<RMContainer> runningContainers = node.getRunningContainers();
+@@ -890,6 +889,7 @@ public class FairScheduler implements ResourceScheduler {
+         if ((assignedContainers >= maxAssign) && (maxAssign > 0)) { break; }
+       }
+     }
++    updateRootQueueMetrics();
+   }
+ 
+   @Override
+@@ -911,6 +911,18 @@ public class FairScheduler implements ResourceScheduler {
+     }
+     return new SchedulerAppReport(applications.get(appAttemptId));
+   }
++  
++  /**
++   * Subqueue metrics might be a little out of date because fair shares are
++   * recalculated at the update interval, but the root queue metrics needs to
++   * be updated synchronously with allocations and completions so that cluster
++   * metrics will be consistent.
++   */
++  private void updateRootQueueMetrics() {
++    rootMetrics.setAvailableResourcesToQueue(
++        Resources.subtract(
++            clusterCapacity, rootMetrics.getAllocatedResources()));
++  }
+ 
+   @Override
+   public QueueMetrics getRootQueueMetrics() {
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
+index 5141027..57c63c1 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/TestFairScheduler.java
+@@ -68,6 +68,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMAppImpl;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptState;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
++import org.apache.hadoop.yarn.server.resourcemanager.scheduler.QueueMetrics;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ResourceScheduler;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.AppAddedSchedulerEvent;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.AppRemovedSchedulerEvent;
+@@ -126,6 +127,7 @@ public class TestFairScheduler {
+   public void tearDown() {
+     scheduler = null;
+     resourceManager = null;
++    QueueMetrics.clearQueueMetrics();
+   }
+   
+   private Configuration createConfiguration() {
+@@ -336,6 +338,13 @@ public class TestFairScheduler {
+ 
+     assertEquals(1024, scheduler.getQueueManager().getQueue("queue1").
+       getResourceUsage().getMemory());
++
++    // verify metrics
++    QueueMetrics queue1Metrics = scheduler.getQueueManager().getQueue("queue1")
++        .getMetrics();
++    assertEquals(1024, queue1Metrics.getAllocatedMB());
++    assertEquals(1024, scheduler.getRootQueueMetrics().getAllocatedMB());
++    assertEquals(512, scheduler.getRootQueueMetrics().getAvailableMB());
+   }
+ 
+   @Test
+@@ -1288,6 +1297,7 @@ public class TestFairScheduler {
+     scheduler.handle(updateEvent);
+ 
+     assertEquals(1, app.getLiveContainers().size());
++    assertEquals(0, scheduler.getRootQueueMetrics().getAvailableMB());
+     
+     // Create request at higher priority
+     createSchedulingRequestExistingApplication(1024, 1, attId);
+@@ -1303,6 +1313,7 @@ public class TestFairScheduler {
+     // Complete container
+     scheduler.allocate(attId, new ArrayList<ResourceRequest>(),
+         Arrays.asList(containerId));
++    assertEquals(1024, scheduler.getRootQueueMetrics().getAvailableMB());
+     
+     // Schedule at opening
+     scheduler.update();
+@@ -1314,6 +1325,7 @@ public class TestFairScheduler {
+     for (RMContainer liveContainer : liveContainers) {
+       Assert.assertEquals(2, liveContainer.getContainer().getPriority().getPriority());
+     }
++    assertEquals(0, scheduler.getRootQueueMetrics().getAvailableMB());
+   }
+   
+   @Test
+@@ -1577,4 +1589,24 @@ public class TestFairScheduler {
+     assertEquals(1, app.getLiveContainers().size());
+     assertEquals(0, app.getReservedContainers().size());
+   }
++  
++  @Test
++  public void testRemoveNodeUpdatesRootQueueMetrics() {
++    assertEquals(0, scheduler.getRootQueueMetrics().getAvailableMB());
++    
++    RMNode node1 = MockNodes.newNodeInfo(1, Resources.createResource(1024));
++    NodeAddedSchedulerEvent addEvent = new NodeAddedSchedulerEvent(node1);
++    scheduler.handle(addEvent);
++    
++    assertEquals(1024, scheduler.getRootQueueMetrics().getAvailableMB());
++    scheduler.update(); // update shouldn't change things
++    assertEquals(1024, scheduler.getRootQueueMetrics().getAvailableMB());
++    
++    NodeRemovedSchedulerEvent removeEvent = new NodeRemovedSchedulerEvent(node1);
++    scheduler.handle(removeEvent);
++    
++    assertEquals(0, scheduler.getRootQueueMetrics().getAvailableMB());
++    scheduler.update(); // update shouldn't change things
++    assertEquals(0, scheduler.getRootQueueMetrics().getAvailableMB());
++  }
+ }
+-- 
+1.7.0.4
+

@@ -1,0 +1,50 @@
+From a26428148c6a19eed950248636fa571641259401 Mon Sep 17 00:00:00 2001
+From: Alejandro Abdelnur <tucu@apache.org>
+Date: Tue, 9 Jul 2013 18:41:26 +0000
+Subject: [PATCH 1399/1475] HDFS-4951. FsShell commands using secure httpfs throw exceptions due to missing TokenRenewer. (rknater via tucu)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1501451 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 904253a17bbb24a1250c20e64b49f97e92c24eef)
+---
+ .../http/client/HttpFSKerberosAuthenticator.java   |    1 -
+ .../lib/service/DelegationTokenIdentifier.java     |    5 ++---
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs-httpfs/src/main/java/org/apache/hadoop/fs/http/client/HttpFSKerberosAuthenticator.java b/hadoop-hdfs-project/hadoop-hdfs-httpfs/src/main/java/org/apache/hadoop/fs/http/client/HttpFSKerberosAuthenticator.java
+index 291cf46..0b0a44d 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs-httpfs/src/main/java/org/apache/hadoop/fs/http/client/HttpFSKerberosAuthenticator.java
++++ b/hadoop-hdfs-project/hadoop-hdfs-httpfs/src/main/java/org/apache/hadoop/fs/http/client/HttpFSKerberosAuthenticator.java
+@@ -64,7 +64,6 @@ public class HttpFSKerberosAuthenticator extends KerberosAuthenticator {
+   public static final String DELEGATION_PARAM = "delegation";
+   public static final String TOKEN_PARAM = "token";
+   public static final String RENEWER_PARAM = "renewer";
+-  public static final String TOKEN_KIND = "HTTPFS_DELEGATION_TOKEN";
+   public static final String DELEGATION_TOKEN_JSON = "Token";
+   public static final String DELEGATION_TOKEN_URL_STRING_JSON = "urlString";
+   public static final String RENEW_DELEGATION_TOKEN_JSON = "long";
+diff --git a/hadoop-hdfs-project/hadoop-hdfs-httpfs/src/main/java/org/apache/hadoop/lib/service/DelegationTokenIdentifier.java b/hadoop-hdfs-project/hadoop-hdfs-httpfs/src/main/java/org/apache/hadoop/lib/service/DelegationTokenIdentifier.java
+index f245b6c..e73f873 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs-httpfs/src/main/java/org/apache/hadoop/lib/service/DelegationTokenIdentifier.java
++++ b/hadoop-hdfs-project/hadoop-hdfs-httpfs/src/main/java/org/apache/hadoop/lib/service/DelegationTokenIdentifier.java
+@@ -18,7 +18,7 @@
+ package org.apache.hadoop.lib.service;
+ 
+ import org.apache.hadoop.classification.InterfaceAudience;
+-import org.apache.hadoop.fs.http.client.HttpFSKerberosAuthenticator;
++import org.apache.hadoop.hdfs.web.WebHdfsFileSystem;
+ import org.apache.hadoop.io.Text;
+ import org.apache.hadoop.security.token.delegation.AbstractDelegationTokenIdentifier;
+ 
+@@ -29,8 +29,7 @@ import org.apache.hadoop.security.token.delegation.AbstractDelegationTokenIdenti
+ public class DelegationTokenIdentifier
+   extends AbstractDelegationTokenIdentifier {
+ 
+-  public static final Text KIND_NAME =
+-    new Text(HttpFSKerberosAuthenticator.TOKEN_KIND);
++  public static final Text KIND_NAME = WebHdfsFileSystem.TOKEN_KIND;
+ 
+   public DelegationTokenIdentifier() {
+   }
+-- 
+1.7.0.4
+

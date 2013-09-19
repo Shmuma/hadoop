@@ -1,0 +1,29 @@
+From 2715cdf4936ac6aad57f8d6e368f4cf16188ed02 Mon Sep 17 00:00:00 2001
+From: Colin McCabe <cmccabe@apache.org>
+Date: Fri, 26 Jul 2013 19:21:31 +0000
+Subject: [PATCH 1436/1475] HDFS-5034.  Remove debug prints from GetFileLinkInfo (Andrew Wang via Colin Patrick McCabe)
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1507406 13f79535-47bb-0310-9956-ffa450edef68
+---
+ ...ientNamenodeProtocolServerSideTranslatorPB.java |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/protocolPB/ClientNamenodeProtocolServerSideTranslatorPB.java b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/protocolPB/ClientNamenodeProtocolServerSideTranslatorPB.java
+index 364db4e..c1736df 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/protocolPB/ClientNamenodeProtocolServerSideTranslatorPB.java
++++ b/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/protocolPB/ClientNamenodeProtocolServerSideTranslatorPB.java
+@@ -663,11 +663,9 @@ public class ClientNamenodeProtocolServerSideTranslatorPB implements
+     try {
+       HdfsFileStatus result = server.getFileLinkInfo(req.getSrc());
+       if (result != null) {
+-        System.out.println("got non null result for getFileLinkInfo for " + req.getSrc());
+         return GetFileLinkInfoResponseProto.newBuilder().setFs(
+             PBHelper.convert(result)).build();
+       } else {
+-        System.out.println("got  null result for getFileLinkInfo for " + req.getSrc());
+         return NULL_GETFILELINKINFO_RESPONSE;      
+       }
+ 
+-- 
+1.7.0.4
+

@@ -1,0 +1,3788 @@
+From 9445b98c71bf69d891973fdccb778c40a6df78f1 Mon Sep 17 00:00:00 2001
+From: Arun Murthy <acmurthy@apache.org>
+Date: Wed, 9 Jan 2013 05:08:23 +0000
+Subject: [PATCH 1363/1475] YARN-2. Enhanced CapacityScheduler to account for CPU alongwith memory for multi-dimensional resource scheduling. Contributed by Arun C. Murthy.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1430682 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 7d59458a3de217eb55a41acf10ce2403f7be18d8)
+
+Conflicts:
+	hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java
+---
+ .../org/apache/hadoop/mapreduce/v2/app/MRApp.java  |    4 +-
+ .../hadoop/mapreduce/v2/app/MRAppBenchmark.java    |    4 +-
+ .../mapreduce/v2/app/TestRMContainerAllocator.java |   10 +-
+ .../mapreduce/v2/app/job/impl/TestTaskAttempt.java |    2 +-
+ .../v2/app/local/TestLocalContainerAllocator.java  |    4 +-
+ .../apache/hadoop/yarn/api/records/Resource.java   |   47 +++++-
+ .../yarn/api/records/impl/pb/ResourcePBImpl.java   |   18 ++-
+ .../src/main/proto/yarn_protos.proto               |    1 +
+ .../apache/hadoop/yarn/conf/YarnConfiguration.java |   24 +++-
+ .../yarn/security/ContainerTokenIdentifier.java    |    5 +-
+ .../org/apache/hadoop/yarn/util/BuilderUtils.java  |    3 +-
+ .../src/main/resources/yarn-default.xml            |   36 ++++-
+ .../server/nodemanager/NodeStatusUpdaterImpl.java  |   25 +++-
+ .../containermanager/container/TestContainer.java  |    2 +-
+ .../conf/capacity-scheduler.xml                    |   12 ++
+ .../resourcemanager/ApplicationMasterService.java  |    2 +-
+ .../server/resourcemanager/ClientRMService.java    |    2 +-
+ .../resourcemanager/ResourceTrackerService.java    |    2 +-
+ .../resource/DefaultResourceCalculator.java        |   96 +++++++++++
+ .../resource/DominantResourceCalculator.java       |  180 ++++++++++++++++++++
+ .../server/resourcemanager/resource/Resource.java  |   73 --------
+ .../resource/ResourceCalculator.java               |  149 ++++++++++++++++
+ .../server/resourcemanager/resource/Resources.java |  132 ++++++++++++---
+ .../server/resourcemanager/rmapp/RMAppImpl.java    |    4 +-
+ .../rmapp/attempt/RMAppAttemptImpl.java            |   15 +-
+ .../resourcemanager/scheduler/QueueMetrics.java    |    4 +-
+ .../resourcemanager/scheduler/SchedulerUtils.java  |   36 ++--
+ .../scheduler/capacity/CSQueueUtils.java           |   68 +++++---
+ .../scheduler/capacity/CapacityScheduler.java      |   51 ++++--
+ .../capacity/CapacitySchedulerConfiguration.java   |   37 ++++-
+ .../capacity/CapacitySchedulerContext.java         |   10 +
+ .../scheduler/capacity/LeafQueue.java              |  177 ++++++++++++--------
+ .../scheduler/capacity/ParentQueue.java            |   54 ++++---
+ .../scheduler/common/fica/FiCaSchedulerNode.java   |    1 +
+ .../scheduler/fair/FSLeafQueue.java                |    1 -
+ .../scheduler/fair/FSParentQueue.java              |    1 -
+ .../scheduler/fair/FairScheduler.java              |   30 +++-
+ .../scheduler/fair/QueueManager.java               |    1 -
+ .../resourcemanager/scheduler/fair/Resources.java  |  150 ++++++++++++++++
+ .../scheduler/fair/SchedulingAlgorithms.java       |    1 -
+ .../scheduler/fifo/FifoScheduler.java              |   14 +-
+ .../yarn/server/resourcemanager/NodeManager.java   |    8 +-
+ .../resourcemanager/TestApplicationACLs.java       |    2 +-
+ .../server/resourcemanager/TestFifoScheduler.java  |    4 +-
+ .../resourcemanager/TestResourceManager.java       |   17 +-
+ .../rmcontainer/TestRMContainerImpl.java           |    4 +-
+ .../scheduler/TestQueueMetrics.java                |    3 +-
+ .../scheduler/TestSchedulerUtils.java              |   59 ++++++-
+ .../scheduler/capacity/TestApplicationLimits.java  |   98 +++++++----
+ .../scheduler/capacity/TestCapacityScheduler.java  |   18 +-
+ .../scheduler/capacity/TestLeafQueue.java          |   56 ++++--
+ .../scheduler/capacity/TestParentQueue.java        |   60 ++++----
+ .../scheduler/capacity/TestUtils.java              |    4 +-
+ .../scheduler/fifo/TestFifoScheduler.java          |   10 +-
+ .../webapp/TestRMWebServicesCapacitySched.java     |    4 +-
+ .../yarn/server/TestContainerManagerSecurity.java  |   11 +-
+ 56 files changed, 1406 insertions(+), 440 deletions(-)
+ create mode 100644 hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/DefaultResourceCalculator.java
+ create mode 100644 hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/DominantResourceCalculator.java
+ delete mode 100644 hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/Resource.java
+ create mode 100644 hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/ResourceCalculator.java
+ create mode 100644 hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/Resources.java
+
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MRApp.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MRApp.java
+index b3159a6..683a486 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MRApp.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MRApp.java
+@@ -215,9 +215,9 @@ public class MRApp extends MRAppMaster {
+           this.clusterInfo.getMaxContainerCapability());
+     } else {
+       getContext().getClusterInfo().setMinContainerCapability(
+-          BuilderUtils.newResource(1024));
++          BuilderUtils.newResource(1024, 1));
+       getContext().getClusterInfo().setMaxContainerCapability(
+-          BuilderUtils.newResource(10240));
++          BuilderUtils.newResource(10240, 1));
+     }
+   }
+ 
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MRAppBenchmark.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MRAppBenchmark.java
+index 9ed27a9..6cc7729 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MRAppBenchmark.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/MRAppBenchmark.java
+@@ -207,9 +207,9 @@ public class MRAppBenchmark {
+                 RegisterApplicationMasterResponse response =
+                     Records.newRecord(RegisterApplicationMasterResponse.class);
+                 response.setMinimumResourceCapability(BuilderUtils
+-                  .newResource(1024));
++                  .newResource(1024, 1));
+                 response.setMaximumResourceCapability(BuilderUtils
+-                  .newResource(10240));
++                  .newResource(10240, 1));
+                 return response;
+               }
+ 
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/TestRMContainerAllocator.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/TestRMContainerAllocator.java
+index cd8e1c5..c660f63 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/TestRMContainerAllocator.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/TestRMContainerAllocator.java
+@@ -1139,7 +1139,7 @@ public class TestRMContainerAllocator {
+     }
+     TaskAttemptId attemptId = MRBuilderUtils.newTaskAttemptId(taskId,
+         taskAttemptId);
+-    Resource containerNeed = BuilderUtils.newResource(memory);
++    Resource containerNeed = BuilderUtils.newResource(memory, 1);
+     if (earlierFailedAttempt) {
+       return ContainerRequestEvent
+           .createContainerRequestEventForFailedContainer(attemptId,
+@@ -1222,8 +1222,8 @@ public class TestRMContainerAllocator {
+       when(context.getApplicationAttemptId()).thenReturn(appAttemptId);
+       when(context.getJob(isA(JobId.class))).thenReturn(job);
+       when(context.getClusterInfo()).thenReturn(
+-          new ClusterInfo(BuilderUtils.newResource(1024), BuilderUtils
+-              .newResource(10240)));
++          new ClusterInfo(BuilderUtils.newResource(1024, 1), BuilderUtils
++              .newResource(10240, 1)));
+       when(context.getEventHandler()).thenReturn(new EventHandler() {
+         @Override
+         public void handle(Event event) {
+@@ -1280,12 +1280,12 @@ public class TestRMContainerAllocator {
+ 
+     @Override
+     protected Resource getMinContainerCapability() {
+-      return BuilderUtils.newResource(1024);
++      return BuilderUtils.newResource(1024, 1);
+     }
+ 
+     @Override
+     protected Resource getMaxContainerCapability() {
+-      return BuilderUtils.newResource(10240);
++      return BuilderUtils.newResource(10240, 1);
+     }
+ 
+     public void sendRequest(ContainerRequestEvent req) {
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TestTaskAttempt.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TestTaskAttempt.java
+index 2d5260e..584ef2c 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TestTaskAttempt.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/job/impl/TestTaskAttempt.java
+@@ -197,7 +197,7 @@ public class TestTaskAttempt{
+     conf.setInt(MRJobConfig.MAP_MEMORY_MB, mapMemMb);
+     conf.setInt(MRJobConfig.REDUCE_MEMORY_MB, reduceMemMb);
+     app.setClusterInfo(new ClusterInfo(BuilderUtils
+-        .newResource(minContainerSize), BuilderUtils.newResource(10240)));
++        .newResource(minContainerSize, 1), BuilderUtils.newResource(10240, 1)));
+ 
+     Job job = app.submit(conf);
+     app.waitForState(job, JobState.RUNNING);
+diff --git a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/local/TestLocalContainerAllocator.java b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/local/TestLocalContainerAllocator.java
+index cacb082..572e494 100644
+--- a/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/local/TestLocalContainerAllocator.java
++++ b/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-app/src/test/java/org/apache/hadoop/mapreduce/v2/app/local/TestLocalContainerAllocator.java
+@@ -99,8 +99,8 @@ public class TestLocalContainerAllocator {
+       when(ctx.getApplicationAttemptId()).thenReturn(attemptId);
+       when(ctx.getJob(isA(JobId.class))).thenReturn(job);
+       when(ctx.getClusterInfo()).thenReturn(
+-          new ClusterInfo(BuilderUtils.newResource(1024), BuilderUtils
+-              .newResource(10240)));
++          new ClusterInfo(BuilderUtils.newResource(1024, 1), BuilderUtils
++              .newResource(10240, 1)));
+       when(ctx.getEventHandler()).thenReturn(eventHandler);
+       return ctx;
+     }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/Resource.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/Resource.java
+index b2a9937..fc12033 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/Resource.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/Resource.java
+@@ -19,6 +19,7 @@
+ package org.apache.hadoop.yarn.api.records;
+ 
+ import org.apache.hadoop.classification.InterfaceAudience.Public;
++import org.apache.hadoop.classification.InterfaceStability.Evolving;
+ import org.apache.hadoop.classification.InterfaceStability.Stable;
+ import org.apache.hadoop.yarn.api.AMRMProtocol;
+ 
+@@ -54,11 +55,43 @@ public abstract class Resource implements Comparable<Resource> {
+   @Stable
+   public abstract void setMemory(int memory);
+ 
++
++  /**
++   * Get <em>number of virtual cpu cores</em> of the resource.
++   * 
++   * We refer to <em>virtual cores</em> to clarify that these represent
++   * <em>normalized</em> cores which may have a m:n relationship w.r.t
++   * physical cores available on the compute nodes. Furthermore, they also 
++   * represent <em>idealized</em> cores since the cluster might be composed
++   * of <em>heterogenous</em> nodes.
++   *   
++   * @return <em>num of virtual cpu cores</em> of the resource
++   */
++  @Public
++  @Evolving
++  public abstract int getVirtualCores();
++  
++  /**
++   * Set <em>number of virtual cpu cores</em> of the resource.
++   * 
++   * We refer to <em>virtual cores</em> to clarify that these represent
++   * <em>normalized</em> cores which may have a m:n relationship w.r.t
++   * physical cores available on the compute nodes. Furthermore, they also 
++   * represent <em>idealized</em> cores since the cluster might be composed
++   * of <em>heterogenous</em> nodes.
++   *   
++   * @param vCores <em>number of virtual cpu cores</em> of the resource
++   */
++  @Public
++  @Evolving
++  public abstract void setVirtualCores(int vCores);
++
+   @Override
+   public int hashCode() {
+-    final int prime = 31;
+-    int result = 1;
+-    result = prime * result + getMemory();
++    final int prime = 263167;
++    int result = 3571;
++    result = 939769357 + getMemory(); // prime * result = 939769357 initially
++    result = prime * result + getVirtualCores();
+     return result;
+   }
+ 
+@@ -68,16 +101,18 @@ public abstract class Resource implements Comparable<Resource> {
+       return true;
+     if (obj == null)
+       return false;
+-    if (getClass() != obj.getClass())
++    if (!(obj instanceof Resource))
+       return false;
+     Resource other = (Resource) obj;
+-    if (getMemory() != other.getMemory())
++    if (getMemory() != other.getMemory() || 
++        getVirtualCores() != other.getVirtualCores()) {
+       return false;
++    }
+     return true;
+   }
+ 
+   @Override
+   public String toString() {
+-    return "memory: " + getMemory();
++    return "<memory:" + getMemory() + ", vCores:" + getVirtualCores() + ">";
+   }
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/impl/pb/ResourcePBImpl.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/impl/pb/ResourcePBImpl.java
+index 0d52799..276f395 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/impl/pb/ResourcePBImpl.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/java/org/apache/hadoop/yarn/api/records/impl/pb/ResourcePBImpl.java
+@@ -64,8 +64,24 @@ public class ResourcePBImpl extends Resource {
+   }
+ 
+   @Override
++  public int getVirtualCores() {
++    ResourceProtoOrBuilder p = viaProto ? proto : builder;
++    return (p.getVirtualCores());
++  }
++
++  @Override
++  public void setVirtualCores(int vCores) {
++    maybeInitBuilder();
++    builder.setVirtualCores((vCores));
++  }
++
++  @Override
+   public int compareTo(Resource other) {
+-    return this.getMemory() - other.getMemory();
++    int diff = this.getMemory() - other.getMemory();
++    if (diff == 0) {
++      diff = this.getVirtualCores() - other.getVirtualCores();
++    }
++    return diff;
+   }
+   
+   
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/proto/yarn_protos.proto b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/proto/yarn_protos.proto
+index 175e134..3c7f703 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/proto/yarn_protos.proto
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api/src/main/proto/yarn_protos.proto
+@@ -46,6 +46,7 @@ message ContainerIdProto {
+ 
+ message ResourceProto {
+   optional int32 memory = 1;
++  optional int32 virtual_cores = 2;
+ }
+ 
+ message PriorityProto {
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
+index 5388206..ce7af27 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/conf/YarnConfiguration.java
+@@ -26,10 +26,9 @@ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.net.NetUtils;
+ 
+ import com.google.common.base.Joiner;
+-import com.google.common.base.Splitter;
+ 
+ public class YarnConfiguration extends Configuration {
+-  private static final Splitter ADDR_SPLITTER = Splitter.on(':').trimResults();
++
+   private static final Joiner JOINER = Joiner.on("");
+ 
+   private static final String YARN_DEFAULT_XML_FILE = "yarn-default.xml";
+@@ -108,15 +107,21 @@ public class YarnConfiguration extends Configuration {
+   public static final String DEFAULT_RM_SCHEDULER_ADDRESS = "0.0.0.0:" +
+     DEFAULT_RM_SCHEDULER_PORT;
+ 
+-  /** Miniumum memory request grant-able by the RM scheduler. */
++  /** Miniumum request grant-able by the RM scheduler. */
+   public static final String RM_SCHEDULER_MINIMUM_ALLOCATION_MB =
+     YARN_PREFIX + "scheduler.minimum-allocation-mb";
+   public static final int DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_MB = 1024;
++  public static final String RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES =
++      YARN_PREFIX + "scheduler.minimum-allocation-vcores";
++    public static final int DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES = 1;
+ 
+-  /** Maximum memory request grant-able by the RM scheduler. */
++  /** Maximum request grant-able by the RM scheduler. */
+   public static final String RM_SCHEDULER_MAXIMUM_ALLOCATION_MB =
+     YARN_PREFIX + "scheduler.maximum-allocation-mb";
+   public static final int DEFAULT_RM_SCHEDULER_MAXIMUM_ALLOCATION_MB = 8192;
++  public static final String RM_SCHEDULER_MAXIMUM_ALLOCATION_CORES =
++      YARN_PREFIX + "scheduler.maximum-allocation-vcores";
++  public static final int DEFAULT_RM_SCHEDULER_MAXIMUM_ALLOCATION_CORES = 32;
+ 
+   /** Number of threads to handle scheduler interface.*/
+   public static final String RM_SCHEDULER_CLIENT_THREAD_COUNT =
+@@ -400,10 +405,20 @@ public class YarnConfiguration extends Configuration {
+   public static final String NM_PMEM_MB = NM_PREFIX + "resource.memory-mb";
+   public static final int DEFAULT_NM_PMEM_MB = 8 * 1024;
+ 
++  /** Conversion ratio for physical memory to virtual memory. */
+   public static final String NM_VMEM_PMEM_RATIO =
+     NM_PREFIX + "vmem-pmem-ratio";
+   public static final float DEFAULT_NM_VMEM_PMEM_RATIO = 2.1f;
+   
++  /** Number of Physical CPU Cores which can be allocated for containers.*/
++  public static final String NM_VCORES = NM_PREFIX + "resource.cpu-cores";
++  public static final int DEFAULT_NM_VCORES = 8;
++
++  /** Conversion ratio for physical cores to virtual cores. */
++  public static final String NM_VCORES_PCORES_RATIO =
++      NM_PREFIX + "vcores-pcores-ratio";
++  public static final float DEFAULT_NM_VCORES_PCORES_RATIO = 2.0f;
++  
+   /** NM Webapp address.**/
+   public static final String NM_WEBAPP_ADDRESS = NM_PREFIX + "webapp.address";
+   public static final int DEFAULT_NM_WEBAPP_PORT = 8042;
+@@ -642,4 +657,5 @@ public class YarnConfiguration extends Configuration {
+   public static String getRMWebAppURL(Configuration conf) {
+     return JOINER.join("http://", getRMWebAppHostAndPort(conf));
+   }
++  
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/security/ContainerTokenIdentifier.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/security/ContainerTokenIdentifier.java
+index 17b99aa..34bbc5c 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/security/ContainerTokenIdentifier.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/security/ContainerTokenIdentifier.java
+@@ -106,6 +106,7 @@ public class ContainerTokenIdentifier extends TokenIdentifier {
+     out.writeUTF(this.nmHostAddr);
+     out.writeUTF(this.appSubmitter);
+     out.writeInt(this.resource.getMemory());
++    out.writeInt(this.resource.getVirtualCores());
+     out.writeLong(this.expiryTimeStamp);
+     out.writeInt(this.masterKeyId);
+   }
+@@ -120,7 +121,9 @@ public class ContainerTokenIdentifier extends TokenIdentifier {
+         .readInt());
+     this.nmHostAddr = in.readUTF();
+     this.appSubmitter = in.readUTF();
+-    this.resource = BuilderUtils.newResource(in.readInt());
++    int memory = in.readInt();
++    int vCores = in.readInt();
++    this.resource = BuilderUtils.newResource(memory, vCores);
+     this.expiryTimeStamp = in.readLong();
+     this.masterKeyId = in.readInt();
+   }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/util/BuilderUtils.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/util/BuilderUtils.java
+index f79ee63..6faba71 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/util/BuilderUtils.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/java/org/apache/hadoop/yarn/util/BuilderUtils.java
+@@ -371,9 +371,10 @@ public class BuilderUtils {
+     return report;
+   }
+ 
+-  public static Resource newResource(int memory) {
++  public static Resource newResource(int memory, int vCores) {
+     Resource resource = recordFactory.newRecordInstance(Resource.class);
+     resource.setMemory(memory);
++    resource.setVirtualCores(vCores);
+     return resource;
+   }
+ 
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/yarn-default.xml b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/yarn-default.xml
+index 4d28e5c..fc2e437 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/yarn-default.xml
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-common/src/main/resources/yarn-default.xml
+@@ -189,7 +189,7 @@
+   </property>
+ 
+   <property>
+-    <description>The minimum allocation size for every container request at the RM,
++    <description>The minimum allocation for every container request at the RM,
+     in MBs. Memory requests lower than this won't take effect,
+     and the specified value will get allocated at minimum.</description>
+     <name>yarn.scheduler.minimum-allocation-mb</name>
+@@ -197,7 +197,7 @@
+   </property>
+ 
+   <property>
+-    <description>The maximum allocation size for every container request at the RM,
++    <description>The maximum allocation for every container request at the RM,
+     in MBs. Memory requests higher than this won't take effect,
+     and will get capped to this value.</description>
+     <name>yarn.scheduler.maximum-allocation-mb</name>
+@@ -205,6 +205,22 @@
+   </property>
+ 
+   <property>
++    <description>The minimum allocation for every container request at the RM,
++    in terms of virtual CPU cores. Requests lower than this won't take effect,
++    and the specified value will get allocated the minimum.</description>
++    <name>yarn.scheduler.minimum-allocation-vcores</name>
++    <value>1</value>
++  </property>
++
++  <property>
++    <description>The maximum allocation for every container request at the RM,
++    in terms of virtual CPU cores. Requests higher than this won't take effect,
++    and will get capped to this value.</description>
++    <name>yarn.scheduler.maximum-allocation-vcores</name>
++    <value>32</value>
++  </property>
++
++  <property>
+     <description>Enable RM to recover state after starting. If true, then 
+     yarn.resourcemanager.store.class must be specified</description>
+     <name>yarn.resourcemanager.recovery.enabled</name>
+@@ -404,7 +420,6 @@
+     <value>logs</value>
+   </property>
+ 
+-
+   <property>
+     <description>Amount of physical memory, in MB, that can be allocated 
+     for containers.</description>
+@@ -423,6 +438,21 @@
+   </property>
+ 
+   <property>
++    <description>Number of CPU cores that can be allocated 
++    for containers.</description>
++    <name>yarn.nodemanager.resource.cpu-cores</name>
++    <value>8</value>
++  </property>
++
++  <property>
++    <description>Ratio between virtual cores to physical cores when
++    allocating CPU resources to containers. 
++    </description>
++    <name>yarn.nodemanager.vcores-pcores-ratio</name>
++    <value>2</value>
++  </property>
++
++  <property>
+     <description>NM Webapp address.</description>
+     <name>yarn.nodemanager.webapp.address</name>
+     <value>0.0.0.0:8042</value>
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/NodeStatusUpdaterImpl.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/NodeStatusUpdaterImpl.java
+index 22ec10a..c9f83d9 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/NodeStatusUpdaterImpl.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/main/java/org/apache/hadoop/yarn/server/nodemanager/NodeStatusUpdaterImpl.java
+@@ -108,14 +108,37 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
+     this.heartBeatInterval =
+         conf.getLong(YarnConfiguration.NM_TO_RM_HEARTBEAT_INTERVAL_MS,
+             YarnConfiguration.DEFAULT_NM_TO_RM_HEARTBEAT_INTERVAL_MS);
+-    int memoryMb = conf.getInt(YarnConfiguration.NM_PMEM_MB, YarnConfiguration.DEFAULT_NM_PMEM_MB);
++    int memoryMb = 
++        conf.getInt(
++            YarnConfiguration.NM_PMEM_MB, YarnConfiguration.DEFAULT_NM_PMEM_MB);
++    float vMemToPMem =             
++        conf.getFloat(
++            YarnConfiguration.NM_VMEM_PMEM_RATIO, 
++            YarnConfiguration.DEFAULT_NM_VMEM_PMEM_RATIO); 
++    int virtualMemoryMb = (int)Math.ceil(memoryMb * vMemToPMem);
++    
++    int cpuCores =
++        conf.getInt(
++            YarnConfiguration.NM_VCORES, YarnConfiguration.DEFAULT_NM_VCORES);
++    float vCoresToPCores =             
++        conf.getFloat(
++            YarnConfiguration.NM_VCORES_PCORES_RATIO, 
++            YarnConfiguration.DEFAULT_NM_VCORES_PCORES_RATIO); 
++    int virtualCores = (int)Math.ceil(cpuCores * vCoresToPCores); 
++
+     this.totalResource = recordFactory.newRecordInstance(Resource.class);
+     this.totalResource.setMemory(memoryMb);
++    this.totalResource.setVirtualCores(virtualCores);
+     metrics.addResource(totalResource);
+     this.tokenKeepAliveEnabled = isTokenKeepAliveEnabled(conf);
+     this.tokenRemovalDelayMs =
+         conf.getInt(YarnConfiguration.RM_NM_EXPIRY_INTERVAL_MS,
+             YarnConfiguration.DEFAULT_RM_NM_EXPIRY_INTERVAL_MS);
++    
++    LOG.info("Initialized nodemanager for " + nodeId + ":" +
++    		" physical-memory=" + memoryMb + " virtual-memory=" + virtualMemoryMb +
++    		" physical-cores=" + cpuCores + " virtual-cores=" + virtualCores);
++    
+     super.init(conf);
+   }
+ 
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/container/TestContainer.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/container/TestContainer.java
+index f4c48ba..9587244 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/container/TestContainer.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-nodemanager/src/test/java/org/apache/hadoop/yarn/server/nodemanager/containermanager/container/TestContainer.java
+@@ -574,7 +574,7 @@ public class TestContainer {
+       when(ctxt.getUser()).thenReturn(this.user);
+       when(ctxt.getContainerId()).thenReturn(cId);
+ 
+-      Resource resource = BuilderUtils.newResource(1024);
++      Resource resource = BuilderUtils.newResource(1024, 1);
+       when(ctxt.getResource()).thenReturn(resource);
+ 
+       if (withLocalRes) {
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/conf/capacity-scheduler.xml b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/conf/capacity-scheduler.xml
+index 66ea5d6..39682bd 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/conf/capacity-scheduler.xml
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/conf/capacity-scheduler.xml
+@@ -19,6 +19,18 @@
+   </property>
+ 
+   <property>
++    <name>yarn.scheduler.capacity.resource-calculator</name>
++    <value>org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator</value>
++    <description>
++      The ResourceCalculator implementation to be used to compare 
++      Resources in the scheduler.
++      The default i.e. DefaultResourceCalculator only uses Memory while
++      DominantResourceCalculator uses dominant-resource to compare 
++      multi-dimensional resources such as Memory, CPU etc.
++    </description>
++  </property>
++
++  <property>
+     <name>yarn.scheduler.capacity.root.queues</name>
+     <value>default</value>
+     <description>
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ApplicationMasterService.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ApplicationMasterService.java
+index d5f8ac2..057e92d 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ApplicationMasterService.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ApplicationMasterService.java
+@@ -297,7 +297,7 @@ public class ApplicationMasterService extends AbstractService implements
+         for(RMNode rmNode: updatedNodes) {
+           SchedulerNodeReport schedulerNodeReport =  
+               rScheduler.getNodeReport(rmNode.getNodeID());
+-          Resource used = BuilderUtils.newResource(0);
++          Resource used = BuilderUtils.newResource(0, 0);
+           int numContainers = 0;
+           if (schedulerNodeReport != null) {
+             used = schedulerNodeReport.getUsedResource();
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ClientRMService.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ClientRMService.java
+index 20cfb4c..0fae4b0 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ClientRMService.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ClientRMService.java
+@@ -422,7 +422,7 @@ public class ClientRMService extends AbstractService implements
+   private NodeReport createNodeReports(RMNode rmNode) {    
+     SchedulerNodeReport schedulerNodeReport = 
+         scheduler.getNodeReport(rmNode.getNodeID());
+-    Resource used = BuilderUtils.newResource(0);
++    Resource used = BuilderUtils.newResource(0, 0);
+     int numContainers = 0;
+     if (schedulerNodeReport != null) {
+       used = schedulerNodeReport.getUsedResource();
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ResourceTrackerService.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ResourceTrackerService.java
+index 7888b10..de5fcc6 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ResourceTrackerService.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/ResourceTrackerService.java
+@@ -193,7 +193,7 @@ public class ResourceTrackerService extends AbstractService implements
+ 
+     LOG.info("NodeManager from node " + host + "(cmPort: " + cmPort
+         + " httpPort: " + httpPort + ") " + "registered with capability: "
+-        + capability.getMemory() + ", assigned nodeId " + nodeId);
++        + capability + ", assigned nodeId " + nodeId);
+ 
+     regResponse.setNodeAction(NodeAction.NORMAL);
+     response.setRegistrationResponse(regResponse);
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/DefaultResourceCalculator.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/DefaultResourceCalculator.java
+new file mode 100644
+index 0000000..295389c
+--- /dev/null
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/DefaultResourceCalculator.java
+@@ -0,0 +1,96 @@
++/**
++* Licensed to the Apache Software Foundation (ASF) under one
++* or more contributor license agreements.  See the NOTICE file
++* distributed with this work for additional information
++* regarding copyright ownership.  The ASF licenses this file
++* to you under the Apache License, Version 2.0 (the
++* "License"); you may not use this file except in compliance
++* with the License.  You may obtain a copy of the License at
++*
++*     http://www.apache.org/licenses/LICENSE-2.0
++*
++* Unless required by applicable law or agreed to in writing, software
++* distributed under the License is distributed on an "AS IS" BASIS,
++* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++* See the License for the specific language governing permissions and
++* limitations under the License.
++*/
++package org.apache.hadoop.yarn.server.resourcemanager.resource;
++
++import org.apache.hadoop.yarn.api.records.Resource;
++
++public class DefaultResourceCalculator extends ResourceCalculator {
++
++  Resource clusterResource;
++  
++  @Override
++  public int compare(Resource unused, Resource lhs, Resource rhs) {
++    // Only consider memory
++    return lhs.getMemory() - rhs.getMemory();
++  }
++
++  @Override
++  public int computeAvailableContainers(Resource available, Resource required) {
++    // Only consider memory
++    return available.getMemory() / required.getMemory();
++  }
++
++  @Override
++  public float divide(Resource unused, 
++      Resource numerator, Resource denominator) {
++    return ratio(numerator, denominator);
++  }
++
++  @Override
++  public float ratio(Resource a, Resource b) {
++    return (float)a.getMemory() / b.getMemory();
++  }
++
++  @Override
++  public Resource divideAndCeil(Resource numerator, int denominator) {
++    return Resources.createResource(
++        divideAndCeil(numerator.getMemory(), denominator));
++  }
++
++  @Override
++  public Resource normalize(Resource r, Resource minimumResource) {
++    return Resources.createResource(
++        roundUp(
++            Math.max(r.getMemory(), minimumResource.getMemory()),
++            minimumResource.getMemory())
++        );
++  }
++
++  @Override
++  public Resource roundUp(Resource r, Resource minimumResource) {
++    return Resources.createResource(
++        roundUp(r.getMemory(),minimumResource.getMemory())
++        );
++  }
++
++  @Override
++  public Resource roundDown(Resource r, Resource stepFactor) {
++    return Resources.createResource(
++        roundDown(r.getMemory(), stepFactor.getMemory()));
++  }
++
++  @Override
++  public Resource multiplyAndNormalizeUp(Resource r, double by,
++      Resource stepFactor) {
++    return Resources.createResource(
++        roundUp((int)(r.getMemory() * by + 0.5), stepFactor.getMemory())
++        );
++  }
++
++  @Override
++  public Resource multiplyAndNormalizeDown(Resource r, double by,
++      Resource stepFactor) {
++    return Resources.createResource(
++        roundDown(
++            (int)(r.getMemory() * by), 
++            stepFactor.getMemory()
++            )
++        );
++  }
++
++}
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/DominantResourceCalculator.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/DominantResourceCalculator.java
+new file mode 100644
+index 0000000..ad67239
+--- /dev/null
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/DominantResourceCalculator.java
+@@ -0,0 +1,180 @@
++/**
++* Licensed to the Apache Software Foundation (ASF) under one
++* or more contributor license agreements.  See the NOTICE file
++* distributed with this work for additional information
++* regarding copyright ownership.  The ASF licenses this file
++* to you under the Apache License, Version 2.0 (the
++* "License"); you may not use this file except in compliance
++* with the License.  You may obtain a copy of the License at
++*
++*     http://www.apache.org/licenses/LICENSE-2.0
++*
++* Unless required by applicable law or agreed to in writing, software
++* distributed under the License is distributed on an "AS IS" BASIS,
++* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++* See the License for the specific language governing permissions and
++* limitations under the License.
++*/
++package org.apache.hadoop.yarn.server.resourcemanager.resource;
++
++import org.apache.hadoop.yarn.api.records.Resource;
++
++/**
++ * A {@link ResourceCalculator} which uses the concept of  
++ * <em>dominant resource</em> to compare multi-dimensional resources.
++ *
++ * Essentially the idea is that the in a multi-resource environment, 
++ * the resource allocation should be determined by the dominant share 
++ * of an entity (user or queue), which is the maximum share that the 
++ * entity has been allocated of any resource. 
++ * 
++ * In a nutshell, it seeks to maximize the minimum dominant share across 
++ * all entities. 
++ * 
++ * For example, if user A runs CPU-heavy tasks and user B runs
++ * memory-heavy tasks, it attempts to equalize CPU share of user A 
++ * with Memory-share of user B. 
++ * 
++ * In the single resource case, it reduces to max-min fairness for that resource.
++ * 
++ * See the Dominant Resource Fairness paper for more details:
++ * www.cs.berkeley.edu/~matei/papers/2011/nsdi_drf.pdf
++ */
++public class DominantResourceCalculator extends ResourceCalculator {
++  
++  @Override
++  public int compare(Resource clusterResource, Resource lhs, Resource rhs) {
++    
++    if (lhs.equals(rhs)) {
++      return 0;
++    }
++    
++    float l = getResourceAsValue(clusterResource, lhs, true);
++    float r = getResourceAsValue(clusterResource, rhs, true);
++    
++    if (l < r) {
++      return -1;
++    } else if (l > r) {
++      return 1;
++    } else {
++      l = getResourceAsValue(clusterResource, lhs, false);
++      r = getResourceAsValue(clusterResource, rhs, false);
++      if (l < r) {
++        return -1;
++      } else if (l > r) {
++        return 1;
++      }
++    }
++    
++    return 0;
++  }
++
++  /**
++   * Use 'dominant' for now since we only have 2 resources - gives us a slight
++   * performance boost.
++   * 
++   * Once we add more resources, we'll need a more complicated (and slightly
++   * less performant algorithm).
++   */
++  protected float getResourceAsValue(
++      Resource clusterResource, Resource resource, boolean dominant) {
++    // Just use 'dominant' resource
++    return (dominant) ?
++        Math.max(
++            (float)resource.getMemory() / clusterResource.getMemory(), 
++            (float)resource.getVirtualCores() / clusterResource.getVirtualCores()
++            ) 
++        :
++          Math.min(
++              (float)resource.getMemory() / clusterResource.getMemory(), 
++              (float)resource.getVirtualCores() / clusterResource.getVirtualCores()
++              ); 
++  }
++  
++  @Override
++  public int computeAvailableContainers(Resource available, Resource required) {
++    return Math.min(
++        available.getMemory() / required.getMemory(), 
++        available.getVirtualCores() / required.getVirtualCores());
++  }
++
++  @Override
++  public float divide(Resource clusterResource, 
++      Resource numerator, Resource denominator) {
++    return 
++        getResourceAsValue(clusterResource, numerator, true) / 
++        getResourceAsValue(clusterResource, denominator, true);
++  }
++
++  @Override
++  public float ratio(Resource a, Resource b) {
++    return Math.max(
++        (float)a.getMemory()/b.getMemory(), 
++        (float)a.getVirtualCores()/b.getVirtualCores()
++        );
++  }
++
++  @Override
++  public Resource divideAndCeil(Resource numerator, int denominator) {
++    return Resources.createResource(
++        divideAndCeil(numerator.getMemory(), denominator),
++        divideAndCeil(numerator.getVirtualCores(), denominator)
++        );
++  }
++
++  @Override
++  public Resource normalize(Resource r, Resource minimumResource) {
++    return Resources.createResource(
++        roundUp(
++            Math.max(r.getMemory(), minimumResource.getMemory()), 
++            minimumResource.getMemory()),
++        roundUp(
++            Math.max(r.getVirtualCores(), minimumResource.getVirtualCores()),
++            minimumResource.getVirtualCores())
++        );
++  }
++
++  @Override
++  public Resource roundUp(Resource r, Resource minimumResource) {
++    return Resources.createResource(
++        roundUp(r.getMemory(), minimumResource.getMemory()), 
++        roundUp(r.getVirtualCores(), minimumResource.getVirtualCores())
++        );
++  }
++
++  @Override
++  public Resource roundDown(Resource r, Resource stepFactor) {
++    return Resources.createResource(
++        roundDown(r.getMemory(), stepFactor.getMemory()),
++        roundDown(r.getVirtualCores(), stepFactor.getVirtualCores())
++        );
++  }
++
++  @Override
++  public Resource multiplyAndNormalizeUp(Resource r, double by,
++      Resource stepFactor) {
++    return Resources.createResource(
++        roundUp(
++            (int)Math.ceil(r.getMemory() * by), stepFactor.getMemory()),
++        roundUp(
++            (int)Math.ceil(r.getVirtualCores() * by), 
++            stepFactor.getVirtualCores())
++        );
++  }
++
++  @Override
++  public Resource multiplyAndNormalizeDown(Resource r, double by,
++      Resource stepFactor) {
++    return Resources.createResource(
++        roundDown(
++            (int)(r.getMemory() * by), 
++            stepFactor.getMemory()
++            ),
++        roundDown(
++            (int)(r.getVirtualCores() * by), 
++            stepFactor.getVirtualCores()
++            )
++        );
++  }
++
++}
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/Resource.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/Resource.java
+deleted file mode 100644
+index 14cd1db..0000000
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/Resource.java
++++ /dev/null
+@@ -1,73 +0,0 @@
+-/**
+-* Licensed to the Apache Software Foundation (ASF) under one
+-* or more contributor license agreements.  See the NOTICE file
+-* distributed with this work for additional information
+-* regarding copyright ownership.  The ASF licenses this file
+-* to you under the Apache License, Version 2.0 (the
+-* "License"); you may not use this file except in compliance
+-* with the License.  You may obtain a copy of the License at
+-*
+-*     http://www.apache.org/licenses/LICENSE-2.0
+-*
+-* Unless required by applicable law or agreed to in writing, software
+-* distributed under the License is distributed on an "AS IS" BASIS,
+-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-* See the License for the specific language governing permissions and
+-* limitations under the License.
+-*/
+-
+-package org.apache.hadoop.yarn.server.resourcemanager.resource;
+-
+-import org.apache.hadoop.classification.InterfaceAudience.Private;
+-import org.apache.hadoop.classification.InterfaceStability.Evolving;
+-import org.apache.hadoop.yarn.factories.RecordFactory;
+-import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+-
+-@Private
+-@Evolving
+-public class Resource {
+-  public static final RecordFactory recordFactory = RecordFactoryProvider.getRecordFactory(null);  
+-  public static final org.apache.hadoop.yarn.api.records.Resource NONE = createResource(0);
+-
+-
+-  public static org.apache.hadoop.yarn.api.records.Resource createResource(int memory) {
+-    org.apache.hadoop.yarn.api.records.Resource resource = recordFactory.newRecordInstance(org.apache.hadoop.yarn.api.records.Resource.class);
+-    resource.setMemory(memory);
+-    return resource;
+-  }
+-  
+-  public static void addResource(org.apache.hadoop.yarn.api.records.Resource lhs, 
+-      org.apache.hadoop.yarn.api.records.Resource rhs) {
+-    lhs.setMemory(lhs.getMemory() + rhs.getMemory());
+-  }
+-  
+-  public static void subtractResource(org.apache.hadoop.yarn.api.records.Resource lhs, 
+-      org.apache.hadoop.yarn.api.records.Resource rhs) {
+-    lhs.setMemory(lhs.getMemory() - rhs.getMemory());
+-  }
+-  
+-  public static boolean equals(org.apache.hadoop.yarn.api.records.Resource lhs,
+-      org.apache.hadoop.yarn.api.records.Resource rhs) {
+-    return lhs.getMemory() == rhs.getMemory();
+-  }
+-
+-  public static boolean lessThan(org.apache.hadoop.yarn.api.records.Resource lhs,
+-      org.apache.hadoop.yarn.api.records.Resource rhs) {
+-    return lhs.getMemory() < rhs.getMemory();
+-  }
+-
+-  public static boolean lessThanOrEqual(org.apache.hadoop.yarn.api.records.Resource lhs,
+-      org.apache.hadoop.yarn.api.records.Resource rhs) {
+-    return lhs.getMemory() <= rhs.getMemory();
+-  }
+-
+-  public static boolean greaterThan(org.apache.hadoop.yarn.api.records.Resource lhs,
+-      org.apache.hadoop.yarn.api.records.Resource rhs) {
+-    return lhs.getMemory() > rhs.getMemory();
+-  }
+-
+-  public static boolean greaterThanOrEqual(org.apache.hadoop.yarn.api.records.Resource lhs,
+-      org.apache.hadoop.yarn.api.records.Resource rhs) {
+-    return lhs.getMemory() >= rhs.getMemory();
+-  }
+-}
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/ResourceCalculator.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/ResourceCalculator.java
+new file mode 100644
+index 0000000..0cde509
+--- /dev/null
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/ResourceCalculator.java
+@@ -0,0 +1,149 @@
++/**
++* Licensed to the Apache Software Foundation (ASF) under one
++* or more contributor license agreements.  See the NOTICE file
++* distributed with this work for additional information
++* regarding copyright ownership.  The ASF licenses this file
++* to you under the Apache License, Version 2.0 (the
++* "License"); you may not use this file except in compliance
++* with the License.  You may obtain a copy of the License at
++*
++*     http://www.apache.org/licenses/LICENSE-2.0
++*
++* Unless required by applicable law or agreed to in writing, software
++* distributed under the License is distributed on an "AS IS" BASIS,
++* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++* See the License for the specific language governing permissions and
++* limitations under the License.
++*/
++package org.apache.hadoop.yarn.server.resourcemanager.resource;
++
++import org.apache.commons.logging.Log;
++import org.apache.commons.logging.LogFactory;
++import org.apache.hadoop.classification.InterfaceAudience.Private;
++import org.apache.hadoop.classification.InterfaceStability.Unstable;
++import org.apache.hadoop.yarn.api.records.Resource;
++
++/**
++ * A set of {@link Resource} comparison and manipulation interfaces.
++ */
++@Private
++@Unstable
++public abstract class ResourceCalculator {
++
++  private static final Log LOG = LogFactory.getLog(ResourceCalculator.class);
++
++  public abstract int 
++  compare(Resource clusterResource, Resource lhs, Resource rhs);
++  
++  public static int divideAndCeil(int a, int b) {
++    if (b == 0) {
++      LOG.info("divideAndCeil called with a=" + a + " b=" + b);
++      return 0;
++    }
++    return (a + (b - 1)) / b;
++  }
++
++  public static int roundUp(int a, int b) {
++    return divideAndCeil(a, b) * b;
++  }
++
++  public static int roundDown(int a, int b) {
++    return (a / b) * b;
++  }
++
++  /**
++   * Compute the number of containers which can be allocated given
++   * <code>available</code> and <code>required</code> resources.
++   * 
++   * @param available available resources
++   * @param required required resources
++   * @return number of containers which can be allocated
++   */
++  public abstract int computeAvailableContainers(
++      Resource available, Resource required);
++
++  /**
++   * Multiply resource <code>r</code> by factor <code>by</code> 
++   * and normalize up using step-factor <code>stepFactor</code>.
++   * 
++   * @param r resource to be multiplied
++   * @param by multiplier
++   * @param stepFactor factor by which to normalize up 
++   * @return resulting normalized resource
++   */
++  public abstract Resource multiplyAndNormalizeUp(
++      Resource r, double by, Resource stepFactor);
++  
++  /**
++   * Multiply resource <code>r</code> by factor <code>by</code> 
++   * and normalize down using step-factor <code>stepFactor</code>.
++   * 
++   * @param r resource to be multiplied
++   * @param by multiplier
++   * @param stepFactor factor by which to normalize down 
++   * @return resulting normalized resource
++   */
++  public abstract Resource multiplyAndNormalizeDown(
++      Resource r, double by, Resource stepFactor);
++  
++  /**
++   * Normalize resource <code>r</code> given the base 
++   * <code>minimumResource</code>.
++   * 
++   * @param r resource
++   * @param minimumResource step-factor
++   * @return normalized resource
++   */
++  public abstract Resource normalize(Resource r, Resource minimumResource);
++
++  /**
++   * Round-up resource <code>r</code> given factor <code>stepFactor</code>.
++   * 
++   * @param r resource
++   * @param stepFactor step-factor
++   * @return rounded resource
++   */
++  public abstract Resource roundUp(Resource r, Resource stepFactor);
++  
++  /**
++   * Round-down resource <code>r</code> given factor <code>stepFactor</code>.
++   * 
++   * @param r resource
++   * @param stepFactor step-factor
++   * @return rounded resource
++   */
++  public abstract Resource roundDown(Resource r, Resource stepFactor);
++  
++  /**
++   * Divide resource <code>numerator</code> by resource <code>denominator</code>
++   * using specified policy (domination, average, fairness etc.); hence overall
++   * <code>clusterResource</code> is provided for context.
++   *  
++   * @param clusterResource cluster resources
++   * @param numerator numerator
++   * @param denominator denominator
++   * @return <code>numerator</code>/<code>denominator</code> 
++   *         using specific policy
++   */
++  public abstract float divide(
++      Resource clusterResource, Resource numerator, Resource denominator);
++  
++  /**
++   * Ratio of resource <code>a</code> to resource <code>b</code>.
++   * 
++   * @param a resource 
++   * @param b resource
++   * @return ratio of resource <code>a</code> to resource <code>b</code>
++   */
++  public abstract float ratio(Resource a, Resource b);
++
++  /**
++   * Divide-and-ceil <code>numerator</code> by <code>denominator</code>.
++   * 
++   * @param numerator numerator resource
++   * @param denominator denominator
++   * @return resultant resource
++   */
++  public abstract Resource divideAndCeil(Resource numerator, int denominator);
++  
++}
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/Resources.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/Resources.java
+index 668d1da..3aae142 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/Resources.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/resource/Resources.java
+@@ -41,15 +41,34 @@ public class Resources {
+     }
+ 
+     @Override
++    public int getVirtualCores() {
++      return 0;
++    }
++
++    @Override
++    public void setVirtualCores(int cores) {
++      throw new RuntimeException("NONE cannot be modified!");
++    }
++
++    @Override
+     public int compareTo(Resource o) {
+-      return (0 - o.getMemory());
++      int diff = 0 - o.getMemory();
++      if (diff == 0) {
++        diff = 0 - o.getVirtualCores();
++      }
++      return diff;
+     }
+     
+   };
+ 
+   public static Resource createResource(int memory) {
++    return createResource(memory, (memory > 0) ? 1 : 0);
++  }
++
++  public static Resource createResource(int memory, int cores) {
+     Resource resource = Records.newRecord(Resource.class);
+     resource.setMemory(memory);
++    resource.setVirtualCores(cores);
+     return resource;
+   }
+ 
+@@ -58,11 +77,12 @@ public class Resources {
+   }
+ 
+   public static Resource clone(Resource res) {
+-    return createResource(res.getMemory());
++    return createResource(res.getMemory(), res.getVirtualCores());
+   }
+ 
+   public static Resource addTo(Resource lhs, Resource rhs) {
+     lhs.setMemory(lhs.getMemory() + rhs.getMemory());
++    lhs.setVirtualCores(lhs.getVirtualCores() + rhs.getVirtualCores());
+     return lhs;
+   }
+ 
+@@ -72,6 +92,7 @@ public class Resources {
+ 
+   public static Resource subtractFrom(Resource lhs, Resource rhs) {
+     lhs.setMemory(lhs.getMemory() - rhs.getMemory());
++    lhs.setVirtualCores(lhs.getVirtualCores() - rhs.getVirtualCores());
+     return lhs;
+   }
+ 
+@@ -83,50 +104,107 @@ public class Resources {
+     return subtract(NONE, resource);
+   }
+ 
+-  public static Resource multiplyTo(Resource lhs, int by) {
+-    lhs.setMemory(lhs.getMemory() * by);
++  public static Resource multiplyTo(Resource lhs, double by) {
++    lhs.setMemory((int)(lhs.getMemory() * by));
++    lhs.setVirtualCores((int)(lhs.getVirtualCores() * by));
+     return lhs;
+   }
+ 
+-  public static Resource multiply(Resource lhs, int by) {
++  public static Resource multiply(Resource lhs, double by) {
+     return multiplyTo(clone(lhs), by);
+   }
+   
+-  /**
+-   * Mutliply a resource by a {@code double}. Note that integral 
+-   * resource quantites are subject to rounding during cast.
+-   */
+-  public static Resource multiply(Resource lhs, double by) {
++  public static Resource multiplyAndNormalizeUp(
++      ResourceCalculator calculator,Resource lhs, double by, Resource factor) {
++    return calculator.multiplyAndNormalizeUp(lhs, by, factor);
++  }
++  
++  public static Resource multiplyAndNormalizeDown(
++      ResourceCalculator calculator,Resource lhs, double by, Resource factor) {
++    return calculator.multiplyAndNormalizeDown(lhs, by, factor);
++  }
++  
++  public static Resource multiplyAndRoundDown(Resource lhs, double by) {
+     Resource out = clone(lhs);
+-    out.setMemory((int) (lhs.getMemory() * by));
++    out.setMemory((int)(lhs.getMemory() * by));
++    out.setVirtualCores((int)(lhs.getVirtualCores() * by));
+     return out;
+   }
+-
++  
++  public static Resource normalize(
++      ResourceCalculator calculator, Resource lhs, Resource factor) {
++    return calculator.normalize(lhs, factor);
++  }
++  
++  public static Resource roundUp(
++      ResourceCalculator calculator, Resource lhs, Resource factor) {
++    return calculator.roundUp(lhs, factor);
++  }
++  
++  public static Resource roundDown(
++      ResourceCalculator calculator, Resource lhs, Resource factor) {
++    return calculator.roundDown(lhs, factor);
++  }
++  
++  public static float ratio(
++      ResourceCalculator resourceCalculator, Resource lhs, Resource rhs) {
++    return resourceCalculator.ratio(lhs, rhs);
++  }
++  
++  public static float divide(
++      ResourceCalculator resourceCalculator,
++      Resource clusterResource, Resource lhs, Resource rhs) {
++    return resourceCalculator.divide(clusterResource, lhs, rhs);
++  }
++  
++  public static Resource divideAndCeil(
++      ResourceCalculator resourceCalculator, Resource lhs, int rhs) {
++    return resourceCalculator.divideAndCeil(lhs, rhs);
++  }
++  
+   public static boolean equals(Resource lhs, Resource rhs) {
+-    return lhs.getMemory() == rhs.getMemory();
++    return lhs.equals(rhs);
+   }
+ 
+-  public static boolean lessThan(Resource lhs, Resource rhs) {
+-    return lhs.getMemory() < rhs.getMemory();
++  public static boolean lessThan(
++      ResourceCalculator resourceCalculator, 
++      Resource clusterResource,
++      Resource lhs, Resource rhs) {
++    return (resourceCalculator.compare(clusterResource, lhs, rhs) < 0);
+   }
+ 
+-  public static boolean lessThanOrEqual(Resource lhs, Resource rhs) {
+-    return lhs.getMemory() <= rhs.getMemory();
++  public static boolean lessThanOrEqual(
++      ResourceCalculator resourceCalculator, 
++      Resource clusterResource,
++      Resource lhs, Resource rhs) {
++    return (resourceCalculator.compare(clusterResource, lhs, rhs) <= 0);
+   }
+ 
+-  public static boolean greaterThan(Resource lhs, Resource rhs) {
+-    return lhs.getMemory() > rhs.getMemory();
++  public static boolean greaterThan(
++      ResourceCalculator resourceCalculator,
++      Resource clusterResource,
++      Resource lhs, Resource rhs) {
++    return resourceCalculator.compare(clusterResource, lhs, rhs) > 0;
+   }
+ 
+-  public static boolean greaterThanOrEqual(Resource lhs, Resource rhs) {
+-    return lhs.getMemory() >= rhs.getMemory();
++  public static boolean greaterThanOrEqual(
++      ResourceCalculator resourceCalculator, 
++      Resource clusterResource,
++      Resource lhs, Resource rhs) {
++    return resourceCalculator.compare(clusterResource, lhs, rhs) >= 0;
+   }
+   
+-  public static Resource min(Resource lhs, Resource rhs) {
+-    return (lhs.getMemory() < rhs.getMemory()) ? lhs : rhs;
+-  }
+-
+-  public static Resource max(Resource lhs, Resource rhs) {
+-    return (lhs.getMemory() > rhs.getMemory()) ? lhs : rhs;
++  public static Resource min(
++      ResourceCalculator resourceCalculator, 
++      Resource clusterResource,
++      Resource lhs, Resource rhs) {
++    return resourceCalculator.compare(clusterResource, lhs, rhs) <= 0 ? lhs : rhs;
++  }
++
++  public static Resource max(
++      ResourceCalculator resourceCalculator, 
++      Resource clusterResource,
++      Resource lhs, Resource rhs) {
++    return resourceCalculator.compare(clusterResource, lhs, rhs) >= 0 ? lhs : rhs;
+   }
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/RMAppImpl.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/RMAppImpl.java
+index 70abe2f..17651fa 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/RMAppImpl.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/RMAppImpl.java
+@@ -207,8 +207,8 @@ public class RMAppImpl implements RMApp, Recoverable {
+   private static final ApplicationResourceUsageReport
+     DUMMY_APPLICATION_RESOURCE_USAGE_REPORT =
+       BuilderUtils.newApplicationResourceUsageReport(-1, -1,
+-          Resources.createResource(-1), Resources.createResource(-1),
+-          Resources.createResource(-1));
++          Resources.createResource(-1, -1), Resources.createResource(-1, -1),
++          Resources.createResource(-1, -1));
+   private static final int DUMMY_APPLICATION_ATTEMPT_NUMBER = -1;
+   
+   public RMAppImpl(ApplicationId applicationId, RMContext rmContext,
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java
+index a0d2619..16fa5c3 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/rmapp/attempt/RMAppAttemptImpl.java
+@@ -48,6 +48,7 @@ import org.apache.hadoop.yarn.api.records.ContainerId;
+ import org.apache.hadoop.yarn.api.records.ContainerStatus;
+ import org.apache.hadoop.yarn.api.records.NodeId;
+ import org.apache.hadoop.yarn.api.records.Priority;
++import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.api.records.ResourceRequest;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.event.EventHandler;
+@@ -590,8 +591,9 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
+     try {
+       int numUsedContainers = 0;
+       int numReservedContainers = 0;
+-      int reservedResources = 0;
+-      int currentConsumption = 0;
++      Resource currentConsumption = Resources.createResource(0, 0);
++      Resource reservedResources = Resources.createResource(0, 0);
++      
+       SchedulerAppReport schedApp = 
+           scheduler.getSchedulerAppInfo(this.getAppAttemptId());
+       Collection<RMContainer> liveContainers;
+@@ -602,22 +604,21 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
+         if (liveContainers != null) {
+           numUsedContainers = liveContainers.size();
+           for (RMContainer lc : liveContainers) {
+-            currentConsumption += lc.getContainer().getResource().getMemory();
++            Resources.addTo(currentConsumption, lc.getContainer().getResource());
+           }
+         }
+         if (reservedContainers != null) {
+           numReservedContainers = reservedContainers.size();
+           for (RMContainer rc : reservedContainers) {
+-            reservedResources += rc.getContainer().getResource().getMemory();
++            Resources.addTo(reservedResources, rc.getContainer().getResource());
+           }
+         }
+       }
+ 
+       return BuilderUtils.newApplicationResourceUsageReport(
+           numUsedContainers, numReservedContainers,
+-          Resources.createResource(currentConsumption),
+-          Resources.createResource(reservedResources),
+-          Resources.createResource(currentConsumption + reservedResources));
++          currentConsumption, reservedResources,
++          Resources.add(currentConsumption, reservedResources));
+     } finally {
+       this.readLock.unlock();
+     }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/QueueMetrics.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/QueueMetrics.java
+index 1f74cc7..ef1f78b 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/QueueMetrics.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/QueueMetrics.java
+@@ -19,7 +19,6 @@
+ package org.apache.hadoop.yarn.server.resourcemanager.scheduler;
+ 
+ import static org.apache.hadoop.metrics2.lib.Interns.info;
+-import static org.apache.hadoop.yarn.server.resourcemanager.resource.Resources.multiply;
+ 
+ import java.util.ArrayList;
+ import java.util.HashMap;
+@@ -42,6 +41,7 @@ import org.apache.hadoop.metrics2.lib.MutableGaugeInt;
+ import org.apache.hadoop.yarn.api.records.ApplicationId;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptState;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+@@ -325,7 +325,7 @@ public class QueueMetrics implements MetricsSource {
+     allocatedContainers.incr(containers);
+     aggregateContainersAllocated.incr(containers);
+     allocatedMB.incr(res.getMemory() * containers);
+-    _decrPendingResources(containers, multiply(res, containers));
++    _decrPendingResources(containers, Resources.multiply(res, containers));
+     QueueMetrics userMetrics = getUserMetrics(user);
+     if (userMetrics != null) {
+       userMetrics.allocateResources(user, containers, res);
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/SchedulerUtils.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/SchedulerUtils.java
+index f776f5e..e1bb437 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/SchedulerUtils.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/SchedulerUtils.java
+@@ -24,10 +24,13 @@ import org.apache.hadoop.classification.InterfaceStability.Unstable;
+ import org.apache.hadoop.yarn.api.records.ContainerId;
+ import org.apache.hadoop.yarn.api.records.ContainerState;
+ import org.apache.hadoop.yarn.api.records.ContainerStatus;
++import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.api.records.ResourceRequest;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.factories.RecordFactory;
+ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ 
+ /**
+  * Utilities shared by schedulers. 
+@@ -81,32 +84,31 @@ public class SchedulerUtils {
+   /**
+    * Utility method to normalize a list of resource requests, by insuring that
+    * the memory for each request is a multiple of minMemory and is not zero.
+-   *
+-   * @param asks
+-   *          a list of resource requests.
+-   * @param minMemory
+-   *          the configured minimum memory allocation.
+    */
+-  public static void normalizeRequests(List<ResourceRequest> asks,
+-      int minMemory) {
++  public static void normalizeRequests(
++      List<ResourceRequest> asks,
++      ResourceCalculator resourceCalculator, 
++      Resource clusterResource,
++      Resource minimumResource) {
+     for (ResourceRequest ask : asks) {
+-      normalizeRequest(ask, minMemory);
++      normalizeRequest(
++          ask, resourceCalculator, clusterResource, minimumResource);
+     }
+   }
+ 
+   /**
+    * Utility method to normalize a resource request, by insuring that the
+    * requested memory is a multiple of minMemory and is not zero.
+-   *
+-   * @param ask
+-   *          the resource request.
+-   * @param minMemory
+-   *          the configured minimum memory allocation.
+    */
+-  public static void normalizeRequest(ResourceRequest ask, int minMemory) {
+-    int memory = Math.max(ask.getCapability().getMemory(), minMemory);
+-    ask.getCapability().setMemory(
+-        minMemory * ((memory / minMemory) + (memory % minMemory > 0 ? 1 : 0)));
++  public static void normalizeRequest(
++      ResourceRequest ask, 
++      ResourceCalculator resourceCalculator, 
++      Resource clusterResource,
++      Resource minimumResource) {
++    Resource normalized = 
++        Resources.normalize(
++            resourceCalculator, ask.getCapability(), minimumResource);
++    ask.setCapability(normalized);
+   }
+ 
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CSQueueUtils.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CSQueueUtils.java
+index 8513167..67ba7f6 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CSQueueUtils.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CSQueueUtils.java
+@@ -19,6 +19,7 @@ package org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity;
+ 
+ import org.apache.hadoop.yarn.Lock;
+ import org.apache.hadoop.yarn.api.records.Resource;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ 
+ class CSQueueUtils {
+@@ -51,15 +52,19 @@ class CSQueueUtils {
+     return (parentAbsMaxCapacity * maximumCapacity);
+   }
+ 
+-  public static int computeMaxActiveApplications(Resource clusterResource,
+-      Resource minimumAllocation, float maxAMResourcePercent, 
+-      float absoluteMaxCapacity) {
+-    return 
++  public static int computeMaxActiveApplications(
++      ResourceCalculator calculator,
++      Resource clusterResource, Resource minimumAllocation, 
++      float maxAMResourcePercent, float absoluteMaxCapacity) {
++    return
+         Math.max(
+             (int)Math.ceil(
+-                     ((float)clusterResource.getMemory() / 
+-                         minimumAllocation.getMemory()) * 
+-                     maxAMResourcePercent * absoluteMaxCapacity), 
++                Resources.ratio(
++                    calculator, 
++                    clusterResource, 
++                    minimumAllocation) * 
++                    maxAMResourcePercent * absoluteMaxCapacity
++                ), 
+             1);
+   }
+ 
+@@ -73,36 +78,43 @@ class CSQueueUtils {
+   
+   @Lock(CSQueue.class)
+   public static void updateQueueStatistics(
++      final ResourceCalculator calculator,
+       final CSQueue childQueue, final CSQueue parentQueue, 
+       final Resource clusterResource, final Resource minimumAllocation) {
+-    final int clusterMemory = clusterResource.getMemory();
+-    final int usedMemory = childQueue.getUsedResources().getMemory();
++    Resource queueLimit = Resources.none();
++    Resource usedResources = childQueue.getUsedResources();
+     
+-    float queueLimit = 0.0f;
+     float absoluteUsedCapacity = 0.0f;
+     float usedCapacity = 0.0f;
+-    if (clusterMemory > 0) {
+-      queueLimit = clusterMemory * childQueue.getAbsoluteCapacity();
+-      absoluteUsedCapacity = ((float)usedMemory / (float)clusterMemory);
+-      usedCapacity = (queueLimit == 0) ? 0 : (usedMemory / queueLimit);
++
++    if (Resources.greaterThan(
++        calculator, clusterResource, clusterResource, Resources.none())) {
++      queueLimit = 
++          Resources.multiply(clusterResource, childQueue.getAbsoluteCapacity());
++      absoluteUsedCapacity = 
++          Resources.divide(calculator, clusterResource, 
++              usedResources, clusterResource);
++      usedCapacity = 
++          Resources.equals(queueLimit, Resources.none()) ? 0 :
++          Resources.divide(calculator, clusterResource, 
++              usedResources, queueLimit);
+     }
+     
+     childQueue.setUsedCapacity(usedCapacity);
+     childQueue.setAbsoluteUsedCapacity(absoluteUsedCapacity);
+     
+-    int available = 
+-        Math.max((roundUp(minimumAllocation, (int)queueLimit) - usedMemory), 0); 
++    Resource available = 
++        Resources.roundUp(
++            calculator, 
++            Resources.subtract(queueLimit, usedResources), 
++            minimumAllocation);
+     childQueue.getMetrics().setAvailableResourcesToQueue(
+-        Resources.createResource(available));
+-  }
+-
+-  public static int roundUp(Resource minimumAllocation, int memory) {
+-    int minMemory = minimumAllocation.getMemory();
+-    return LeafQueue.divideAndCeil(memory, minMemory) * minMemory; 
+-  }
+-
+-  public static int roundDown(Resource minimumAllocation, int memory) {
+-    int minMemory = minimumAllocation.getMemory();
+-    return (memory / minMemory) * minMemory;
+-  }
++        Resources.max(
++            calculator, 
++            clusterResource, 
++            available, 
++            Resources.none()
++            )
++        );
++   }
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CapacityScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CapacityScheduler.java
+index 2bac243..c6683fe 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CapacityScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CapacityScheduler.java
+@@ -50,6 +50,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstants;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
+ import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.RMState;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEvent;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEventType;
+@@ -141,6 +142,8 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
+ 
+   private boolean initialized = false;
+ 
++  private ResourceCalculator calculator;
++  
+   public CapacityScheduler() {}
+ 
+   @Override
+@@ -173,6 +176,21 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
+   }
+ 
+   @Override
++  public Comparator<FiCaSchedulerApp> getApplicationComparator() {
++    return applicationComparator;
++  }
++
++  @Override
++  public ResourceCalculator getResourceCalculator() {
++    return calculator;
++  }
++
++  @Override
++  public Comparator<CSQueue> getQueueComparator() {
++    return queueComparator;
++  }
++
++  @Override
+   public synchronized int getNumClusterNodes() {
+     return numNodeManagers;
+   }
+@@ -192,11 +210,20 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
+       reinitialize(Configuration conf, RMContext rmContext) throws IOException {
+     if (!initialized) {
+       this.conf = new CapacitySchedulerConfiguration(conf);
++      
+       this.minimumAllocation = this.conf.getMinimumAllocation();
+       this.maximumAllocation = this.conf.getMaximumAllocation();
++      this.calculator = this.conf.getResourceCalculator();
++
+       this.rmContext = rmContext;
++      
+       initializeQueues(this.conf);
++      
+       initialized = true;
++      LOG.info("Initialized CapacityScheduler with " +
++          "calculator=" + getResourceCalculator().getClass() + ", " +
++          "minimumAllocation=<" + getMinimumResourceCapability() + ">, " +
++          "maximumAllocation=<" + getMaximumResourceCapability() + ">");
+     } else {
+ 
+       CapacitySchedulerConfiguration oldConf = this.conf; 
+@@ -226,8 +253,8 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
+   private void initializeQueues(CapacitySchedulerConfiguration conf)
+     throws IOException {
+     root = 
+-        parseQueue(this, conf, null, CapacitySchedulerConfiguration.ROOT, queues, queues, 
+-            queueComparator, applicationComparator, noop);
++        parseQueue(this, conf, null, CapacitySchedulerConfiguration.ROOT, 
++            queues, queues, noop);
+     LOG.info("Initialized root queue " + root);
+   }
+ 
+@@ -237,8 +264,8 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
+     // Parse new queues
+     Map<String, CSQueue> newQueues = new HashMap<String, CSQueue>();
+     CSQueue newRoot = 
+-        parseQueue(this, conf, null, CapacitySchedulerConfiguration.ROOT, newQueues, queues, 
+-            queueComparator, applicationComparator, noop);
++        parseQueue(this, conf, null, CapacitySchedulerConfiguration.ROOT, 
++            newQueues, queues, noop); 
+     
+     // Ensure all existing queues are still present
+     validateExistingQueues(queues, newQueues);
+@@ -291,8 +318,6 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
+       CapacitySchedulerConfiguration conf, 
+       CSQueue parent, String queueName, Map<String, CSQueue> queues,
+       Map<String, CSQueue> oldQueues, 
+-      Comparator<CSQueue> queueComparator,
+-      Comparator<FiCaSchedulerApp> applicationComparator,
+       QueueHook hook) throws IOException {
+     CSQueue queue;
+     String[] childQueueNames = 
+@@ -303,15 +328,14 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
+         throw new IllegalStateException(
+             "Queue configuration missing child queue names for " + queueName);
+       }
+-      queue = new LeafQueue(csContext, queueName, parent, applicationComparator,
+-                            oldQueues.get(queueName));
++      queue = 
++          new LeafQueue(csContext, queueName, parent,oldQueues.get(queueName));
+       
+       // Used only for unit tests
+       queue = hook.hook(queue);
+     } else {
+       ParentQueue parentQueue = 
+-        new ParentQueue(csContext, queueName, queueComparator, parent,
+-                        oldQueues.get(queueName));
++        new ParentQueue(csContext, queueName, parent,oldQueues.get(queueName));
+ 
+       // Used only for unit tests
+       queue = hook.hook(parentQueue);
+@@ -320,7 +344,7 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
+       for (String childQueueName : childQueueNames) {
+         CSQueue childQueue = 
+           parseQueue(csContext, conf, queue, childQueueName, 
+-              queues, oldQueues, queueComparator, applicationComparator, hook);
++              queues, oldQueues, hook);
+         childQueues.add(childQueue);
+       }
+       parentQueue.setChildQueues(childQueues);
+@@ -442,7 +466,7 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
+   }
+ 
+   private static final Allocation EMPTY_ALLOCATION = 
+-      new Allocation(EMPTY_CONTAINER_LIST, Resources.createResource(0));
++      new Allocation(EMPTY_CONTAINER_LIST, Resources.createResource(0, 0));
+ 
+   @Override
+   @Lock(Lock.NoLock.class)
+@@ -457,7 +481,8 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
+     }
+     
+     // Sanity check
+-    SchedulerUtils.normalizeRequests(ask, minimumAllocation.getMemory());
++    SchedulerUtils.normalizeRequests(
++        ask, calculator, getClusterResources(), minimumAllocation);
+ 
+     // Release containers
+     for (ContainerId releasedContainerId : release) {
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CapacitySchedulerConfiguration.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CapacitySchedulerConfiguration.java
+index ef5f171..a2a0beb 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CapacitySchedulerConfiguration.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CapacitySchedulerConfiguration.java
+@@ -26,11 +26,14 @@ import org.apache.commons.logging.LogFactory;
+ import org.apache.hadoop.classification.InterfaceAudience.Private;
+ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.security.authorize.AccessControlList;
++import org.apache.hadoop.util.ReflectionUtils;
+ import org.apache.hadoop.util.StringUtils;
+ import org.apache.hadoop.yarn.api.records.QueueACL;
+ import org.apache.hadoop.yarn.api.records.QueueState;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ 
+ public class CapacitySchedulerConfiguration extends Configuration {
+@@ -112,6 +115,13 @@ public class CapacitySchedulerConfiguration extends Configuration {
+       PREFIX +"user-metrics.enable";
+   @Private public static final boolean DEFAULT_ENABLE_USER_METRICS = false;
+ 
++  /** ResourceComparator for scheduling. */
++  @Private public static final String RESOURCE_CALCULATOR_CLASS =
++      PREFIX + "resource-calculator";
++
++  @Private public static final Class<? extends ResourceCalculator> 
++  DEFAULT_RESOURCE_CALCULATOR_CLASS = DefaultResourceCalculator.class;
++  
+   @Private
+   public static final String ROOT = "root";
+ 
+@@ -289,14 +299,20 @@ public class CapacitySchedulerConfiguration extends Configuration {
+     int minimumMemory = getInt(
+         YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB,
+         YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_MB);
+-    return Resources.createResource(minimumMemory);
++    int minimumCores = getInt(
++        YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES,
++        YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES);
++    return Resources.createResource(minimumMemory, minimumCores);
+   }
+ 
+   public Resource getMaximumAllocation() {
+     int maximumMemory = getInt(
+         YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB,
+         YarnConfiguration.DEFAULT_RM_SCHEDULER_MAXIMUM_ALLOCATION_MB);
+-    return Resources.createResource(maximumMemory);
++    int maximumCores = getInt(
++        YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_CORES,
++        YarnConfiguration.DEFAULT_RM_SCHEDULER_MAXIMUM_ALLOCATION_CORES);
++    return Resources.createResource(maximumMemory, maximumCores);
+   }
+ 
+   public boolean getEnableUserMetrics() {
+@@ -307,4 +323,21 @@ public class CapacitySchedulerConfiguration extends Configuration {
+     int delay = getInt(NODE_LOCALITY_DELAY, DEFAULT_NODE_LOCALITY_DELAY);
+     return (delay == DEFAULT_NODE_LOCALITY_DELAY) ? 0 : delay;
+   }
++  
++  public ResourceCalculator getResourceCalculator() {
++    return ReflectionUtils.newInstance(
++        getClass(
++            RESOURCE_CALCULATOR_CLASS, 
++            DEFAULT_RESOURCE_CALCULATOR_CLASS, 
++            ResourceCalculator.class), 
++        this);
++  }
++
++  public void setResourceComparator(
++      Class<? extends ResourceCalculator> resourceCalculatorClass) {
++    setClass(
++        RESOURCE_CALCULATOR_CLASS, 
++        resourceCalculatorClass, 
++        ResourceCalculator.class);
++  }
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CapacitySchedulerContext.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CapacitySchedulerContext.java
+index 861d630..07f1881 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CapacitySchedulerContext.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/CapacitySchedulerContext.java
+@@ -18,10 +18,14 @@
+ 
+ package org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity;
+ 
++import java.util.Comparator;
++
+ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
+ import org.apache.hadoop.yarn.server.resourcemanager.security.RMContainerTokenSecretManager;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.scheduler.common.fica.FiCaSchedulerApp;
+ 
+ /**
+  * Read-only interface to {@link CapacityScheduler} context.
+@@ -45,4 +49,10 @@ public interface CapacitySchedulerContext {
+    * Get the yarn configuration.
+    */
+   Configuration getConf();
++
++  Comparator<FiCaSchedulerApp> getApplicationComparator();
++
++  ResourceCalculator getResourceCalculator();
++
++  Comparator<CSQueue> getQueueComparator();
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/LeafQueue.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/LeafQueue.java
+index 28a81f7..b02dda1 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/LeafQueue.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/LeafQueue.java
+@@ -53,6 +53,7 @@ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.api.records.ResourceRequest;
+ import org.apache.hadoop.yarn.factories.RecordFactory;
+ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEventType;
+@@ -90,7 +91,7 @@ public class LeafQueue implements CSQueue {
+   private int maxActiveAppsUsingAbsCap; // Based on absolute capacity
+   private int maxActiveApplicationsPerUser;
+   
+-  private Resource usedResources = Resources.createResource(0);
++  private Resource usedResources = Resources.createResource(0, 0);
+   private float usedCapacity = 0.0f;
+   private volatile int numContainers;
+ 
+@@ -126,12 +127,16 @@ public class LeafQueue implements CSQueue {
+   
+   private final int nodeLocalityDelay;
+   
++  private final ResourceCalculator resourceCalculator;
++  
+   public LeafQueue(CapacitySchedulerContext cs, 
+-      String queueName, CSQueue parent, 
+-      Comparator<FiCaSchedulerApp> applicationComparator, CSQueue old) {
++      String queueName, CSQueue parent, CSQueue old) {
+     this.scheduler = cs;
+     this.queueName = queueName;
+     this.parent = parent;
++    
++    this.resourceCalculator = cs.getResourceCalculator();
++
+     // must be after parent and queueName are initialized
+     this.metrics = old != null ? old.getMetrics() :
+         QueueMetrics.forQueue(getQueuePath(), parent,
+@@ -141,8 +146,9 @@ public class LeafQueue implements CSQueue {
+     this.minimumAllocation = cs.getMinimumResourceCapability();
+     this.maximumAllocation = cs.getMaximumResourceCapability();
+     this.minimumAllocationFactor = 
+-        (float)(maximumAllocation.getMemory() - minimumAllocation.getMemory()) / 
+-         maximumAllocation.getMemory();
++        Resources.ratio(resourceCalculator, 
++            Resources.subtract(maximumAllocation, minimumAllocation), 
++            maximumAllocation);
+     this.containerTokenSecretManager = cs.getContainerTokenSecretManager();
+ 
+     float capacity = 
+@@ -171,10 +177,12 @@ public class LeafQueue implements CSQueue {
+             getMaximumApplicationMasterResourcePerQueuePercent(getQueuePath());
+     int maxActiveApplications = 
+         CSQueueUtils.computeMaxActiveApplications(
++            resourceCalculator,
+             cs.getClusterResources(), this.minimumAllocation,
+             maxAMResourcePerQueuePercent, absoluteMaxCapacity);
+     this.maxActiveAppsUsingAbsCap = 
+             CSQueueUtils.computeMaxActiveApplications(
++                resourceCalculator,
+                 cs.getClusterResources(), this.minimumAllocation,
+                 maxAMResourcePerQueuePercent, absoluteCapacity);
+     int maxActiveApplicationsPerUser = 
+@@ -207,6 +215,8 @@ public class LeafQueue implements CSQueue {
+         + ", fullname=" + getQueuePath());
+     }
+ 
++    Comparator<FiCaSchedulerApp> applicationComparator =
++        cs.getApplicationComparator();
+     this.pendingApplications = 
+         new TreeSet<FiCaSchedulerApp>(applicationComparator);
+     this.activeApplications = new TreeSet<FiCaSchedulerApp>(applicationComparator);
+@@ -256,7 +266,8 @@ public class LeafQueue implements CSQueue {
+     
+     // Update metrics
+     CSQueueUtils.updateQueueStatistics(
+-        this, getParent(), clusterResource, minimumAllocation);
++        resourceCalculator, this, getParent(), clusterResource, 
++        minimumAllocation);
+ 
+     LOG.info("Initializing " + queueName + "\n" +
+         "capacity = " + capacity +
+@@ -545,7 +556,7 @@ public class LeafQueue implements CSQueue {
+     return queueName + ": " + 
+         "capacity=" + capacity + ", " + 
+         "absoluteCapacity=" + absoluteCapacity + ", " + 
+-        "usedResources=" + usedResources.getMemory() + "MB, " + 
++        "usedResources=" + usedResources +  
+         "usedCapacity=" + getUsedCapacity() + ", " + 
+         "absoluteUsedCapacity=" + getAbsoluteUsedCapacity() + ", " +
+         "numApps=" + getNumApplications() + ", " + 
+@@ -754,7 +765,7 @@ public class LeafQueue implements CSQueue {
+   }
+ 
+   private static final CSAssignment NULL_ASSIGNMENT =
+-      new CSAssignment(Resources.createResource(0), NodeType.NODE_LOCAL);
++      new CSAssignment(Resources.createResource(0, 0), NodeType.NODE_LOCAL);
+   
+   @Override
+   public synchronized CSAssignment 
+@@ -813,7 +824,8 @@ public class LeafQueue implements CSQueue {
+           }
+ 
+           // Check user limit
+-          if (!assignToUser(application.getUser(), userLimit)) {
++          if (!assignToUser(
++              clusterResource, application.getUser(), userLimit)) {
+             break; 
+           }
+ 
+@@ -827,7 +839,8 @@ public class LeafQueue implements CSQueue {
+ 
+           // Did we schedule or reserve a container?
+           Resource assigned = assignment.getResource();
+-          if (Resources.greaterThan(assigned, Resources.none())) {
++          if (Resources.greaterThan(
++              resourceCalculator, clusterResource, assigned, Resources.none())) {
+ 
+             // Book-keeping 
+             // Note: Update headroom to account for current allocation too...
+@@ -882,21 +895,25 @@ public class LeafQueue implements CSQueue {
+     
+     // Doesn't matter... since it's already charged for at time of reservation
+     // "re-reservation" is *free*
+-    return org.apache.hadoop.yarn.server.resourcemanager.resource.Resource.NONE;
++    return Resources.none();
+   }
+ 
+   private synchronized boolean assignToQueue(Resource clusterResource, 
+       Resource required) {
+     // Check how of the cluster's absolute capacity we are currently using...
+     float potentialNewCapacity = 
+-      (float)(usedResources.getMemory() + required.getMemory()) / 
+-        clusterResource.getMemory();
++        Resources.divide(
++            resourceCalculator, clusterResource, 
++            Resources.add(usedResources, required), 
++            clusterResource);
+     if (potentialNewCapacity > absoluteMaxCapacity) {
+       LOG.info(getQueueName() + 
+-          " usedResources: " + usedResources.getMemory() +
+-          " clusterResources: " + clusterResource.getMemory() +
+-          " currentCapacity " + ((float)usedResources.getMemory())/clusterResource.getMemory() + 
+-          " required " + required.getMemory() +
++          " usedResources: " + usedResources +
++          " clusterResources: " + clusterResource +
++          " currentCapacity " + 
++            Resources.divide(resourceCalculator, clusterResource, 
++                usedResources, clusterResource) + 
++          " required " + required +
+           " potentialNewCapacity: " + potentialNewCapacity + " ( " +
+           " max-capacity: " + absoluteMaxCapacity + ")");
+       return false;
+@@ -919,14 +936,18 @@ public class LeafQueue implements CSQueue {
+     
+ 
+     Resource queueMaxCap =                        // Queue Max-Capacity
+-        Resources.createResource(
+-            CSQueueUtils.roundDown(minimumAllocation, 
+-                (int)(absoluteMaxCapacity * clusterResource.getMemory()))
+-            );
++        Resources.multiplyAndNormalizeDown(
++            resourceCalculator, 
++            clusterResource, 
++            absoluteMaxCapacity, 
++            minimumAllocation);
+     
+     Resource userConsumed = getUser(user).getConsumedResources(); 
+     Resource headroom = 
+-        Resources.subtract(Resources.min(userLimit, queueMaxCap), userConsumed);
++        Resources.subtract(
++            Resources.min(resourceCalculator, clusterResource, 
++                userLimit, queueMaxCap), 
++            userConsumed);
+     
+     if (LOG.isDebugEnabled()) {
+       LOG.debug("Headroom calculation for user " + user + ": " + 
+@@ -953,35 +974,46 @@ public class LeafQueue implements CSQueue {
+     //   (usedResources + required) (which extra resources we are allocating)
+ 
+     // Allow progress for queues with miniscule capacity
+-    final int queueCapacity = 
+-      Math.max(
+-          CSQueueUtils.roundUp(
+-              minimumAllocation, 
+-              (int)(absoluteCapacity * clusterResource.getMemory())), 
+-          required.getMemory()
+-          );
+-
+-    final int consumed = usedResources.getMemory();
+-    final int currentCapacity = 
+-      (consumed < queueCapacity) ? 
+-          queueCapacity : (consumed + required.getMemory());
+-
++    final Resource queueCapacity =
++        Resources.max(
++            resourceCalculator, clusterResource, 
++            Resources.multiplyAndNormalizeUp(
++                resourceCalculator, 
++                clusterResource, 
++                absoluteCapacity, 
++                minimumAllocation), 
++            required);
++
++    Resource currentCapacity =
++        Resources.lessThan(resourceCalculator, clusterResource, 
++            usedResources, queueCapacity) ?
++            queueCapacity : Resources.add(usedResources, required);
++    
+     // Never allow a single user to take more than the 
+     // queue's configured capacity * user-limit-factor.
+     // Also, the queue's configured capacity should be higher than 
+     // queue-hard-limit * ulMin
+     
+     final int activeUsers = activeUsersManager.getNumActiveUsers();  
+-
+-    int limit = 
+-      CSQueueUtils.roundUp(
+-          minimumAllocation,
+-          Math.min(
+-              Math.max(divideAndCeil(currentCapacity, activeUsers), 
+-                       divideAndCeil((int)userLimit*currentCapacity, 100)),
+-              (int)(queueCapacity * userLimitFactor)
+-              )
+-          );
++    		
++    Resource limit =
++        Resources.roundUp(
++            resourceCalculator, 
++            Resources.min(
++                resourceCalculator, clusterResource,   
++                Resources.max(
++                    resourceCalculator, clusterResource, 
++                    Resources.divideAndCeil(
++                        resourceCalculator, currentCapacity, activeUsers),
++                    Resources.divideAndCeil(
++                        resourceCalculator, 
++                        Resources.multiplyAndRoundDown(
++                            currentCapacity, userLimit), 
++                        100)
++                    ), 
++                Resources.multiplyAndRoundDown(queueCapacity, userLimitFactor)
++                ), 
++            minimumAllocation);
+ 
+     if (LOG.isDebugEnabled()) {
+       String userName = application.getUser();
+@@ -993,23 +1025,25 @@ public class LeafQueue implements CSQueue {
+           " consumed: " + getUser(userName).getConsumedResources() + 
+           " limit: " + limit +
+           " queueCapacity: " + queueCapacity + 
+-          " qconsumed: " + consumed +
++          " qconsumed: " + usedResources +
+           " currentCapacity: " + currentCapacity +
+           " activeUsers: " + activeUsers +
+-          " clusterCapacity: " + clusterResource.getMemory()
++          " clusterCapacity: " + clusterResource
+       );
+     }
+ 
+-    return Resources.createResource(limit);
++    return limit;
+   }
+   
+-  private synchronized boolean assignToUser(String userName, Resource limit) {
++  private synchronized boolean assignToUser(Resource clusterResource,
++      String userName, Resource limit) {
+ 
+     User user = getUser(userName);
+     
+     // Note: We aren't considering the current request since there is a fixed
+-    // overhead of the AM, but it's a > check, not a >= check, so... 
+-    if ((user.getConsumedResources().getMemory()) > limit.getMemory()) {
++    // overhead of the AM, but it's a > check, not a >= check, so...
++    if (Resources.greaterThan(resourceCalculator, clusterResource, 
++            user.getConsumedResources(), limit)) {
+       if (LOG.isDebugEnabled()) {
+         LOG.debug("User " + userName + " in queue " + getQueueName() + 
+             " will exceed limit - " +  
+@@ -1023,21 +1057,15 @@ public class LeafQueue implements CSQueue {
+     return true;
+   }
+ 
+-  static int divideAndCeil(int a, int b) {
+-    if (b == 0) {
+-      LOG.info("divideAndCeil called with a=" + a + " b=" + b);
+-      return 0;
+-    }
+-    return (a + (b - 1)) / b;
+-  }
+-
+   boolean needContainers(FiCaSchedulerApp application, Priority priority, Resource required) {
+     int requiredContainers = application.getTotalRequiredResources(priority);
+     int reservedContainers = application.getNumReservedContainers(priority);
+     int starvation = 0;
+     if (reservedContainers > 0) {
+       float nodeFactor = 
+-          ((float)required.getMemory() / getMaximumAllocation().getMemory());
++          Resources.ratio(
++              resourceCalculator, required, getMaximumAllocation()
++              );
+       
+       // Use percentage of node required to bias against large containers...
+       // Protect against corner case where you need the whole node with
+@@ -1052,7 +1080,7 @@ public class LeafQueue implements CSQueue {
+             " app.#re-reserve=" + application.getReReservations(priority) + 
+             " reserved=" + reservedContainers + 
+             " nodeFactor=" + nodeFactor + 
+-            " minAllocFactor=" + minimumAllocationFactor +
++            " minAllocFactor=" + getMinimumAllocationFactor() +
+             " starvation=" + starvation);
+       }
+     }
+@@ -1069,7 +1097,8 @@ public class LeafQueue implements CSQueue {
+     assigned = 
+         assignNodeLocalContainers(clusterResource, node, application, priority,
+             reservedContainer); 
+-    if (Resources.greaterThan(assigned, Resources.none())) {
++    if (Resources.greaterThan(resourceCalculator, clusterResource, 
++            assigned, Resources.none())) {
+       return new CSAssignment(assigned, NodeType.NODE_LOCAL);
+     }
+ 
+@@ -1077,7 +1106,8 @@ public class LeafQueue implements CSQueue {
+     assigned = 
+         assignRackLocalContainers(clusterResource, node, application, priority, 
+             reservedContainer);
+-    if (Resources.greaterThan(assigned, Resources.none())) {
++    if (Resources.greaterThan(resourceCalculator, clusterResource, 
++            assigned, Resources.none())) {
+       return new CSAssignment(assigned, NodeType.RACK_LOCAL);
+     }
+     
+@@ -1231,7 +1261,8 @@ public class LeafQueue implements CSQueue {
+ 
+     Resource available = node.getAvailableResource();
+ 
+-    assert (available.getMemory() >  0);
++    assert Resources.greaterThan(
++        resourceCalculator, clusterResource, available, Resources.none());
+ 
+     // Create the container if necessary
+     Container container = 
+@@ -1239,12 +1270,13 @@ public class LeafQueue implements CSQueue {
+   
+     // something went wrong getting/creating the container 
+     if (container == null) {
++      LOG.warn("Couldn't get container for allocation!");
+       return Resources.none();
+     }
+ 
+     // Can we allocate a container on this node?
+     int availableContainers = 
+-        available.getMemory() / capability.getMemory();         
++        resourceCalculator.computeAvailableContainers(available, capability);
+     if (availableContainers > 0) {
+       // Allocate...
+ 
+@@ -1267,8 +1299,9 @@ public class LeafQueue implements CSQueue {
+       // Inform the application
+       RMContainer allocatedContainer = 
+           application.allocate(type, node, priority, request, container);
++
++      // Does the application need this resource?
+       if (allocatedContainer == null) {
+-        // Did the application need this resource?
+         return Resources.none();
+       }
+ 
+@@ -1379,7 +1412,7 @@ public class LeafQueue implements CSQueue {
+     // Update queue metrics
+     Resources.addTo(usedResources, resource);
+     CSQueueUtils.updateQueueStatistics(
+-        this, getParent(), clusterResource, minimumAllocation);
++        resourceCalculator, this, getParent(), clusterResource, minimumAllocation);
+     ++numContainers;
+ 
+     // Update user metrics
+@@ -1404,7 +1437,8 @@ public class LeafQueue implements CSQueue {
+     // Update queue metrics
+     Resources.subtractFrom(usedResources, resource);
+     CSQueueUtils.updateQueueStatistics(
+-        this, getParent(), clusterResource, minimumAllocation);
++        resourceCalculator, this, getParent(), clusterResource, 
++        minimumAllocation);
+     --numContainers;
+ 
+     // Update user metrics
+@@ -1423,10 +1457,12 @@ public class LeafQueue implements CSQueue {
+     // Update queue properties
+     maxActiveApplications = 
+         CSQueueUtils.computeMaxActiveApplications(
++            resourceCalculator,
+             clusterResource, minimumAllocation, 
+             maxAMResourcePerQueuePercent, absoluteMaxCapacity);
+     maxActiveAppsUsingAbsCap = 
+         CSQueueUtils.computeMaxActiveApplications(
++            resourceCalculator,
+             clusterResource, minimumAllocation, 
+             maxAMResourcePerQueuePercent, absoluteCapacity);
+     maxActiveApplicationsPerUser = 
+@@ -1435,7 +1471,8 @@ public class LeafQueue implements CSQueue {
+     
+     // Update metrics
+     CSQueueUtils.updateQueueStatistics(
+-        this, getParent(), clusterResource, minimumAllocation);
++        resourceCalculator, this, getParent(), clusterResource, 
++        minimumAllocation);
+     
+     // Update application properties
+     for (FiCaSchedulerApp application : activeApplications) {
+@@ -1452,7 +1489,7 @@ public class LeafQueue implements CSQueue {
+   }
+ 
+   static class User {
+-    Resource consumed = Resources.createResource(0);
++    Resource consumed = Resources.createResource(0, 0);
+     int pendingApplications = 0;
+     int activeApplications = 0;
+ 
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/ParentQueue.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/ParentQueue.java
+index f5f4498..4a30c2b 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/ParentQueue.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/ParentQueue.java
+@@ -45,6 +45,7 @@ import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.factories.RecordFactory;
+ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEventType;
+@@ -74,8 +75,7 @@ public class ParentQueue implements CSQueue {
+   private final Set<CSQueue> childQueues;
+   private final Comparator<CSQueue> queueComparator;
+   
+-  private Resource usedResources = 
+-    Resources.createResource(0);
++  private Resource usedResources = Resources.createResource(0, 0);
+   
+   private final boolean rootQueue;
+   
+@@ -96,14 +96,16 @@ public class ParentQueue implements CSQueue {
+   private final RecordFactory recordFactory = 
+     RecordFactoryProvider.getRecordFactory(null);
+ 
++  private final ResourceCalculator resourceCalculator;
++  
+   public ParentQueue(CapacitySchedulerContext cs, 
+-      String queueName, Comparator<CSQueue> comparator, 
+-      CSQueue parent, CSQueue old) {
++      String queueName, CSQueue parent, CSQueue old) {
+     minimumAllocation = cs.getMinimumResourceCapability();
+     
+     this.parent = parent;
+     this.queueName = queueName;
+     this.rootQueue = (parent == null);
++    this.resourceCalculator = cs.getResourceCalculator();
+ 
+     // must be called after parent and queueName is set
+     this.metrics = old != null ? old.getMetrics() :
+@@ -143,7 +145,7 @@ public class ParentQueue implements CSQueue {
+         capacity, absoluteCapacity, 
+         maximumCapacity, absoluteMaxCapacity, state, acls);
+     
+-    this.queueComparator = comparator;
++    this.queueComparator = cs.getQueueComparator();
+     this.childQueues = new TreeSet<CSQueue>(queueComparator);
+ 
+     LOG.info("Initialized parent-queue " + queueName + 
+@@ -182,7 +184,7 @@ public class ParentQueue implements CSQueue {
+ 
+     // Update metrics
+     CSQueueUtils.updateQueueStatistics(
+-        this, parent, clusterResource, minimumAllocation);
++        resourceCalculator, this, parent, clusterResource, minimumAllocation);
+ 
+     LOG.info(queueName +
+         ", capacity=" + capacity +
+@@ -357,7 +359,7 @@ public class ParentQueue implements CSQueue {
+         "numChildQueue= " + childQueues.size() + ", " + 
+         "capacity=" + capacity + ", " +  
+         "absoluteCapacity=" + absoluteCapacity + ", " +
+-        "usedResources=" + usedResources.getMemory() + "MB, " + 
++        "usedResources=" + usedResources + 
+         "usedCapacity=" + getUsedCapacity() + ", " + 
+         "numApps=" + getNumApplications() + ", " + 
+         "numContainers=" + getNumContainers();
+@@ -540,9 +542,9 @@ public class ParentQueue implements CSQueue {
+   public synchronized CSAssignment assignContainers(
+       Resource clusterResource, FiCaSchedulerNode node) {
+     CSAssignment assignment = 
+-        new CSAssignment(Resources.createResource(0), NodeType.NODE_LOCAL);
++        new CSAssignment(Resources.createResource(0, 0), NodeType.NODE_LOCAL);
+     
+-    while (canAssign(node)) {
++    while (canAssign(clusterResource, node)) {
+       if (LOG.isDebugEnabled()) {
+         LOG.debug("Trying to assign containers to child-queue of "
+           + getQueueName());
+@@ -559,8 +561,9 @@ public class ParentQueue implements CSQueue {
+       assignment.setType(assignedToChild.getType());
+       
+       // Done if no child-queue assigned anything
+-      if (Resources.greaterThan(assignedToChild.getResource(), 
+-              Resources.none())) {
++      if (Resources.greaterThan(
++              resourceCalculator, clusterResource, 
++              assignedToChild.getResource(), Resources.none())) {
+         // Track resource utilization for the parent-queue
+         allocateResource(clusterResource, assignedToChild.getResource());
+         
+@@ -603,11 +606,14 @@ public class ParentQueue implements CSQueue {
+ 
+   private synchronized boolean assignToQueue(Resource clusterResource) {
+     // Check how of the cluster's absolute capacity we are currently using...
+-    float currentCapacity = 
+-      (float)(usedResources.getMemory()) / clusterResource.getMemory();
++    float currentCapacity =
++        Resources.divide(
++            resourceCalculator, clusterResource, 
++            usedResources, clusterResource);
++    
+     if (currentCapacity >= absoluteMaxCapacity) {
+       LOG.info(getQueueName() + 
+-          " used=" + usedResources.getMemory() + 
++          " used=" + usedResources + 
+           " current-capacity (" + currentCapacity + ") " +
+           " >= max-capacity (" + absoluteMaxCapacity + ")");
+       return false;
+@@ -616,16 +622,16 @@ public class ParentQueue implements CSQueue {
+ 
+   }
+   
+-  private boolean canAssign(FiCaSchedulerNode node) {
++  private boolean canAssign(Resource clusterResource, FiCaSchedulerNode node) {
+     return (node.getReservedContainer() == null) && 
+-        Resources.greaterThanOrEqual(node.getAvailableResource(), 
+-                                     minimumAllocation);
++        Resources.greaterThanOrEqual(resourceCalculator, clusterResource, 
++            node.getAvailableResource(), minimumAllocation);
+   }
+   
+   synchronized CSAssignment assignContainersToChildQueues(Resource cluster, 
+       FiCaSchedulerNode node) {
+     CSAssignment assignment = 
+-        new CSAssignment(Resources.createResource(0), NodeType.NODE_LOCAL);
++        new CSAssignment(Resources.createResource(0, 0), NodeType.NODE_LOCAL);
+     
+     printChildQueues();
+ 
+@@ -640,11 +646,13 @@ public class ParentQueue implements CSQueue {
+       if(LOG.isDebugEnabled()) {
+         LOG.debug("Assigned to queue: " + childQueue.getQueuePath() +
+           " stats: " + childQueue + " --> " + 
+-          assignment.getResource().getMemory() + ", " + assignment.getType());
++          assignment.getResource() + ", " + assignment.getType());
+       }
+ 
+       // If we do assign, remove the queue and re-insert in-order to re-sort
+-      if (Resources.greaterThan(assignment.getResource(), Resources.none())) {
++      if (Resources.greaterThan(
++              resourceCalculator, cluster, 
++              assignment.getResource(), Resources.none())) {
+         // Remove and re-insert to sort
+         iter.remove();
+         LOG.info("Re-sorting queues since queue: " + childQueue.getQueuePath() + 
+@@ -705,7 +713,7 @@ public class ParentQueue implements CSQueue {
+       Resource resource) {
+     Resources.addTo(usedResources, resource);
+     CSQueueUtils.updateQueueStatistics(
+-        this, parent, clusterResource, minimumAllocation);
++        resourceCalculator, this, parent, clusterResource, minimumAllocation);
+     ++numContainers;
+   }
+   
+@@ -713,7 +721,7 @@ public class ParentQueue implements CSQueue {
+       Resource resource) {
+     Resources.subtractFrom(usedResources, resource);
+     CSQueueUtils.updateQueueStatistics(
+-        this, parent, clusterResource, minimumAllocation);
++        resourceCalculator, this, parent, clusterResource, minimumAllocation);
+     --numContainers;
+   }
+ 
+@@ -726,7 +734,7 @@ public class ParentQueue implements CSQueue {
+     
+     // Update metrics
+     CSQueueUtils.updateQueueStatistics(
+-        this, parent, clusterResource, minimumAllocation);
++        resourceCalculator, this, parent, clusterResource, minimumAllocation);
+   }
+   
+   @Override
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/common/fica/FiCaSchedulerNode.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/common/fica/FiCaSchedulerNode.java
+index b07e9c6..b846075 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/common/fica/FiCaSchedulerNode.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/common/fica/FiCaSchedulerNode.java
+@@ -65,6 +65,7 @@ public class FiCaSchedulerNode extends SchedulerNode {
+   public FiCaSchedulerNode(RMNode node) {
+     this.rmNode = node;
+     this.availableResource.setMemory(node.getTotalCapability().getMemory());
++    this.availableResource.setVirtualCores(node.getTotalCapability().getVirtualCores());
+   }
+ 
+   public RMNode getRMNode() {
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSLeafQueue.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSLeafQueue.java
+index db6edea..ff51e95 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSLeafQueue.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSLeafQueue.java
+@@ -33,7 +33,6 @@ import org.apache.hadoop.security.authorize.AccessControlList;
+ import org.apache.hadoop.yarn.api.records.QueueACL;
+ import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
+ import org.apache.hadoop.yarn.api.records.Resource;
+-import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ 
+ public class FSLeafQueue extends FSQueue {
+   private static final Log LOG = LogFactory.getLog(
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSParentQueue.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSParentQueue.java
+index 2f79040..e6b5a8f 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSParentQueue.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FSParentQueue.java
+@@ -28,7 +28,6 @@ import org.apache.hadoop.security.UserGroupInformation;
+ import org.apache.hadoop.yarn.api.records.QueueACL;
+ import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
+ import org.apache.hadoop.yarn.api.records.Resource;
+-import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ 
+ public class FSParentQueue extends FSQueue {
+   private static final Log LOG = LogFactory.getLog(
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
+index 382e785..65375c7 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/FairScheduler.java
+@@ -53,7 +53,6 @@ import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstants;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
+ import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.RMState;
+-import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEvent;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEventType;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptState;
+@@ -645,6 +644,33 @@ public class FairScheduler implements ResourceScheduler {
+         " cluster capacity: " + clusterCapacity);
+   }
+ 
++  /**
++   * Utility method to normalize a list of resource requests, by ensuring that
++   * the memory for each request is a multiple of minMemory and is not zero.
++   *
++   * @param asks a list of resource requests
++   * @param minMemory the configured minimum memory allocation
++   */
++  static void normalizeRequests(List<ResourceRequest> asks,
++      int minMemory) {
++    for (ResourceRequest ask : asks) {
++      normalizeRequest(ask, minMemory);
++    }
++  }
++
++  /**
++   * Utility method to normalize a resource request, by ensuring that the
++   * requested memory is a multiple of minMemory and is not zero.
++   *
++   * @param ask the resource request
++   * @param minMemory the configured minimum memory allocation
++   */
++  static void normalizeRequest(ResourceRequest ask, int minMemory) {
++    int memory = Math.max(ask.getCapability().getMemory(), minMemory);
++    ask.getCapability().setMemory(
++        minMemory * ((memory / minMemory) + (memory % minMemory > 0 ? 1 : 0)));
++  }
++
+   @Override
+   public Allocation allocate(ApplicationAttemptId appAttemptId,
+       List<ResourceRequest> ask, List<ContainerId> release) {
+@@ -658,7 +684,7 @@ public class FairScheduler implements ResourceScheduler {
+     }
+ 
+     // Sanity check
+-    SchedulerUtils.normalizeRequests(ask, minimumAllocation.getMemory());
++    normalizeRequests(ask, minimumAllocation.getMemory());
+ 
+     // Release containers
+     for (ContainerId releasedContainerId : release) {
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/QueueManager.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/QueueManager.java
+index 64e59a9..b10bfa0 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/QueueManager.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/QueueManager.java
+@@ -42,7 +42,6 @@ import org.apache.hadoop.security.authorize.AccessControlList;
+ import org.apache.hadoop.yarn.api.records.QueueACL;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+-import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.w3c.dom.Document;
+ import org.w3c.dom.Element;
+ import org.w3c.dom.Node;
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/Resources.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/Resources.java
+new file mode 100644
+index 0000000..1e70034
+--- /dev/null
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/Resources.java
+@@ -0,0 +1,150 @@
++/**
++* Licensed to the Apache Software Foundation (ASF) under one
++* or more contributor license agreements.  See the NOTICE file
++* distributed with this work for additional information
++* regarding copyright ownership.  The ASF licenses this file
++* to you under the Apache License, Version 2.0 (the
++* "License"); you may not use this file except in compliance
++* with the License.  You may obtain a copy of the License at
++*
++*     http://www.apache.org/licenses/LICENSE-2.0
++*
++* Unless required by applicable law or agreed to in writing, software
++* distributed under the License is distributed on an "AS IS" BASIS,
++* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++* See the License for the specific language governing permissions and
++* limitations under the License.
++*/
++
++package org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair;
++
++import org.apache.hadoop.classification.InterfaceAudience.Private;
++import org.apache.hadoop.classification.InterfaceStability.Evolving;
++import org.apache.hadoop.yarn.api.records.Resource;
++import org.apache.hadoop.yarn.util.Records;
++
++@Private
++@Evolving
++public class Resources {
++  
++  // Java doesn't have const :(
++  private static final Resource NONE = new Resource() {
++
++    @Override
++    public int getMemory() {
++      return 0;
++    }
++
++    @Override
++    public void setMemory(int memory) {
++      throw new RuntimeException("NONE cannot be modified!");
++    }
++
++    @Override
++    public int getVirtualCores() {
++      return 0;
++    }
++
++    @Override
++    public void setVirtualCores(int cores) {
++      throw new RuntimeException("NONE cannot be modified!");
++    }
++
++    @Override
++    public int compareTo(Resource o) {
++      int diff = 0 - o.getMemory();
++      if (diff == 0) {
++        diff = 0 - o.getVirtualCores();
++      }
++      return diff;
++    }
++    
++  };
++
++  public static Resource createResource(int memory) {
++    return createResource(memory, (memory > 0) ? 1 : 0);
++  }
++
++  public static Resource createResource(int memory, int cores) {
++    Resource resource = Records.newRecord(Resource.class);
++    resource.setMemory(memory);
++    resource.setVirtualCores(cores);
++    return resource;
++  }
++
++  public static Resource none() {
++    return NONE;
++  }
++
++  public static Resource clone(Resource res) {
++    return createResource(res.getMemory(), res.getVirtualCores());
++  }
++
++  public static Resource addTo(Resource lhs, Resource rhs) {
++    lhs.setMemory(lhs.getMemory() + rhs.getMemory());
++    return lhs;
++  }
++
++  public static Resource add(Resource lhs, Resource rhs) {
++    return addTo(clone(lhs), rhs);
++  }
++
++  public static Resource subtractFrom(Resource lhs, Resource rhs) {
++    lhs.setMemory(lhs.getMemory() - rhs.getMemory());
++    return lhs;
++  }
++
++  public static Resource subtract(Resource lhs, Resource rhs) {
++    return subtractFrom(clone(lhs), rhs);
++  }
++
++  public static Resource negate(Resource resource) {
++    return subtract(NONE, resource);
++  }
++
++  public static Resource multiplyTo(Resource lhs, int by) {
++    lhs.setMemory(lhs.getMemory() * by);
++    return lhs;
++  }
++
++  public static Resource multiply(Resource lhs, int by) {
++    return multiplyTo(clone(lhs), by);
++  }
++  
++  /**
++   * Mutliply a resource by a {@code double}. Note that integral 
++   * resource quantites are subject to rounding during cast.
++   */
++  public static Resource multiply(Resource lhs, double by) {
++    Resource out = clone(lhs);
++    out.setMemory((int) (lhs.getMemory() * by));
++    return out;
++  }
++
++  public static boolean equals(Resource lhs, Resource rhs) {
++    return lhs.getMemory() == rhs.getMemory();
++  }
++
++  public static boolean lessThan(Resource lhs, Resource rhs) {
++    return lhs.getMemory() < rhs.getMemory();
++  }
++
++  public static boolean lessThanOrEqual(Resource lhs, Resource rhs) {
++    return lhs.getMemory() <= rhs.getMemory();
++  }
++
++  public static boolean greaterThan(Resource lhs, Resource rhs) {
++    return lhs.getMemory() > rhs.getMemory();
++  }
++
++  public static boolean greaterThanOrEqual(Resource lhs, Resource rhs) {
++    return lhs.getMemory() >= rhs.getMemory();
++  }
++  
++  public static Resource min(Resource lhs, Resource rhs) {
++    return (lhs.getMemory() < rhs.getMemory()) ? lhs : rhs;
++  }
++
++  public static Resource max(Resource lhs, Resource rhs) {
++    return (lhs.getMemory() > rhs.getMemory()) ? lhs : rhs;
++  }}
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/SchedulingAlgorithms.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/SchedulingAlgorithms.java
+index 6454592..a7a321c 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/SchedulingAlgorithms.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fair/SchedulingAlgorithms.java
+@@ -27,7 +27,6 @@ import org.apache.commons.logging.LogFactory;
+ import org.apache.hadoop.classification.InterfaceAudience.Private;
+ import org.apache.hadoop.classification.InterfaceStability.Unstable;
+ import org.apache.hadoop.yarn.api.records.Resource;
+-import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ 
+ /**
+  * Utility class containing scheduling algorithms used in the fair scheduler.
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/FifoScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/FifoScheduler.java
+index 3c69acc..24cf3c4 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/FifoScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/main/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/FifoScheduler.java
+@@ -57,6 +57,8 @@ import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstants;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
+ import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.RMState;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEvent;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEventType;
+@@ -114,6 +116,8 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
+ 
+   private static final String DEFAULT_QUEUE_NAME = "default";
+   private QueueMetrics metrics;
++  
++  private final ResourceCalculator resourceCalculator = new DefaultResourceCalculator();
+ 
+   private final Queue DEFAULT_QUEUE = new Queue() {
+     @Override
+@@ -226,7 +230,8 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
+     }
+ 
+     // Sanity check
+-    SchedulerUtils.normalizeRequests(ask, minimumAllocation.getMemory());
++    SchedulerUtils.normalizeRequests(ask, resourceCalculator, 
++        clusterResource, minimumAllocation);
+ 
+     // Release containers
+     for (ContainerId releasedContainer : release) {
+@@ -371,7 +376,8 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
+       application.showRequests();
+ 
+       // Done
+-      if (Resources.lessThan(node.getAvailableResource(), minimumAllocation)) {
++      if (Resources.lessThan(resourceCalculator, clusterResource,
++              node.getAvailableResource(), minimumAllocation)) {
+         break;
+       }
+     }
+@@ -588,8 +594,8 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
+           completedContainer, RMContainerEventType.FINISHED);
+     }
+ 
+-    if (Resources.greaterThanOrEqual(node.getAvailableResource(),
+-        minimumAllocation)) {
++    if (Resources.greaterThanOrEqual(resourceCalculator, clusterResource,
++            node.getAvailableResource(),minimumAllocation)) {
+       LOG.debug("Node heartbeat " + rmNode.getNodeID() + 
+           " available resource = " + node.getAvailableResource());
+ 
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/NodeManager.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/NodeManager.java
+index ca05363..e7ad031 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/NodeManager.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/NodeManager.java
+@@ -77,14 +77,14 @@ public class NodeManager implements ContainerManager {
+     new HashMap<ApplicationId, List<Container>>();
+   
+   public NodeManager(String hostName, int containerManagerPort, int httpPort,
+-      String rackName, int memory,
++      String rackName, Resource capability,
+       ResourceTrackerService resourceTrackerService, RMContext rmContext)
+       throws IOException {
+     this.containerManagerAddress = hostName + ":" + containerManagerPort;
+     this.nodeHttpAddress = hostName + ":" + httpPort;
+     this.rackName = rackName;
+     this.resourceTrackerService = resourceTrackerService;
+-    this.capability = Resources.createResource(memory);
++    this.capability = capability;
+     Resources.addTo(available, capability);
+ 
+     this.nodeId = recordFactory.newRecordInstance(NodeId.class);
+@@ -102,8 +102,10 @@ public class NodeManager implements ContainerManager {
+         this.nodeId));
+    
+     // Sanity check
+-    Assert.assertEquals(memory, 
++    Assert.assertEquals(capability.getMemory(), 
+        schedulerNode.getAvailableResource().getMemory());
++    Assert.assertEquals(capability.getVirtualCores(), 
++        schedulerNode.getAvailableResource().getVirtualCores());
+   }
+   
+   public String getHostName() {
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestApplicationACLs.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestApplicationACLs.java
+index 9ec2f13..cabbe6a 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestApplicationACLs.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestApplicationACLs.java
+@@ -168,7 +168,7 @@ public class TestApplicationACLs {
+ 
+     ContainerLaunchContext amContainer = recordFactory
+         .newRecordInstance(ContainerLaunchContext.class);
+-    Resource resource = BuilderUtils.newResource(1024);
++    Resource resource = BuilderUtils.newResource(1024, 1);
+     amContainer.setResource(resource);
+     amContainer.setApplicationACLs(acls);
+     context.setAMContainerSpec(amContainer);
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestFifoScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestFifoScheduler.java
+index 968b709..2a708ed 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestFifoScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestFifoScheduler.java
+@@ -265,13 +265,13 @@ public class TestFifoScheduler {
+     // Ask for a 1 GB container for app 1
+     List<ResourceRequest> ask1 = new ArrayList<ResourceRequest>();
+     ask1.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0), "*",
+-        BuilderUtils.newResource(GB), 1));
++        BuilderUtils.newResource(GB, 1), 1));
+     fs.allocate(appAttemptId1, ask1, emptyId);
+ 
+     // Ask for a 2 GB container for app 2
+     List<ResourceRequest> ask2 = new ArrayList<ResourceRequest>();
+     ask2.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0), "*",
+-        BuilderUtils.newResource(2 * GB), 1));
++        BuilderUtils.newResource(2 * GB, 1), 1));
+     fs.allocate(appAttemptId2, ask2, emptyId);
+     
+     // Trigger container assignment
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestResourceManager.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestResourceManager.java
+index 65743c3..c6ee0d5 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestResourceManager.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/TestResourceManager.java
+@@ -55,9 +55,9 @@ public class TestResourceManager {
+ 
+   private org.apache.hadoop.yarn.server.resourcemanager.NodeManager
+       registerNode(String hostName, int containerManagerPort, int httpPort,
+-          String rackName, int memory) throws IOException {
++          String rackName, Resource capability) throws IOException {
+     return new org.apache.hadoop.yarn.server.resourcemanager.NodeManager(
+-        hostName, containerManagerPort, httpPort, rackName, memory,
++        hostName, containerManagerPort, httpPort, rackName, capability,
+         resourceManager.getResourceTrackerService(), resourceManager
+             .getRMContext());
+   }
+@@ -71,13 +71,15 @@ public class TestResourceManager {
+     // Register node1
+     String host1 = "host1";
+     org.apache.hadoop.yarn.server.resourcemanager.NodeManager nm1 = 
+-      registerNode(host1, 1234, 2345, NetworkTopology.DEFAULT_RACK, memory);
++      registerNode(host1, 1234, 2345, NetworkTopology.DEFAULT_RACK, 
++          Resources.createResource(memory, 1));
+     nm1.heartbeat();
+     
+     // Register node2
+     String host2 = "host2";
+     org.apache.hadoop.yarn.server.resourcemanager.NodeManager nm2 = 
+-      registerNode(host2, 1234, 2345, NetworkTopology.DEFAULT_RACK, memory/2);
++      registerNode(host2, 1234, 2345, NetworkTopology.DEFAULT_RACK, 
++          Resources.createResource(memory/2, 1));
+     nm2.heartbeat();
+ 
+     // Submit an application
+@@ -89,7 +91,7 @@ public class TestResourceManager {
+     
+     // Application resource requirements
+     final int memory1 = 1024;
+-    Resource capability1 = Resources.createResource(memory1);
++    Resource capability1 = Resources.createResource(memory1, 1);
+     Priority priority1 = 
+       org.apache.hadoop.yarn.server.resourcemanager.resource.Priority.create(1);
+     application.addResourceRequestSpec(priority1, capability1);
+@@ -98,7 +100,7 @@ public class TestResourceManager {
+     application.addTask(t1);
+         
+     final int memory2 = 2048;
+-    Resource capability2 = Resources.createResource(memory2);
++    Resource capability2 = Resources.createResource(memory2, 1);
+     Priority priority0 = 
+       org.apache.hadoop.yarn.server.resourcemanager.resource.Priority.create(0); // higher
+     application.addResourceRequestSpec(priority0, capability2);
+@@ -161,7 +163,8 @@ public class TestResourceManager {
+     String host1 = "host1";
+     final int memory = 4 * 1024;
+     org.apache.hadoop.yarn.server.resourcemanager.NodeManager nm1 = 
+-      registerNode(host1, 1234, 2345, NetworkTopology.DEFAULT_RACK, memory);
++      registerNode(host1, 1234, 2345, NetworkTopology.DEFAULT_RACK, 
++          Resources.createResource(memory, 1));
+     nm1.heartbeat();
+     nm1.heartbeat();
+     Collection<RMNode> values = resourceManager.getRMContext().getRMNodes().values();
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/rmcontainer/TestRMContainerImpl.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/rmcontainer/TestRMContainerImpl.java
+index f970493..6e2b834 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/rmcontainer/TestRMContainerImpl.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/rmcontainer/TestRMContainerImpl.java
+@@ -65,7 +65,7 @@ public class TestRMContainerImpl {
+     ContainerId containerId = BuilderUtils.newContainerId(appAttemptId, 1);
+     ContainerAllocationExpirer expirer = mock(ContainerAllocationExpirer.class);
+ 
+-    Resource resource = BuilderUtils.newResource(512);
++    Resource resource = BuilderUtils.newResource(512, 1);
+     Priority priority = BuilderUtils.newPriority(5);
+ 
+     Container container = BuilderUtils.newContainer(containerId, nodeId,
+@@ -135,7 +135,7 @@ public class TestRMContainerImpl {
+     ContainerId containerId = BuilderUtils.newContainerId(appAttemptId, 1);
+     ContainerAllocationExpirer expirer = mock(ContainerAllocationExpirer.class);
+ 
+-    Resource resource = BuilderUtils.newResource(512);
++    Resource resource = BuilderUtils.newResource(512, 1);
+     Priority priority = BuilderUtils.newPriority(5);
+ 
+     Container container = BuilderUtils.newContainer(containerId, nodeId,
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestQueueMetrics.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestQueueMetrics.java
+index e6140d9..88b6f40 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestQueueMetrics.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestQueueMetrics.java
+@@ -34,7 +34,6 @@ import org.apache.hadoop.metrics2.MetricsSystem;
+ import org.apache.hadoop.metrics2.impl.MetricsSystemImpl;
+ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
+ import org.apache.hadoop.yarn.api.records.ApplicationId;
+-import org.apache.hadoop.yarn.server.resourcemanager.resource.Resource;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptState;
+ import org.apache.hadoop.yarn.util.BuilderUtils;
+@@ -67,7 +66,7 @@ public class TestQueueMetrics {
+     MetricsSource userSource = userSource(ms, queueName, user);
+     checkApps(queueSource, 1, 1, 0, 0, 0, 0);
+ 
+-    metrics.setAvailableResourcesToQueue(Resource.createResource(100*GB));
++    metrics.setAvailableResourcesToQueue(Resources.createResource(100*GB));
+     metrics.incrPendingResources(user, 5, Resources.createResource(15*GB));
+     // Available resources is set externally, as it depends on dynamic
+     // configurable cluster/queue resources
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestSchedulerUtils.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestSchedulerUtils.java
+index 7b185bb..681e8d0 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestSchedulerUtils.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/TestSchedulerUtils.java
+@@ -20,38 +20,77 @@ package org.apache.hadoop.yarn.server.resourcemanager.scheduler;
+ 
+ import static org.junit.Assert.assertEquals;
+ 
++import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.api.records.ResourceRequest;
+ import org.apache.hadoop.yarn.api.records.impl.pb.ResourceRequestPBImpl;
+-import org.apache.hadoop.yarn.server.resourcemanager.resource.Resource;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.DominantResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.junit.Test;
+ 
+ public class TestSchedulerUtils {
+ 
+   @Test
+   public void testNormalizeRequest() {
+-    int minMemory = 1024;
++    ResourceCalculator resourceCalculator = new DefaultResourceCalculator();
++    
++    final int minMemory = 1024;
++    Resource minResource = Resources.createResource(minMemory, 0);
++    
+     ResourceRequest ask = new ResourceRequestPBImpl();
+ 
+     // case negative memory
+-    ask.setCapability(Resource.createResource(-1024));
+-    SchedulerUtils.normalizeRequest(ask, minMemory);
++    ask.setCapability(Resources.createResource(-1024));
++    SchedulerUtils.normalizeRequest(ask, resourceCalculator, null, minResource);
+     assertEquals(minMemory, ask.getCapability().getMemory());
+ 
+     // case zero memory
+-    ask.setCapability(Resource.createResource(0));
+-    SchedulerUtils.normalizeRequest(ask, minMemory);
++    ask.setCapability(Resources.createResource(0));
++    SchedulerUtils.normalizeRequest(ask, resourceCalculator, null, minResource);
+     assertEquals(minMemory, ask.getCapability().getMemory());
+ 
+     // case memory is a multiple of minMemory
+-    ask.setCapability(Resource.createResource(2 * minMemory));
+-    SchedulerUtils.normalizeRequest(ask, minMemory);
++    ask.setCapability(Resources.createResource(2 * minMemory));
++    SchedulerUtils.normalizeRequest(ask, resourceCalculator, null, minResource);
+     assertEquals(2 * minMemory, ask.getCapability().getMemory());
+ 
+     // case memory is not a multiple of minMemory
+-    ask.setCapability(Resource.createResource(minMemory + 10));
+-    SchedulerUtils.normalizeRequest(ask, minMemory);
++    ask.setCapability(Resources.createResource(minMemory + 10));
++    SchedulerUtils.normalizeRequest(ask, resourceCalculator, null, minResource);
+     assertEquals(2 * minMemory, ask.getCapability().getMemory());
+ 
+   }
++  
++  @Test
++  public void testNormalizeRequestWithDominantResourceCalculator() {
++    ResourceCalculator resourceCalculator = new DominantResourceCalculator();
++    
++    Resource minResource = Resources.createResource(1024, 1);
++    Resource clusterResource = Resources.createResource(10 * 1024, 10);
++    
++    ResourceRequest ask = new ResourceRequestPBImpl();
++
++    // case negative memory/vcores
++    ask.setCapability(Resources.createResource(-1024, -1));
++    SchedulerUtils.normalizeRequest(
++        ask, resourceCalculator, clusterResource, minResource);
++    assertEquals(minResource, ask.getCapability());
+ 
++    // case zero memory/vcores
++    ask.setCapability(Resources.createResource(0, 0));
++    SchedulerUtils.normalizeRequest(
++        ask, resourceCalculator, clusterResource, minResource);
++    assertEquals(minResource, ask.getCapability());
++    assertEquals(1, ask.getCapability().getVirtualCores());
++    assertEquals(1024, ask.getCapability().getMemory());
++
++    // case non-zero memory & zero cores
++    ask.setCapability(Resources.createResource(1536, 0));
++    SchedulerUtils.normalizeRequest(
++        ask, resourceCalculator, clusterResource, minResource);
++    assertEquals(Resources.createResource(2048, 1), ask.getCapability());
++    assertEquals(1, ask.getCapability().getVirtualCores());
++    assertEquals(2048, ask.getCapability().getMemory());
++  }
+ }
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestApplicationLimits.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestApplicationLimits.java
+index ae628ef..2889435 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestApplicationLimits.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestApplicationLimits.java
+@@ -17,8 +17,17 @@
+  */
+ package org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity;
+ 
+-import static org.junit.Assert.*;
+-import static org.mockito.Mockito.*;
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++import static org.mockito.Matchers.any;
++import static org.mockito.Matchers.eq;
++import static org.mockito.Mockito.doReturn;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.spy;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
+ 
+ import java.io.IOException;
+ import java.util.ArrayList;
+@@ -38,6 +47,8 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.factories.RecordFactory;
+ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeImpl;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.common.fica.FiCaSchedulerApp;
+@@ -53,6 +64,8 @@ public class TestApplicationLimits {
+ 
+   LeafQueue queue;
+   
++  private final ResourceCalculator resourceCalculator = new DefaultResourceCalculator();
++  
+   @Before
+   public void setUp() throws IOException {
+     CapacitySchedulerConfiguration csConf = 
+@@ -64,23 +77,27 @@ public class TestApplicationLimits {
+     CapacitySchedulerContext csContext = mock(CapacitySchedulerContext.class);
+     when(csContext.getConfiguration()).thenReturn(csConf);
+     when(csContext.getConf()).thenReturn(conf);
+-    when(csContext.getMinimumResourceCapability()).thenReturn(Resources.createResource(GB));
+-    when(csContext.getMaximumResourceCapability()).thenReturn(Resources.createResource(16*GB));
+-    when(csContext.getClusterResources()).thenReturn(Resources.createResource(10 * 16 * GB));
+-    
++    when(csContext.getMinimumResourceCapability()).
++        thenReturn(Resources.createResource(GB, 1));
++    when(csContext.getMaximumResourceCapability()).
++        thenReturn(Resources.createResource(16*GB, 32));
++    when(csContext.getClusterResources()).
++        thenReturn(Resources.createResource(10 * 16 * GB, 10 * 32));
++    when(csContext.getApplicationComparator()).
++        thenReturn(CapacityScheduler.applicationComparator);
++    when(csContext.getQueueComparator()).
++        thenReturn(CapacityScheduler.queueComparator);
++    when(csContext.getResourceCalculator()).
++        thenReturn(resourceCalculator);
++
+     Map<String, CSQueue> queues = new HashMap<String, CSQueue>();
+     CSQueue root = 
+         CapacityScheduler.parseQueue(csContext, csConf, null, "root", 
+             queues, queues, 
+-            CapacityScheduler.queueComparator, 
+-            CapacityScheduler.applicationComparator, 
+             TestUtils.spyHook);
+ 
+     
+-    queue = spy(
+-        new LeafQueue(csContext, A, root, 
+-                      CapacityScheduler.applicationComparator, null)
+-        );
++    queue = spy(new LeafQueue(csContext, A, root, null));
+ 
+     // Stub out ACL checks
+     doReturn(true).
+@@ -132,21 +149,23 @@ public class TestApplicationLimits {
+     when(csContext.getConfiguration()).thenReturn(csConf);
+     when(csContext.getConf()).thenReturn(conf);
+     when(csContext.getMinimumResourceCapability()).
+-        thenReturn(Resources.createResource(GB));
++        thenReturn(Resources.createResource(GB, 1));
+     when(csContext.getMaximumResourceCapability()).
+-        thenReturn(Resources.createResource(16*GB));
++        thenReturn(Resources.createResource(16*GB, 16));
++    when(csContext.getApplicationComparator()).
++        thenReturn(CapacityScheduler.applicationComparator);
++    when(csContext.getQueueComparator()).
++        thenReturn(CapacityScheduler.queueComparator);
++    when(csContext.getResourceCalculator()).thenReturn(resourceCalculator);
+     
+     // Say cluster has 100 nodes of 16G each
+-    Resource clusterResource = Resources.createResource(100 * 16 * GB);
++    Resource clusterResource = Resources.createResource(100 * 16 * GB, 100 * 16);
+     when(csContext.getClusterResources()).thenReturn(clusterResource);
+     
+     Map<String, CSQueue> queues = new HashMap<String, CSQueue>();
+     CSQueue root = 
+         CapacityScheduler.parseQueue(csContext, csConf, null, "root", 
+-            queues, queues, 
+-            CapacityScheduler.queueComparator, 
+-            CapacityScheduler.applicationComparator,
+-            TestUtils.spyHook);
++            queues, queues, TestUtils.spyHook);
+ 
+     LeafQueue queue = (LeafQueue)queues.get(A);
+     
+@@ -205,8 +224,12 @@ public class TestApplicationLimits {
+         );
+ 
+     // should return -1 if per queue setting not set
+-    assertEquals((int)csConf.UNDEFINED, csConf.getMaximumApplicationsPerQueue(queue.getQueuePath()));
+-    int expectedMaxApps =  (int)(csConf.DEFAULT_MAXIMUM_SYSTEM_APPLICATIIONS * 
++    assertEquals(
++        (int)CapacitySchedulerConfiguration.UNDEFINED, 
++        csConf.getMaximumApplicationsPerQueue(queue.getQueuePath()));
++    int expectedMaxApps =  
++        (int)
++        (CapacitySchedulerConfiguration.DEFAULT_MAXIMUM_SYSTEM_APPLICATIIONS * 
+         queue.getAbsoluteCapacity());
+     assertEquals(expectedMaxApps, queue.getMaxApplications());
+ 
+@@ -215,8 +238,11 @@ public class TestApplicationLimits {
+     assertEquals(expectedMaxAppsPerUser, queue.getMaxApplicationsPerUser());
+ 
+     // should default to global setting if per queue setting not set
+-    assertEquals((long) csConf.DEFAULT_MAXIMUM_APPLICATIONMASTERS_RESOURCE_PERCENT, 
+-        (long) csConf.getMaximumApplicationMasterResourcePerQueuePercent(queue.getQueuePath()));
++    assertEquals(
++        (long)CapacitySchedulerConfiguration.DEFAULT_MAXIMUM_APPLICATIONMASTERS_RESOURCE_PERCENT, 
++        (long)csConf.getMaximumApplicationMasterResourcePerQueuePercent(
++            queue.getQueuePath())
++            );
+ 
+     // Change the per-queue max AM resources percentage.
+     csConf.setFloat(
+@@ -228,10 +254,7 @@ public class TestApplicationLimits {
+     queues = new HashMap<String, CSQueue>();
+     root = 
+         CapacityScheduler.parseQueue(csContext, csConf, null, "root", 
+-            queues, queues, 
+-            CapacityScheduler.queueComparator, 
+-            CapacityScheduler.applicationComparator,
+-            TestUtils.spyHook);
++            queues, queues, TestUtils.spyHook);
+     clusterResource = Resources.createResource(100 * 16 * GB);
+ 
+     queue = (LeafQueue)queues.get(A);
+@@ -257,10 +280,7 @@ public class TestApplicationLimits {
+     queues = new HashMap<String, CSQueue>();
+     root = 
+         CapacityScheduler.parseQueue(csContext, csConf, null, "root", 
+-            queues, queues, 
+-            CapacityScheduler.queueComparator, 
+-            CapacityScheduler.applicationComparator,
+-            TestUtils.spyHook);
++            queues, queues, TestUtils.spyHook);
+ 
+     queue = (LeafQueue)queues.get(A);
+     assertEquals(9999, (int)csConf.getMaximumApplicationsPerQueue(queue.getQueuePath()));
+@@ -445,6 +465,11 @@ public class TestApplicationLimits {
+         thenReturn(Resources.createResource(GB));
+     when(csContext.getMaximumResourceCapability()).
+         thenReturn(Resources.createResource(16*GB));
++    when(csContext.getApplicationComparator()).
++        thenReturn(CapacityScheduler.applicationComparator);
++    when(csContext.getQueueComparator()).
++        thenReturn(CapacityScheduler.queueComparator);
++    when(csContext.getResourceCalculator()).thenReturn(resourceCalculator);
+     
+     // Say cluster has 100 nodes of 16G each
+     Resource clusterResource = Resources.createResource(100 * 16 * GB);
+@@ -452,10 +477,7 @@ public class TestApplicationLimits {
+     
+     Map<String, CSQueue> queues = new HashMap<String, CSQueue>();
+     CapacityScheduler.parseQueue(csContext, csConf, null, "root", 
+-        queues, queues, 
+-        CapacityScheduler.queueComparator, 
+-        CapacityScheduler.applicationComparator, 
+-        TestUtils.spyHook);
++        queues, queues, TestUtils.spyHook);
+ 
+     // Manipulate queue 'a'
+     LeafQueue queue = TestLeafQueue.stubLeafQueue((LeafQueue)queues.get(A));
+@@ -490,7 +512,7 @@ public class TestApplicationLimits {
+ 
+     // Schedule to compute 
+     queue.assignContainers(clusterResource, node_0);
+-    Resource expectedHeadroom = Resources.createResource(10*16*GB);
++    Resource expectedHeadroom = Resources.createResource(10*16*GB, 1);
+     verify(app_0_0).setHeadroom(eq(expectedHeadroom));
+ 
+     // Submit second application from user_0, check headroom
+@@ -528,7 +550,7 @@ public class TestApplicationLimits {
+     
+     // Schedule to compute 
+     queue.assignContainers(clusterResource, node_0); // Schedule to compute
+-    expectedHeadroom = Resources.createResource(10*16*GB / 2); // changes
++    expectedHeadroom = Resources.createResource(10*16*GB / 2, 1); // changes
+     verify(app_0_0).setHeadroom(eq(expectedHeadroom));
+     verify(app_0_1).setHeadroom(eq(expectedHeadroom));
+     verify(app_1_0).setHeadroom(eq(expectedHeadroom));
+@@ -536,7 +558,7 @@ public class TestApplicationLimits {
+     // Now reduce cluster size and check for the smaller headroom
+     clusterResource = Resources.createResource(90*16*GB);
+     queue.assignContainers(clusterResource, node_0); // Schedule to compute
+-    expectedHeadroom = Resources.createResource(9*16*GB / 2); // changes
++    expectedHeadroom = Resources.createResource(9*16*GB / 2, 1); // changes
+     verify(app_0_0).setHeadroom(eq(expectedHeadroom));
+     verify(app_0_1).setHeadroom(eq(expectedHeadroom));
+     verify(app_1_0).setHeadroom(eq(expectedHeadroom));
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestCapacityScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestCapacityScheduler.java
+index 04b3651..b7ada58 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestCapacityScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestCapacityScheduler.java
+@@ -91,10 +91,10 @@ public class TestCapacityScheduler {
+   
+   private org.apache.hadoop.yarn.server.resourcemanager.NodeManager
+       registerNode(String hostName, int containerManagerPort, int httpPort,
+-          String rackName, int memory)
++          String rackName, Resource capability)
+           throws IOException {
+     return new org.apache.hadoop.yarn.server.resourcemanager.NodeManager(
+-        hostName, containerManagerPort, httpPort, rackName, memory,
++        hostName, containerManagerPort, httpPort, rackName, capability,
+         resourceManager.getResourceTrackerService(), resourceManager
+             .getRMContext());
+   }  
+@@ -107,13 +107,15 @@ public class TestCapacityScheduler {
+     // Register node1
+     String host_0 = "host_0";
+     org.apache.hadoop.yarn.server.resourcemanager.NodeManager nm_0 = 
+-      registerNode(host_0, 1234, 2345, NetworkTopology.DEFAULT_RACK, 4 * GB);
++      registerNode(host_0, 1234, 2345, NetworkTopology.DEFAULT_RACK, 
++          Resources.createResource(4 * GB, 1));
+     nm_0.heartbeat();
+     
+     // Register node2
+     String host_1 = "host_1";
+     org.apache.hadoop.yarn.server.resourcemanager.NodeManager nm_1 = 
+-      registerNode(host_1, 1234, 2345, NetworkTopology.DEFAULT_RACK, 2 * GB);
++      registerNode(host_1, 1234, 2345, NetworkTopology.DEFAULT_RACK, 
++          Resources.createResource(2 * GB, 1));
+     nm_1.heartbeat();
+ 
+     // ResourceRequest priorities
+@@ -129,10 +131,10 @@ public class TestCapacityScheduler {
+     application_0.addNodeManager(host_0, 1234, nm_0);
+     application_0.addNodeManager(host_1, 1234, nm_1);
+ 
+-    Resource capability_0_0 = Resources.createResource(1 * GB);
++    Resource capability_0_0 = Resources.createResource(1 * GB, 1);
+     application_0.addResourceRequestSpec(priority_1, capability_0_0);
+     
+-    Resource capability_0_1 = Resources.createResource(2 * GB);
++    Resource capability_0_1 = Resources.createResource(2 * GB, 1);
+     application_0.addResourceRequestSpec(priority_0, capability_0_1);
+ 
+     Task task_0_0 = new Task(application_0, priority_1, 
+@@ -146,10 +148,10 @@ public class TestCapacityScheduler {
+     application_1.addNodeManager(host_0, 1234, nm_0);
+     application_1.addNodeManager(host_1, 1234, nm_1);
+     
+-    Resource capability_1_0 = Resources.createResource(3 * GB);
++    Resource capability_1_0 = Resources.createResource(3 * GB, 1);
+     application_1.addResourceRequestSpec(priority_1, capability_1_0);
+     
+-    Resource capability_1_1 = Resources.createResource(2 * GB);
++    Resource capability_1_1 = Resources.createResource(2 * GB, 1);
+     application_1.addResourceRequestSpec(priority_0, capability_1_1);
+ 
+     Task task_1_0 = new Task(application_1, priority_1, 
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestLeafQueue.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestLeafQueue.java
+index 81c9f5d..d0d23af 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestLeafQueue.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestLeafQueue.java
+@@ -55,6 +55,8 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.factories.RecordFactory;
+ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptState;
+ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
+@@ -90,6 +92,8 @@ public class TestLeafQueue {
+   final static int GB = 1024;
+   final static String DEFAULT_RACK = "/default";
+ 
++  private final ResourceCalculator resourceCalculator = new DefaultResourceCalculator();
++  
+   @Before
+   public void setUp() throws Exception {
+     CapacityScheduler spyCs = new CapacityScheduler();
+@@ -108,17 +112,22 @@ public class TestLeafQueue {
+     when(csContext.getConfiguration()).thenReturn(csConf);
+     when(csContext.getConf()).thenReturn(conf);
+     when(csContext.getMinimumResourceCapability()).
+-        thenReturn(Resources.createResource(GB));
++        thenReturn(Resources.createResource(GB, 1));
+     when(csContext.getMaximumResourceCapability()).
+-        thenReturn(Resources.createResource(16*GB));
++        thenReturn(Resources.createResource(16*GB, 32));
+     when(csContext.getClusterResources()).
+-        thenReturn(Resources.createResource(100 * 16 * GB));
++        thenReturn(Resources.createResource(100 * 16 * GB, 100 * 32));
++    when(csContext.getApplicationComparator()).
++    thenReturn(CapacityScheduler.applicationComparator);
++    when(csContext.getQueueComparator()).
++        thenReturn(CapacityScheduler.queueComparator);
++    when(csContext.getResourceCalculator()).
++        thenReturn(resourceCalculator);
++
+     root = 
+         CapacityScheduler.parseQueue(csContext, csConf, null, 
+             CapacitySchedulerConfiguration.ROOT, 
+             queues, queues, 
+-            CapacityScheduler.queueComparator, 
+-            CapacityScheduler.applicationComparator, 
+             TestUtils.spyHook);
+ 
+     cs.reinitialize(csConf, rmContext);
+@@ -266,7 +275,8 @@ public class TestLeafQueue {
+     FiCaSchedulerNode node_0 = TestUtils.getMockNode(host_0, DEFAULT_RACK, 0, 8*GB);
+     
+     final int numNodes = 1;
+-    Resource clusterResource = Resources.createResource(numNodes * (8*GB));
++    Resource clusterResource = 
++        Resources.createResource(numNodes * (8*GB), numNodes * 16);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+ 
+     // Setup resource-requests
+@@ -387,7 +397,8 @@ public class TestLeafQueue {
+     FiCaSchedulerNode node_0 = TestUtils.getMockNode(host_0, DEFAULT_RACK, 0, 8*GB);
+     
+     final int numNodes = 1;
+-    Resource clusterResource = Resources.createResource(numNodes * (8*GB));
++    Resource clusterResource = 
++        Resources.createResource(numNodes * (8*GB), numNodes * 16);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+ 
+     // Setup resource-requests
+@@ -519,7 +530,8 @@ public class TestLeafQueue {
+     FiCaSchedulerNode node_1 = TestUtils.getMockNode(host_1, DEFAULT_RACK, 0, 8*GB);
+     
+     final int numNodes = 2;
+-    Resource clusterResource = Resources.createResource(numNodes * (8*GB));
++    Resource clusterResource = 
++        Resources.createResource(numNodes * (8*GB), numNodes * 16);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+  
+     // Setup resource-requests
+@@ -612,7 +624,7 @@ public class TestLeafQueue {
+     FiCaSchedulerNode node_1 = TestUtils.getMockNode(host_1, DEFAULT_RACK, 0, 8*GB);
+     
+     final int numNodes = 2;
+-    Resource clusterResource = Resources.createResource(numNodes * (8*GB));
++    Resource clusterResource = Resources.createResource(numNodes * (8*GB), 1);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+  
+     // Setup resource-requests
+@@ -728,7 +740,8 @@ public class TestLeafQueue {
+     FiCaSchedulerNode node_0 = TestUtils.getMockNode(host_0, DEFAULT_RACK, 0, 8*GB);
+     
+     final int numNodes = 1;
+-    Resource clusterResource = Resources.createResource(numNodes * (8*GB));
++    Resource clusterResource = 
++        Resources.createResource(numNodes * (8*GB), numNodes * 16);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+     
+     // Setup resource-requests
+@@ -889,7 +902,8 @@ public class TestLeafQueue {
+     FiCaSchedulerNode node_0 = TestUtils.getMockNode(host_0, DEFAULT_RACK, 0, 4*GB);
+     
+     final int numNodes = 2;
+-    Resource clusterResource = Resources.createResource(numNodes * (4*GB));
++    Resource clusterResource = 
++        Resources.createResource(numNodes * (4*GB), numNodes * 16);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+     
+     // Setup resource-requests
+@@ -990,7 +1004,8 @@ public class TestLeafQueue {
+     FiCaSchedulerNode node_1 = TestUtils.getMockNode(host_1, DEFAULT_RACK, 0, 4*GB);
+ 
+     final int numNodes = 3;
+-    Resource clusterResource = Resources.createResource(numNodes * (4*GB));
++    Resource clusterResource = 
++        Resources.createResource(numNodes * (4*GB), numNodes * 16);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+ 
+     // Setup resource-requests
+@@ -1090,11 +1105,13 @@ public class TestLeafQueue {
+     FiCaSchedulerNode node_1 = TestUtils.getMockNode(host_1, DEFAULT_RACK, 0, 4*GB);
+     
+     final int numNodes = 3;
+-    Resource clusterResource = Resources.createResource(numNodes * (4*GB));
++    Resource clusterResource = 
++        Resources.createResource(numNodes * (4*GB), numNodes * 16);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+     when(csContext.getMaximumResourceCapability()).thenReturn(
+-        Resources.createResource(4*GB));
+-    when(a.getMaximumAllocation()).thenReturn(Resources.createResource(4*GB));
++        Resources.createResource(4*GB, 16));
++    when(a.getMaximumAllocation()).thenReturn(
++        Resources.createResource(4*GB, 16));
+     when(a.getMinimumAllocationFactor()).thenReturn(0.25f); // 1G / 4G 
+     
+     // Setup resource-requests
+@@ -1204,7 +1221,8 @@ public class TestLeafQueue {
+     FiCaSchedulerNode node_2 = TestUtils.getMockNode(host_2, rack_2, 0, 8*GB);
+ 
+     final int numNodes = 3;
+-    Resource clusterResource = Resources.createResource(numNodes * (8*GB));
++    Resource clusterResource = 
++        Resources.createResource(numNodes * (8*GB), numNodes * 16);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+     
+     // Setup resource-requests and submit
+@@ -1344,7 +1362,8 @@ public class TestLeafQueue {
+     FiCaSchedulerNode node_2 = TestUtils.getMockNode(host_2, rack_2, 0, 8*GB);
+ 
+     final int numNodes = 3;
+-    Resource clusterResource = Resources.createResource(numNodes * (8*GB));
++    Resource clusterResource = 
++        Resources.createResource(numNodes * (8*GB), 1);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+     
+     // Setup resource-requests and submit
+@@ -1473,7 +1492,8 @@ public class TestLeafQueue {
+     FiCaSchedulerNode node_1_0 = TestUtils.getMockNode(host_1_0, rack_1, 0, 8*GB);
+     
+     final int numNodes = 3;
+-    Resource clusterResource = Resources.createResource(numNodes * (8*GB));
++    Resource clusterResource = Resources.createResource(
++        numNodes * (8*GB), numNodes * 16);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+ 
+     // Setup resource-requests and submit
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestParentQueue.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestParentQueue.java
+index e39cf9e..44cd45a 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestParentQueue.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestParentQueue.java
+@@ -45,6 +45,8 @@ import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
+ import org.apache.hadoop.yarn.api.records.Resource;
+ import org.apache.hadoop.yarn.conf.YarnConfiguration;
+ import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
++import org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator;
+ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.NodeType;
+ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.common.fica.FiCaSchedulerApp;
+@@ -68,6 +70,9 @@ public class TestParentQueue {
+   final static int GB = 1024;
+   final static String DEFAULT_RACK = "/default";
+ 
++  private final ResourceCalculator resourceComparator =
++      new DefaultResourceCalculator();
++  
+   @Before
+   public void setUp() throws Exception {
+     rmContext = TestUtils.getMockRMContext();
+@@ -78,11 +83,17 @@ public class TestParentQueue {
+     when(csContext.getConf()).thenReturn(conf);
+     when(csContext.getConfiguration()).thenReturn(csConf);
+     when(csContext.getMinimumResourceCapability()).thenReturn(
+-        Resources.createResource(GB));
++        Resources.createResource(GB, 1));
+     when(csContext.getMaximumResourceCapability()).thenReturn(
+-        Resources.createResource(16*GB));
++        Resources.createResource(16*GB, 32));
+     when(csContext.getClusterResources()).
+-        thenReturn(Resources.createResource(100 * 16 * GB));
++        thenReturn(Resources.createResource(100 * 16 * GB, 100 * 32));
++    when(csContext.getApplicationComparator()).
++    thenReturn(CapacityScheduler.applicationComparator);
++    when(csContext.getQueueComparator()).
++    thenReturn(CapacityScheduler.queueComparator);
++    when(csContext.getResourceCalculator()).
++    thenReturn(resourceComparator);
+   }
+   
+   private static final String A = "a";
+@@ -104,7 +115,7 @@ public class TestParentQueue {
+   private FiCaSchedulerApp getMockApplication(int appId, String user) {
+     FiCaSchedulerApp application = mock(FiCaSchedulerApp.class);
+     doReturn(user).when(application).getUser();
+-    doReturn(Resources.createResource(0)).when(application).getHeadroom();
++    doReturn(Resources.createResource(0, 0)).when(application).getHeadroom();
+     return application;
+   }
+ 
+@@ -192,12 +203,11 @@ public class TestParentQueue {
+     CSQueue root = 
+         CapacityScheduler.parseQueue(csContext, csConf, null, 
+             CapacitySchedulerConfiguration.ROOT, queues, queues, 
+-            CapacityScheduler.queueComparator, 
+-            CapacityScheduler.applicationComparator,
+             TestUtils.spyHook);
+ 
+     // Setup some nodes
+     final int memoryPerNode = 10;
++    final int coresPerNode = 16;
+     final int numNodes = 2;
+     
+     FiCaSchedulerNode node_0 = 
+@@ -206,7 +216,8 @@ public class TestParentQueue {
+         TestUtils.getMockNode("host_1", DEFAULT_RACK, 0, memoryPerNode*GB);
+     
+     final Resource clusterResource = 
+-        Resources.createResource(numNodes * (memoryPerNode*GB));
++        Resources.createResource(numNodes * (memoryPerNode*GB),
++            numNodes * coresPerNode);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+ 
+     // Start testing
+@@ -286,8 +297,7 @@ public class TestParentQueue {
+     try {
+       CapacityScheduler.parseQueue(csContext, csConf, null,
+           CapacitySchedulerConfiguration.ROOT, queues, queues,
+-          CapacityScheduler.queueComparator,
+-          CapacityScheduler.applicationComparator, TestUtils.spyHook);
++          TestUtils.spyHook);
+     } catch (IllegalArgumentException ie) {
+       exceptionOccured = true;
+     }
+@@ -301,8 +311,7 @@ public class TestParentQueue {
+     try {
+       CapacityScheduler.parseQueue(csContext, csConf, null,
+           CapacitySchedulerConfiguration.ROOT, queues, queues,
+-          CapacityScheduler.queueComparator,
+-          CapacityScheduler.applicationComparator, TestUtils.spyHook);
++          TestUtils.spyHook);
+     } catch (IllegalArgumentException ie) {
+       exceptionOccured = true;
+     }
+@@ -316,8 +325,7 @@ public class TestParentQueue {
+     try {
+       CapacityScheduler.parseQueue(csContext, csConf, null,
+           CapacitySchedulerConfiguration.ROOT, queues, queues,
+-          CapacityScheduler.queueComparator,
+-          CapacityScheduler.applicationComparator, TestUtils.spyHook);
++          TestUtils.spyHook);
+     } catch (IllegalArgumentException ie) {
+       exceptionOccured = true;
+     }
+@@ -394,12 +402,11 @@ public class TestParentQueue {
+     CSQueue root = 
+         CapacityScheduler.parseQueue(csContext, csConf, null, 
+             CapacitySchedulerConfiguration.ROOT, queues, queues, 
+-            CapacityScheduler.queueComparator, 
+-            CapacityScheduler.applicationComparator,
+             TestUtils.spyHook);
+     
+     // Setup some nodes
+     final int memoryPerNode = 10;
++    final int coresPerNode = 16;
+     final int numNodes = 3;
+     
+     FiCaSchedulerNode node_0 = 
+@@ -410,7 +417,8 @@ public class TestParentQueue {
+         TestUtils.getMockNode("host_2", DEFAULT_RACK, 0, memoryPerNode*GB);
+     
+     final Resource clusterResource = 
+-        Resources.createResource(numNodes * (memoryPerNode*GB));
++        Resources.createResource(numNodes * (memoryPerNode*GB), 
++            numNodes * coresPerNode);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+ 
+     // Start testing
+@@ -510,8 +518,6 @@ public class TestParentQueue {
+     Map<String, CSQueue> queues = new HashMap<String, CSQueue>(); 
+     CapacityScheduler.parseQueue(csContext, csConf, null, 
+         CapacitySchedulerConfiguration.ROOT, queues, queues, 
+-        CapacityScheduler.queueComparator, 
+-        CapacityScheduler.applicationComparator,
+         TestUtils.spyHook);
+   }
+   
+@@ -529,8 +535,6 @@ public class TestParentQueue {
+     Map<String, CSQueue> queues = new HashMap<String, CSQueue>(); 
+     CapacityScheduler.parseQueue(csContext, csConf, null, 
+         CapacitySchedulerConfiguration.ROOT, queues, queues, 
+-        CapacityScheduler.queueComparator, 
+-        CapacityScheduler.applicationComparator,
+         TestUtils.spyHook);
+   }
+   
+@@ -553,8 +557,6 @@ public class TestParentQueue {
+     try {
+       CapacityScheduler.parseQueue(csContext, csConf, null, 
+           CapacitySchedulerConfiguration.ROOT, queues, queues, 
+-          CapacityScheduler.queueComparator, 
+-          CapacityScheduler.applicationComparator,
+           TestUtils.spyHook);
+     } catch (IllegalArgumentException e) {
+       fail("Failed to create queues with 0 capacity: " + e);
+@@ -571,12 +573,11 @@ public class TestParentQueue {
+     CSQueue root = 
+         CapacityScheduler.parseQueue(csContext, csConf, null, 
+             CapacitySchedulerConfiguration.ROOT, queues, queues, 
+-            CapacityScheduler.queueComparator, 
+-            CapacityScheduler.applicationComparator,
+             TestUtils.spyHook);
+ 
+     // Setup some nodes
+     final int memoryPerNode = 10;
++    final int coresPerNode = 16;
+     final int numNodes = 2;
+     
+     FiCaSchedulerNode node_0 = 
+@@ -585,7 +586,8 @@ public class TestParentQueue {
+         TestUtils.getMockNode("host_1", DEFAULT_RACK, 0, memoryPerNode*GB);
+     
+     final Resource clusterResource = 
+-        Resources.createResource(numNodes * (memoryPerNode*GB));
++        Resources.createResource(numNodes * (memoryPerNode*GB), 
++            numNodes * coresPerNode);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+ 
+     // Start testing
+@@ -637,12 +639,11 @@ public class TestParentQueue {
+     CSQueue root = 
+         CapacityScheduler.parseQueue(csContext, csConf, null, 
+             CapacitySchedulerConfiguration.ROOT, queues, queues, 
+-            CapacityScheduler.queueComparator, 
+-            CapacityScheduler.applicationComparator,
+             TestUtils.spyHook);
+ 
+     // Setup some nodes
+     final int memoryPerNode = 10;
++    final int coresPerNode = 10;
+     final int numNodes = 2;
+     
+     FiCaSchedulerNode node_0 = 
+@@ -651,7 +652,8 @@ public class TestParentQueue {
+         TestUtils.getMockNode("host_1", DEFAULT_RACK, 0, memoryPerNode*GB);
+     
+     final Resource clusterResource = 
+-        Resources.createResource(numNodes * (memoryPerNode*GB));
++        Resources.createResource(numNodes * (memoryPerNode*GB),
++            numNodes * coresPerNode);
+     when(csContext.getNumClusterNodes()).thenReturn(numNodes);
+ 
+     // Start testing
+@@ -721,8 +723,6 @@ public class TestParentQueue {
+     CSQueue root = 
+         CapacityScheduler.parseQueue(csContext, csConf, null, 
+             CapacitySchedulerConfiguration.ROOT, queues, queues, 
+-            CapacityScheduler.queueComparator, 
+-            CapacityScheduler.applicationComparator,
+             TestUtils.spyHook);
+ 
+     UserGroupInformation user = UserGroupInformation.getCurrentUser();
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestUtils.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestUtils.java
+index df53d85..7ca4342 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestUtils.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestUtils.java
+@@ -118,7 +118,7 @@ public class TestUtils {
+       RecordFactory recordFactory) {
+     ResourceRequest request = 
+         recordFactory.newRecordInstance(ResourceRequest.class);
+-    Resource capability = Resources.createResource(memory);
++    Resource capability = Resources.createResource(memory, 1);
+     
+     request.setNumContainers(numContainers);
+     request.setHostName(hostName);
+@@ -153,7 +153,7 @@ public class TestUtils {
+     RMNode rmNode = mock(RMNode.class);
+     when(rmNode.getNodeID()).thenReturn(nodeId);
+     when(rmNode.getTotalCapability()).thenReturn(
+-        Resources.createResource(capability));
++        Resources.createResource(capability, 1));
+     when(rmNode.getNodeAddress()).thenReturn(host+":"+port);
+     when(rmNode.getHostName()).thenReturn(host);
+     when(rmNode.getRackName()).thenReturn(rack);
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/TestFifoScheduler.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/TestFifoScheduler.java
+index b18a289..9731009 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/TestFifoScheduler.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/fifo/TestFifoScheduler.java
+@@ -71,9 +71,9 @@ public class TestFifoScheduler {
+   
+   private org.apache.hadoop.yarn.server.resourcemanager.NodeManager
+       registerNode(String hostName, int containerManagerPort, int nmHttpPort,
+-          String rackName, int memory) throws IOException {
++          String rackName, Resource capability) throws IOException {
+     return new org.apache.hadoop.yarn.server.resourcemanager.NodeManager(
+-        hostName, containerManagerPort, nmHttpPort, rackName, memory,
++        hostName, containerManagerPort, nmHttpPort, rackName, capability,
+         resourceManager.getResourceTrackerService(), resourceManager
+             .getRMContext());
+   }
+@@ -121,13 +121,15 @@ public class TestFifoScheduler {
+     // Register node1
+     String host_0 = "host_0";
+     org.apache.hadoop.yarn.server.resourcemanager.NodeManager nm_0 = 
+-      registerNode(host_0, 1234, 2345, NetworkTopology.DEFAULT_RACK, 4 * GB);
++      registerNode(host_0, 1234, 2345, NetworkTopology.DEFAULT_RACK, 
++          Resources.createResource(4 * GB, 1));
+     nm_0.heartbeat();
+     
+     // Register node2
+     String host_1 = "host_1";
+     org.apache.hadoop.yarn.server.resourcemanager.NodeManager nm_1 = 
+-      registerNode(host_1, 1234, 2345, NetworkTopology.DEFAULT_RACK, 2 * GB);
++      registerNode(host_1, 1234, 2345, NetworkTopology.DEFAULT_RACK, 
++          Resources.createResource(2 * GB, 1));
+     nm_1.heartbeat();
+ 
+     // ResourceRequest priorities
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/TestRMWebServicesCapacitySched.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/TestRMWebServicesCapacitySched.java
+index 2f2b738..00bdafb 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/TestRMWebServicesCapacitySched.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/webapp/TestRMWebServicesCapacitySched.java
+@@ -424,8 +424,8 @@ public class TestRMWebServicesCapacitySched extends JerseyTest {
+     assertEquals("absoluteUsedCapacity doesn't match",
+         0, info.absoluteUsedCapacity, 1e-3f);
+     assertEquals("numApplications doesn't match", 0, info.numApplications);
+-    assertTrue("usedResources doesn't match",
+-        info.usedResources.matches("memory: 0"));
++    assertTrue("usedResources doesn't match ",
++        info.usedResources.matches("<memory:0, vCores:0>"));
+     assertTrue("queueName doesn't match, got: " + info.queueName
+         + " expected: " + q, qshortName.matches(info.queueName));
+     assertTrue("state doesn't match",
+diff --git a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java
+index d7509a9..2fdf08c 100644
+--- a/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java
++++ b/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-tests/src/test/java/org/apache/hadoop/yarn/server/TestContainerManagerSecurity.java
+@@ -218,10 +218,11 @@ public class TestContainerManagerSecurity {
+     dummyIdentifier.readFields(di);
+ 
+     // Malice user modifies the resource amount
+-    Resource modifiedResource = BuilderUtils.newResource(2048);
++    Resource modifiedResource = BuilderUtils.newResource(2048, 1);
+     ContainerTokenIdentifier modifiedIdentifier = new ContainerTokenIdentifier(
+         dummyIdentifier.getContainerID(), dummyIdentifier.getNmHostAddress(), "testUser",
+         modifiedResource, Long.MAX_VALUE, dummyIdentifier.getMasterKeyId());
++
+     Token<ContainerTokenIdentifier> modifiedToken = new Token<ContainerTokenIdentifier>(
+         modifiedIdentifier.getBytes(), containerToken.getPassword().array(),
+         new Text(containerToken.getKind()), new Text(containerToken
+@@ -418,7 +419,7 @@ public class TestContainerManagerSecurity {
+ 
+     ContainerLaunchContext amContainer = BuilderUtils
+         .newContainerLaunchContext(null, "testUser", BuilderUtils
+-            .newResource(1024), Collections.singletonMap(fileName, rsrc),
++	    .newResource(1024, 1), Collections.singletonMap(fileName, rsrc),
+             new HashMap<String, String>(), Arrays.asList("sleep", "100"),
+             new HashMap<String, ByteBuffer>(), null,
+             new HashMap<ApplicationAccessType, String>());
+@@ -496,7 +497,7 @@ public class TestContainerManagerSecurity {
+     // Request a container allocation.
+     List<ResourceRequest> ask = new ArrayList<ResourceRequest>();
+     ask.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0), "*",
+-        BuilderUtils.newResource(1024), 1));
++        BuilderUtils.newResource(1024, 1), 1));
+ 
+     AllocateRequest allocateRequest = BuilderUtils.newAllocateRequest(
+         BuilderUtils.newApplicationAttemptId(appID, 1), 0, 0F, ask,
+@@ -597,7 +598,9 @@ public class TestContainerManagerSecurity {
+     ContainerLaunchContext context =
+         BuilderUtils.newContainerLaunchContext(tokenId.getContainerID(),
+             "testUser",
+-            BuilderUtils.newResource(tokenId.getResource().getMemory()),
++            BuilderUtils.newResource(
++                tokenId.getResource().getMemory(), 
++                tokenId.getResource().getVirtualCores()),
+             new HashMap<String, LocalResource>(),
+             new HashMap<String, String>(), new ArrayList<String>(),
+             new HashMap<String, ByteBuffer>(), null,
+-- 
+1.7.0.4
+

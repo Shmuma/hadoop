@@ -1,0 +1,125 @@
+From f501db3f793231edb35c894f04a41bb895c30723 Mon Sep 17 00:00:00 2001
+From: Suresh Srinivas <suresh@apache.org>
+Date: Tue, 21 Aug 2012 21:01:28 +0000
+Subject: [PATCH 1386/1475] HADOOP-8711. IPC Server supports adding exceptions for which the message is printed and the stack trace is not printed to avoid chatter. Contributed by Brandon Li.
+
+git-svn-id: https://svn.apache.org/repos/asf/hadoop/common/trunk@1375790 13f79535-47bb-0310-9956-ffa450edef68
+(cherry picked from commit 281c166961ecdb968cec720245be220f24c9ef42)
+---
+ .../main/java/org/apache/hadoop/ipc/Server.java    |   44 +++++++++++++++++++-
+ .../java/org/apache/hadoop/ipc/TestServer.java     |   13 ++++++
+ 2 files changed, 55 insertions(+), 2 deletions(-)
+
+diff --git a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Server.java b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Server.java
+index fb73ef7..bb9e2c3 100644
+--- a/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Server.java
++++ b/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ipc/Server.java
+@@ -46,11 +46,13 @@ import java.util.ArrayList;
+ import java.util.Arrays;
+ import java.util.Collections;
+ import java.util.HashMap;
++import java.util.HashSet;
+ import java.util.Iterator;
+ import java.util.LinkedList;
+ import java.util.List;
+ import java.util.Map;
+ import java.util.Random;
++import java.util.Set;
+ import java.util.concurrent.BlockingQueue;
+ import java.util.concurrent.ConcurrentHashMap;
+ import java.util.concurrent.LinkedBlockingQueue;
+@@ -108,6 +110,42 @@ import com.google.common.annotations.VisibleForTesting;
+ public abstract class Server {
+   private final boolean authorize;
+   private boolean isSecurityEnabled;
++  private ExceptionsHandler exceptionsHandler = new ExceptionsHandler();
++  
++  public void addTerseExceptions(Class<?>... exceptionClass) {
++    exceptionsHandler.addTerseExceptions(exceptionClass);
++  }
++
++  /**
++   * ExceptionsHandler manages Exception groups for special handling
++   * e.g., terse exception group for concise logging messages
++   */
++  static class ExceptionsHandler {
++    private volatile Set<String> terseExceptions = new HashSet<String>();
++
++    /**
++     * Add exception class so server won't log its stack trace.
++     * Modifying the terseException through this method is thread safe.
++     *
++     * @param exceptionClass exception classes 
++     */
++    void addTerseExceptions(Class<?>... exceptionClass) {
++
++      // Make a copy of terseException for performing modification
++      final HashSet<String> newSet = new HashSet<String>(terseExceptions);
++
++      // Add all class names into the HashSet
++      for (Class<?> name : exceptionClass) {
++        newSet.add(name.toString());
++      }
++      // Replace terseException set
++      terseExceptions = Collections.unmodifiableSet(newSet);
++    }
++
++    boolean isTerse(Class<?> t) {
++      return terseExceptions.contains(t.toString());
++    }
++  }
+   
+   /**
+    * The first four bytes of Hadoop RPC connections
+@@ -1712,8 +1750,8 @@ public abstract class Server {
+               // on the server side, as opposed to just a normal exceptional
+               // result.
+               LOG.warn(logMsg, e);
+-            } else if (e instanceof StandbyException) {
+-              // Don't log the whole stack trace of these exceptions.
++            } else if (exceptionsHandler.isTerse(e.getClass())) {
++             // Don't log the whole stack trace of these exceptions.
+               // Way too noisy!
+               LOG.info(logMsg);
+             } else {
+@@ -1852,6 +1890,8 @@ public abstract class Server {
+     if (isSecurityEnabled) {
+       SaslRpcServer.init(conf);
+     }
++    
++    this.exceptionsHandler.addTerseExceptions(StandbyException.class);
+   }
+ 
+   private void closeConnection(Connection connection) {
+diff --git a/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestServer.java b/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestServer.java
+index db0d2cc..57785c1 100644
+--- a/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestServer.java
++++ b/hadoop-common-project/hadoop-common/src/test/java/org/apache/hadoop/ipc/TestServer.java
+@@ -20,6 +20,7 @@ package org.apache.hadoop.ipc;
+ 
+ import static org.junit.Assert.*;
+ 
++import java.io.IOException;
+ import java.net.BindException;
+ import java.net.InetSocketAddress;
+ import java.net.ServerSocket;
+@@ -115,4 +116,16 @@ public class TestServer {
+       socket.close();
+     }
+   }
++  
++  @Test
++  public void testExceptionsHandler() throws IOException {
++    Server.ExceptionsHandler handler = new Server.ExceptionsHandler();
++    handler.addTerseExceptions(IOException.class);
++    handler.addTerseExceptions(RpcServerException.class, IpcException.class);
++
++    assertTrue(handler.isTerse(IOException.class));
++    assertTrue(handler.isTerse(RpcServerException.class));
++    assertTrue(handler.isTerse(IpcException.class));
++    assertFalse(handler.isTerse(RpcClientException.class));
++  }
+ }
+-- 
+1.7.0.4
+
